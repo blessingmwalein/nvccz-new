@@ -3,13 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
-import { 
-  CiHome, 
-  CiShop, 
-  CiFileOn, 
-  CiWallet, 
-  CiUser
-} from "react-icons/ci"
+import { MODULE_CONFIG } from "@/lib/config/modules"
 
 interface AppSwitcherProps {
   isOpen: boolean
@@ -17,51 +11,6 @@ interface AppSwitcherProps {
   onModuleSelect: (module: string) => void
   currentModule: string
 }
-
-const modules = [
-  {
-    id: "homepage",
-    name: "Homepage",
-    icon: CiHome,
-    color: "oklch(0.60 0.18 252)", // Primary blue
-  },
-  {
-    id: "portfolio-management",
-    name: "Portfolio Management",
-    icon: CiShop,
-    color: "oklch(0.72 0.12 225)", // Light blue
-  },
-  {
-    id: "performance-management",
-    name: "Performance Management",
-    icon: CiShop,
-    color: "oklch(0.58 0.09 260)", // Dark blue
-  },
-  {
-    id: "applications",
-    name: "Applications",
-    icon: CiFileOn,
-    color: "oklch(0.78 0.12 190)", // Cyan
-  },
-  {
-    id: "companies",
-    name: "Companies",
-    icon: CiShop,
-    color: "oklch(0.54 0.1 280)", // Purple
-  },
-  {
-    id: "funds",
-    name: "Funds",
-    icon: CiWallet,
-    color: "oklch(0.64 0.18 252)", // Primary blue
-  },
-  {
-    id: "account-performance",
-    name: "Account & Performance",
-    icon: CiUser,
-    color: "oklch(0.72 0.12 225)", // Light blue
-  },
-]
 
 export function AppSwitcher({ isOpen, onClose, onModuleSelect, currentModule }: AppSwitcherProps) {
   return (
@@ -83,7 +32,7 @@ export function AppSwitcher({ isOpen, onClose, onModuleSelect, currentModule }: 
         </DialogHeader>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-10 gap-y-8 p-8">
-          {modules.map((module) => {
+          {MODULE_CONFIG.map((module) => {
             const Icon = module.icon
             const isActive = currentModule === module.id
 
@@ -105,6 +54,9 @@ export function AppSwitcher({ isOpen, onClose, onModuleSelect, currentModule }: 
                 <div className="text-center">
                   <div className="font-semibold text-lg leading-tight text-foreground/90 whitespace-normal text-center">
                     {module.name}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {module.description}
                   </div>
                 </div>
               </Button>

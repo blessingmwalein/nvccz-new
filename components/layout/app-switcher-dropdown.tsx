@@ -1,15 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { 
-  CiHome, 
-  CiShop, 
-  CiFileOn, 
-  CiWallet, 
-  CiUser,
-  CiViewTimeline,
-  CiLocationArrow1
-} from "react-icons/ci"
+import { MODULE_CONFIG } from "@/lib/config/modules"
 
 interface AppSwitcherDropdownProps {
   isOpen: boolean
@@ -17,51 +9,6 @@ interface AppSwitcherDropdownProps {
   onModuleSelect: (module: string) => void
   currentModule: string
 }
-
-const modules = [
-  {
-    id: "homepage",
-    name: "Homepage",
-    icon: CiHome,
-    color: "oklch(0.60 0.18 252)", // Primary blue
-  },
-  {
-    id: "portfolio-management",
-    name: "Portfolio Management",
-    icon: CiShop,
-    color: "oklch(0.72 0.12 225)", // Light blue
-  },
-  {
-    id: "performance-management",
-    name: "Performance Management",
-    icon: CiViewTimeline,
-    color: "oklch(0.58 0.09 260)", // Dark blue
-  },
-  {
-    id: "applications",
-    name: "Applications",
-    icon: CiFileOn,
-    color: "oklch(0.78 0.12 190)", // Cyan
-  },
-  {
-    id: "companies",
-    name: "Companies",
-    icon: CiLocationArrow1,
-    color: "oklch(0.54 0.1 280)", // Purple
-  },
-  {
-    id: "funds",
-    name: "Funds",
-    icon: CiWallet,
-    color: "oklch(0.64 0.18 252)", // Primary blue
-  },
-  {
-    id: "account-performance",
-    name: "Account & Performance",
-    icon: CiUser,
-    color: "oklch(0.72 0.12 225)", // Light blue
-  },
-]
 
 export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentModule }: AppSwitcherDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -108,7 +55,7 @@ export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentMo
 
         {/* Grid of Module Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {modules.map((module) => {
+          {MODULE_CONFIG.map((module) => {
             const Icon = module.icon
             const isActive = currentModule === module.id
 
@@ -156,6 +103,9 @@ export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentMo
                   `}>
                     {module.name}
                   </span>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {module.description}
+                  </div>
                 </div>
 
                 {/* Active Indicator */}

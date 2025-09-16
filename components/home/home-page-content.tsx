@@ -16,6 +16,7 @@ import { NewsletterTab } from "./newsletter-tab";
 import { ForumTab } from "./forum-tab";
 import { EventCalendarTab } from "./event-calendar-tab";
 import { DashboardTab } from "./dashboard-tab";
+import { FinancialDataProvider } from "@/components/providers/financial-data-provider";
 
 export function HomePageContent() {
   const [activeTab, setActiveTab] = useState<TabType>("feed");
@@ -79,57 +80,61 @@ export function HomePageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <Topbar 
-        onModuleSelect={handleModuleSelect}
-        currentModule={currentModule}
-      />
+    <FinancialDataProvider>
+      <div className="min-h-screen bg-white">
+        <Topbar 
+          onModuleSelect={handleModuleSelect}
+          currentModule={currentModule}
+        />
 
-      <div className="sticky top-20 z-10">
-        <ExchangeRatesTicker />
-      </div>
-
-      <div className="flex">
-        <div className="w-1/4 fixed left-0 top-32 h-[calc(100vh-8rem)] bg-white border-r border-gray-200 p-6 overflow-y-auto">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <QuickActions />
-          </motion.div>
+        {/* Ticker - Full width, sticky below navigation */}
+        <div className="sticky top-20 z-20 w-full">
+          <ExchangeRatesTicker />
         </div>
 
-        <div className="flex-1 p-6 ml-[25%]">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="space-y-6"
-          >
-            <div className="flex gap-6">
-              <div className="flex-1">
-                <GreetWidget />
-              </div>
-              
-              <div className="w-1/3">
-                <ZimbabweStockAllocation />
-              </div>
-            </div>
+        <div className="flex">
+          <div className="w-1/4 fixed left-0 top-40 h-[calc(100vh-10rem)] bg-white border-r border-gray-200 p-6 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <QuickActions />
+            </motion.div>
+          </div>
 
-            {/* Market Overview */}
-            <div className="w-full">
-              <ZimbabweStockExchange />
-            </div>
+          <div className="flex-1 p-6 ml-[25%]">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="flex gap-6">
+                <div className="flex-1">
+                  <GreetWidget />
+                </div>
+                
+                <div className="w-1/3">
+                  <ZimbabweStockAllocation />
+                </div>
+              </div>
 
-            <div className="bg-white">
-              <TabView activeTab={activeTab} onTabChange={setActiveTab}>
-                {renderTabContent()}
-              </TabView>
-            </div>
-          </motion.div>
+              {/* Market Overview */}
+              <div className="w-full">
+                <ZimbabweStockExchange />
+              </div>
+
+              {/* Sticky Tab Section - Sticks below ticker */}
+              <div className="bg-white sticky top-40 z-10">
+                <TabView activeTab={activeTab} onTabChange={setActiveTab}>
+                  {renderTabContent()}
+                </TabView>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
-    </div>
+    </FinancialDataProvider>
   );
 }

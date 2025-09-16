@@ -8,6 +8,9 @@ import fundsSlice from "./slices/fundsSlice"
 import accountSlice from "./slices/accountSlice"
 import uiSlice from "./slices/uiSlice"
 import authSlice from "./slices/authSlice"
+import financialDataSlice from "./slices/financialDataSlice"
+import performanceSlice from "./slices/performanceSlice"
+import payrollSlice from "./slices/payrollSlice"
 
 export const store = configureStore({
   reducer: {
@@ -19,6 +22,9 @@ export const store = configureStore({
     account: accountSlice,
     ui: uiSlice,
     auth: authSlice,
+    financialData: financialDataSlice,
+    performance: performanceSlice,
+    payroll: payrollSlice,
   },
 })
 

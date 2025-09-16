@@ -12,6 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { 
   CiSearch, 
   CiGrid41, 
@@ -65,11 +71,15 @@ export function Topbar({ onModuleSelect, currentModule }: TopbarProps) {
   }
 
   return (
-    <header className="h-20 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-      <div className="flex items-center justify-between h-full px-6">
+    <TooltipProvider>
+      <header className="h-20 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="flex items-center justify-between h-full px-6">
         {/* Left Section - Logo and Breadcrumb */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.location.href = '/'}
+          >
             <img src="/logo.jpg" alt="Arcus" className="w-19 h-19 rounded-lg" />
             {/* <span className="font-semibold text-lg">Arcus</span> */}
           </div>
@@ -89,63 +99,64 @@ export function Topbar({ onModuleSelect, currentModule }: TopbarProps) {
 
         {/* Right Section - Actions and Profile */}
         <div className="flex items-center gap-3">
-          {/* Currency Toggle */}
-          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-9 px-3 text-sm cursor-pointer ${currency === "USD" ? "bg-primary text-primary-foreground" : ""}`}
-              onClick={() => handleCurrencyToggle("USD")}
-            >
-              USD
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-9 px-3 text-sm cursor-pointer ${currency === "ZIG" ? "bg-primary text-primary-foreground" : ""}`}
-              onClick={() => handleCurrencyToggle("ZIG")}
-            >
-              ZIG
-            </Button>
-          </div>
 
           {/* App Switcher with Active Module */}
-          <div 
-            onClick={() => setShowAppSwitcher(true)} 
-            className="flex items-center gap-2 px-2 py-2 rounded-full cursor-pointer transition-colors group hover:primary-200 bg-accent"
-            style={{
-              backgroundColor: 'oklch(0.60 0.18 252)20'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)30'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)20'
-            }}
-          >
-            <div className="w-8 h-8 rounded-full  dark:bg-gray-800  dark:border-gray-700 flex items-center justify-center">
-              <CiGrid41 size={20} style={{ color: 'oklch(0.60 0.18 252)' }} />
-            </div>
-            {currentModule !== "homepage" && (
-              <span className="text-sm text-muted-foreground capitalize group-hover:text-gray-500  dark:group-hover:text-gray-400">
-                {currentModule.replace("-", " ")}
-              </span>
-            )}
-            
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div 
+                onClick={() => setShowAppSwitcher(true)} 
+                className="flex items-center gap-2 px-2 py-2 rounded-full cursor-pointer transition-colors group hover:primary-200 bg-accent"
+                style={{
+                  backgroundColor: 'oklch(0.60 0.18 252)20'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)30'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)20'
+                }}
+              >
+                <div className="w-8 h-8 rounded-full  dark:bg-gray-800  dark:border-gray-700 flex items-center justify-center">
+                  <CiGrid41 size={20} style={{ color: 'oklch(0.60 0.18 252)' }} />
+                </div>
+                {currentModule !== "homepage" && (
+                  <span className="text-sm text-muted-foreground capitalize group-hover:text-gray-500  dark:group-hover:text-gray-400">
+                    {currentModule.replace("-", " ")}
+                  </span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Switch Applications</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Notifications */}
-          <div className="p-3 relative cursor-pointer h-12 w-12 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
-            <CiBellOn size={30} />
-            <Badge className="absolute -top-1 -right-1 w-6 h-6 p-0 flex items-center justify-center text-xs bg-primary">
-              3
-            </Badge>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="p-3 relative cursor-pointer h-12 w-12 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                <CiBellOn size={30} />
+                <Badge className="absolute -top-1 -right-1 w-6 h-6 p-0 flex items-center justify-center text-xs bg-primary">
+                  3
+                </Badge>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Notifications (3 unread)</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Calendar */}
-          <div className="p-3 cursor-pointer h-12 w-12 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
-            <CiCalendar size={30} />
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="p-3 cursor-pointer h-12 w-12 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                <CiCalendar size={30} />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Calendar</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Profile Dropdown */}
           <DropdownMenu>
@@ -210,17 +221,18 @@ export function Topbar({ onModuleSelect, currentModule }: TopbarProps) {
         </div>
       </div>
 
-      {/* App Switcher Dropdown */}
-      <AppSwitcherDropdown
-        isOpen={showAppSwitcher}
-        onClose={() => setShowAppSwitcher(false)}
-        onModuleSelect={(module) => {
-          console.log('Topbar onModuleSelect called with:', module)
-          onModuleSelect(module)
-          setShowAppSwitcher(false)
-        }}
-        currentModule={currentModule}
-      />
-    </header>
+        {/* App Switcher Dropdown */}
+        <AppSwitcherDropdown
+          isOpen={showAppSwitcher}
+          onClose={() => setShowAppSwitcher(false)}
+          onModuleSelect={(module) => {
+            console.log('Topbar onModuleSelect called with:', module)
+            onModuleSelect(module)
+            setShowAppSwitcher(false)
+          }}
+          currentModule={currentModule}
+        />
+      </header>
+    </TooltipProvider>
   )
 }

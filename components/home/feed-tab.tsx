@@ -15,81 +15,10 @@ import {
   Building2
 } from "lucide-react"
 import { useState } from "react"
+import { useAppSelector } from "@/lib/store"
+import { TabContentSkeleton } from "@/components/ui/skeleton-loaders"
 
-const marketSections = [
-  {
-    id: "zse",
-    title: "Zimbabwe Stock Exchange (ZSE)",
-    icon: Building2,
-    color: "from-blue-500 to-blue-600",
-    status: "live",
-    data: [
-      { name: "Econet", change: "+8.2%", value: "ZWL 1,250" },
-      { name: "Delta", change: "+5.4%", value: "ZWL 890" },
-      { name: "CBZ", change: "+4.7%", value: "ZWL 2,100" }
-    ]
-  },
-  {
-    id: "top-gainers",
-    title: "Top Gainers",
-    icon: TrendingUp,
-    color: "from-green-500 to-green-600",
-    status: "live",
-    data: [
-      { name: "Econet", change: "+8.2%", value: "ZWL 1,250" },
-      { name: "Delta", change: "+5.4%", value: "ZWL 890" },
-      { name: "CBZ", change: "+4.7%", value: "ZWL 2,100" }
-    ]
-  },
-  {
-    id: "top-losers",
-    title: "Top Losers", 
-    icon: TrendingDown,
-    color: "from-red-500 to-red-600",
-    status: "live",
-    data: [
-      { name: "Innscor", change: "-3.2%", value: "ZWL 450" },
-      { name: "Meikles", change: "-2.8%", value: "ZWL 320" },
-      { name: "NMB", change: "-1.9%", value: "ZWL 180" }
-    ]
-  },
-  {
-    id: "market-indices",
-    title: "Market Indices",
-    icon: BarChart3,
-    color: "from-purple-500 to-purple-600",
-    status: "live",
-    data: [
-      { name: "All Share", change: "+2.1%", value: "45,230" },
-      { name: "Top 10", change: "+1.8%", value: "38,450" },
-      { name: "ETFs", change: "+0.9%", value: "12,890" }
-    ]
-  },
-  {
-    id: "rbz",
-    title: "Reserve Bank of Zimbabwe (RBZ)",
-    icon: DollarSign,
-    color: "from-orange-500 to-orange-600",
-    status: "live",
-    data: [
-      { name: "Lending Rate", change: "14.5%", value: "Current" },
-      { name: "Deposit Rate", change: "8.2%", value: "Current" },
-      { name: "Inflation", change: "12.3%", value: "YoY" }
-    ]
-  },
-  {
-    id: "african-markets",
-    title: "African Markets",
-    icon: Globe,
-    color: "from-teal-500 to-teal-600",
-    status: "live",
-    data: [
-      { name: "JSE", change: "+1.2%", value: "ZAR 78,450" },
-      { name: "NSE", change: "+0.8%", value: "NGN 45,230" },
-      { name: "NSE Kenya", change: "+0.5%", value: "KES 1,890" }
-    ]
-  }
-]
+// Market sections will be dynamically generated from API data
 
 const articles = [
   {
@@ -126,6 +55,21 @@ const articles = [
 
 export function FeedTab() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
+  
+  const topGainers = useAppSelector((state) => state.financialData.topGainers)
+  const topLosers = useAppSelector((state) => state.financialData.topLosers)
+  const marketIndices = useAppSelector((state) => state.financialData.marketIndices)
+  const sectorIndices = useAppSelector((state) => state.financialData.sectorIndices)
+  const africanIndices = useAppSelector((state) => state.financialData.africanIndices)
+  const worldIndices = useAppSelector((state) => state.financialData.worldIndices)
+
+  const loading = topGainers.loading || topLosers.loading || marketIndices.loading || 
+                  sectorIndices.loading || africanIndices.loading || worldIndices.loading
+  const error = topGainers.error || topLosers.error || marketIndices.error || 
+                sectorIndices.error || africanIndices.error || worldIndices.error
+
+  // Data is now provided by FinancialDataProvider
+  // No need for individual API calls here
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -138,6 +82,94 @@ export function FeedTab() {
       default:
         return <div className="w-2 h-2 bg-gray-400 rounded-full" />
     }
+  }
+
+  const formatChange = (change: number) => {
+    const sign = change >= 0 ? '+' : ''
+    return `${sign}${change.toFixed(2)}%`
+  }
+
+  const formatValue = (value: number, currency: string) => {
+    return `${value.toLocaleString()} ${currency}`
+  }
+
+  const marketSections = [
+    {
+      id: "top-gainers",
+      title: "Top Gainers (ZSE)",
+      icon: TrendingUp,
+      color: "from-green-500 to-green-600",
+      status: loading ? "loading" : error ? "error" : "live",
+      data: topGainers.data?.top_gainers?.slice(0, 3).map(item => ({
+        name: item.symbol,
+        change: formatChange(item.change),
+        value: formatValue(item.value, item.currency)
+      })) || []
+    },
+    {
+      id: "top-losers",
+      title: "Top Losers (ZSE)",
+      icon: TrendingDown,
+      color: "from-red-500 to-red-600",
+      status: loading ? "loading" : error ? "error" : "live",
+      data: topLosers.data?.top_losers?.slice(0, 3).map(item => ({
+        name: item.symbol,
+        change: formatChange(item.change),
+        value: formatValue(item.value, item.currency)
+      })) || []
+    },
+    {
+      id: "market-indices",
+      title: "Market Indices (ZSE)",
+      icon: BarChart3,
+      color: "from-purple-500 to-purple-600",
+      status: loading ? "loading" : error ? "error" : "live",
+      data: marketIndices.data?.market_indices?.slice(0, 3).map(item => ({
+        name: item.index,
+        change: formatChange(item.change),
+        value: formatValue(item.value, item.currency)
+      })) || []
+    },
+    {
+      id: "sector-indices",
+      title: "Sector Indices (ZSE)",
+      icon: Building2,
+      color: "from-blue-500 to-blue-600",
+      status: loading ? "loading" : error ? "error" : "live",
+      data: sectorIndices.data?.sector_indices?.slice(0, 3).map(item => ({
+        name: item.index.replace("ZSE ", ""),
+        change: formatChange(item.change),
+        value: formatValue(item.value, item.currency)
+      })) || []
+    },
+    {
+      id: "african-markets",
+      title: "African Markets",
+      icon: Globe,
+      color: "from-teal-500 to-teal-600",
+      status: loading ? "loading" : error ? "error" : "live",
+      data: africanIndices.data?.indices?.slice(0, 3).map(item => ({
+        name: item.symbol,
+        change: item['change %'],
+        value: item.price
+      })) || []
+    },
+    {
+      id: "world-markets",
+      title: "World Markets",
+      icon: DollarSign,
+      color: "from-orange-500 to-orange-600",
+      status: loading ? "loading" : error ? "error" : "live",
+      data: worldIndices.data?.indices?.slice(0, 3).map(item => ({
+        name: item.symbol,
+        change: item['change %'],
+        value: item.price
+      })) || []
+    }
+  ]
+
+  if (loading) {
+    return <TabContentSkeleton />
   }
 
   return (

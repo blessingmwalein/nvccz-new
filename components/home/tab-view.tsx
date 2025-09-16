@@ -59,22 +59,23 @@ export function TabView({ children, activeTab: externalActiveTab, onTabChange }:
   }
 
   return (
-    <div className="space-y-4">
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
+    <div className="space-y-0">
+      {/* Tab Navigation - Sticky */}
+      <div className="sticky top-40 z-20 bg-white border-b border-gray-200 shadow-sm">
+        <nav className="flex space-x-6 sm:space-x-8 px-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`relative flex items-center gap-3 py-4 px-1 text-base font-medium transition-colors cursor-pointer ${
+              className={`relative flex items-center gap-2 sm:gap-3 py-3 sm:py-4 px-1 text-sm sm:text-base font-medium transition-colors cursor-pointer ${
                 activeTab === tab.id
                   ? "text-blue-600"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              <tab.icon className="w-5 h-5" />
-              {tab.label}
+              <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
               
               {/* Active tab underline */}
               {activeTab === tab.id && (
@@ -94,8 +95,8 @@ export function TabView({ children, activeTab: externalActiveTab, onTabChange }:
         </nav>
       </div>
 
-      {/* Tab Content */}
-      <div className="min-h-[400px]">
+      {/* Tab Content - Scrollable */}
+      <div className="min-h-[400px] p-1">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
