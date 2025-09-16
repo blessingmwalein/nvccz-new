@@ -3,8 +3,10 @@
 import { useAppSelector } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { CiViewTable } from "react-icons/ci"
+import { CiViewTable, CiRead, CiSquareMore } from "react-icons/ci"
+import { TableToolbar } from "@/components/payroll/TableToolbar"
+import { ActionIconButton } from "@/components/payroll/ActionIconButton"
+import { Pagination, usePagination } from "@/components/payroll/Pagination"
 
 export function ComponentsTable() {
   const { components } = useAppSelector(s => s.payroll)
@@ -17,6 +19,11 @@ export function ComponentsTable() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <TableToolbar
+          searchPlaceholder="Search components..."
+          filterLabel="Type"
+          filterOptions={[{ label: "All", value: "all" }, { label: "Earning", value: "EARNING" }, { label: "Deduction", value: "DEDUCTION" }, { label: "Contribution", value: "CONTRIBUTION" }]}
+        />
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
@@ -31,7 +38,7 @@ export function ComponentsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {components.map(c => (
+              {usePagination(components, 5).current.map(c => (
                 <TableRow key={c.id}>
                   <TableCell>{c.name}</TableCell>
                   <TableCell>{c.type}</TableCell>
@@ -41,8 +48,8 @@ export function ComponentsTable() {
                   <TableCell>{c.priority}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" className="rounded-full gradient-primary text-white">View</Button>
-                      <Button size="sm" variant="outline" className="rounded-full">Edit</Button>
+                      <ActionIconButton title="View"><CiRead className="w-4 h-4" /></ActionIconButton>
+                      <ActionIconButton title="More"><CiSquareMore className="w-4 h-4" /></ActionIconButton>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -50,6 +57,9 @@ export function ComponentsTable() {
             </TableBody>
           </Table>
         </div>
+        {(() => { const { page, setPage, totalPages } = usePagination(components, 5); return (
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        ) })()}
       </CardContent>
     </Card>
   )

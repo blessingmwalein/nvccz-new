@@ -3,8 +3,10 @@
 import { useAppSelector } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { CiFileOn } from "react-icons/ci"
+import { CiFileOn, CiRead, CiSquareMore } from "react-icons/ci"
+import { TableToolbar } from "@/components/payroll/TableToolbar"
+import { ActionIconButton } from "@/components/payroll/ActionIconButton"
+import { Pagination, usePagination } from "@/components/payroll/Pagination"
 
 export function PayslipsTable() {
   const { payslips, employees } = useAppSelector(s => s.payroll)
@@ -17,6 +19,11 @@ export function PayslipsTable() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <TableToolbar
+          searchPlaceholder="Search payslips..."
+          filterLabel="Currency"
+          filterOptions={[{ label: "All", value: "all" }, { label: "USD", value: "USD" }]}
+        />
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
@@ -30,7 +37,7 @@ export function PayslipsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payslips.map(ps => {
+              {usePagination(payslips, 5).current.map(ps => {
                 const emp = employees.find(e => e.id === ps.employeeId)
                 return (
                   <TableRow key={ps.id}>
@@ -41,8 +48,8 @@ export function PayslipsTable() {
                     <TableCell>{ps.currencyId}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" className="rounded-full">View</Button>
-                        <Button size="sm" variant="outline" className="rounded-full">Download</Button>
+                        <ActionIconButton title="View"><CiRead className="w-4 h-4" /></ActionIconButton>
+                        <ActionIconButton title="More"><CiSquareMore className="w-4 h-4" /></ActionIconButton>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -51,6 +58,9 @@ export function PayslipsTable() {
             </TableBody>
           </Table>
         </div>
+        {(() => { const { page, setPage, totalPages } = usePagination(payslips, 5); return (
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        ) })()}
       </CardContent>
     </Card>
   )

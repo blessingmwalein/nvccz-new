@@ -3,8 +3,10 @@
 import { useAppSelector } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { CiWallet } from "react-icons/ci"
+import { CiWallet, CiRead, CiSquareMore } from "react-icons/ci"
+import { TableToolbar } from "@/components/payroll/TableToolbar"
+import { ActionIconButton } from "@/components/payroll/ActionIconButton"
+import { Pagination, usePagination } from "@/components/payroll/Pagination"
 
 export function PaymentsTable() {
   const { paymentBatches, employees } = useAppSelector(s => s.payroll)
@@ -18,6 +20,11 @@ export function PaymentsTable() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <TableToolbar
+          searchPlaceholder="Search payments..."
+          filterLabel="Status"
+          filterOptions={[{ label: "All", value: "all" }, { label: "Pending", value: "PENDING" }, { label: "Completed", value: "COMPLETED" }]}
+        />
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
@@ -30,7 +37,7 @@ export function PaymentsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {batch.payments.map(p => {
+              {usePagination(batch.payments, 5).current.map(p => {
                 const emp = employees.find(e => e.id === p.employeeId)
                 return (
                   <TableRow key={p.id}>
@@ -40,8 +47,8 @@ export function PaymentsTable() {
                     <TableCell>{batch.status}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" className="rounded-full">Pay</Button>
-                        <Button size="sm" variant="outline" className="rounded-full">Details</Button>
+                        <ActionIconButton title="Pay"><CiRead className="w-4 h-4" /></ActionIconButton>
+                        <ActionIconButton title="Details"><CiSquareMore className="w-4 h-4" /></ActionIconButton>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -50,6 +57,9 @@ export function PaymentsTable() {
             </TableBody>
           </Table>
         </div>
+        {(() => { const { page, setPage, totalPages } = usePagination(batch.payments, 5); return (
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        ) })()}
       </CardContent>
     </Card>
   )

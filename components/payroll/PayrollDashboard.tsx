@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CiWallet, CiUser, CiCalendar, CiViewTable, CiDollar, CiFileOn } from "react-icons/ci"
 import { StatCard } from "@/components/payroll/StatCard"
+import { PerformanceChart } from "@/components/portfolio/performance-chart"
 
 export function PayrollDashboard() {
   const payroll = useAppSelector(state => state.payroll)
@@ -62,6 +63,9 @@ export function PayrollDashboard() {
               <label className="text-sm font-normal text-gray-700">Status</label>
               <div className="rounded-full border border-gray-300 bg-white px-4 py-2">{currentRun.status}</div>
             </div>
+          </div>
+          <div className="mt-6">
+            <PerformanceChart />
           </div>
         </CardContent>
       </Card>

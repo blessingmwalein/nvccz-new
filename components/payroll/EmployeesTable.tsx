@@ -3,8 +3,10 @@
 import { useAppSelector } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { CiUser, CiWallet } from "react-icons/ci"
+import { CiUser, CiRead, CiSquareMore } from "react-icons/ci"
+import { TableToolbar } from "@/components/payroll/TableToolbar"
+import { ActionIconButton } from "@/components/payroll/ActionIconButton"
+import { Pagination, usePagination } from "@/components/payroll/Pagination"
 
 export function EmployeesTable() {
   const { employees, groups } = useAppSelector(s => s.payroll)
@@ -17,6 +19,11 @@ export function EmployeesTable() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <TableToolbar
+          searchPlaceholder="Search employees..."
+          filterLabel="Group"
+          filterOptions={[{ label: "All", value: "all" }]}
+        />
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
@@ -30,7 +37,7 @@ export function EmployeesTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.map(emp => {
+              {usePagination(employees, 5).current.map(emp => {
                 const grp = groups.find(g => g.id === emp.employment.payGroupId)
                 return (
                   <TableRow key={emp.id}>
@@ -41,8 +48,8 @@ export function EmployeesTable() {
                     <TableCell>{emp.banking.bankName}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" className="rounded-full">View</Button>
-                        <Button size="sm" variant="outline" className="rounded-full">Actions</Button>
+                        <ActionIconButton title="View"><CiRead className="w-4 h-4" /></ActionIconButton>
+                        <ActionIconButton title="Actions"><CiSquareMore className="w-4 h-4" /></ActionIconButton>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -51,6 +58,9 @@ export function EmployeesTable() {
             </TableBody>
           </Table>
         </div>
+        {(() => { const { page, setPage, totalPages } = usePagination(employees, 5); return (
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        ) })()}
       </CardContent>
     </Card>
   )

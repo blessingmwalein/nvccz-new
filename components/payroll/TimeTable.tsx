@@ -3,8 +3,10 @@
 import { useAppSelector } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { CiViewTable } from "react-icons/ci"
+import { CiViewTable, CiRead, CiSquareMore } from "react-icons/ci"
+import { TableToolbar } from "@/components/payroll/TableToolbar"
+import { ActionIconButton } from "@/components/payroll/ActionIconButton"
+import { Pagination, usePagination } from "@/components/payroll/Pagination"
 
 export function TimeTable() {
   const { timeSheets, employees } = useAppSelector(s => s.payroll)
@@ -18,6 +20,11 @@ export function TimeTable() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <TableToolbar
+          searchPlaceholder="Search time entries..."
+          filterLabel="Status"
+          filterOptions={[{ label: "All", value: "all" }, { label: "Approved", value: "APPROVED" }, { label: "Draft", value: "DRAFT" }]}
+        />
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
@@ -32,7 +39,7 @@ export function TimeTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ts.entries.map((e, idx) => {
+              {usePagination(ts.entries, 5).current.map((e, idx) => {
                 const emp = employees.find(x => x.id === ts.employeeId)
                 return (
                   <TableRow key={idx}>
@@ -44,8 +51,8 @@ export function TimeTable() {
                     <TableCell>{e.type}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" className="rounded-full gradient-primary text-white">Approve</Button>
-                        <Button size="sm" variant="outline" className="rounded-full">Details</Button>
+                        <ActionIconButton title="Approve"><CiRead className="w-4 h-4" /></ActionIconButton>
+                        <ActionIconButton title="Details"><CiSquareMore className="w-4 h-4" /></ActionIconButton>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -54,6 +61,9 @@ export function TimeTable() {
             </TableBody>
           </Table>
         </div>
+        {(() => { const { page, setPage, totalPages } = usePagination(ts.entries, 5); return (
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        ) })()}
       </CardContent>
     </Card>
   )
