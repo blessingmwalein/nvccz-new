@@ -57,15 +57,16 @@ export const loginUser = createAsyncThunk(
       }
 
       const data: LoginResponse = await response.json()
-      
+
       // Store token and user data in cookies
       if (typeof document !== 'undefined') {
         const tokenKey = process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token'
         const userKey = process.env.NEXT_PUBLIC_AUTH_USER_KEY || 'user'
-        const maxAge = process.env.NEXT_PUBLIC_AUTH_COOKIE_MAX_AGE || (7 * 24 * 60 * 60)
-        
-        document.cookie = `${tokenKey}=${data.token}; path=/; max-age=${maxAge}; secure; samesite=strict`
-        document.cookie = `${userKey}=${JSON.stringify(data.user)}; path=/; max-age=${maxAge}; secure; samesite=strict`
+        const maxAge = process.env.NEXT_PUBLIC_AUTH_COOKIE_MAX_AGE || 7 * 24 * 60 * 60
+        const isHttps = window.location.protocol === 'https:'
+
+        document.cookie = `${tokenKey}=${data.token}; path=/; max-age=${maxAge}; ${isHttps ? 'secure;' : ''} samesite=lax`
+        document.cookie = `${userKey}=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=${maxAge}; ${isHttps ? 'secure;' : ''} samesite=lax`
       }
 
       return data
