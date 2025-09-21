@@ -14,6 +14,7 @@ interface DatePickerProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  allowFutureDates?: boolean
 }
 
 export function DatePicker({
@@ -22,6 +23,7 @@ export function DatePicker({
   placeholder = "Pick a date",
   className,
   disabled = false,
+  allowFutureDates = false,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -53,7 +55,7 @@ export function DatePicker({
             setOpen(false)
           }}
           disabled={(date) =>
-            date > new Date() || date < new Date("1900-01-01")
+            (!allowFutureDates && date > new Date()) || date < new Date("1900-01-01")
           }
           initialFocus
         />

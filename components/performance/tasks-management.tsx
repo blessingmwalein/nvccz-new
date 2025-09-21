@@ -43,6 +43,7 @@ import {
   CiFlag1 as CiFlag
 } from "react-icons/ci"
 import { toast } from "sonner"
+import { TaskFormModal } from "./task-form-modal"
 
 export function TasksManagement() {
   const dispatch = useAppDispatch()
@@ -143,24 +144,26 @@ export function TasksManagement() {
               Add Task
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl md:max-w-4xl">
-            <DialogHeader>
+          <DialogContent className="max-w-3xl md:max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>
                 {editingTask ? "Edit Task" : "Create New Task"}
               </DialogTitle>
             </DialogHeader>
-            <TaskModal 
-              task={editingTask}
-              goals={goals}
-              onSave={editingTask ? 
-                (updates) => handleUpdateTask(editingTask.id, updates) : 
-                handleCreateTask
-              }
-              onClose={() => {
-                setIsDialogOpen(false)
-                setEditingTask(null)
-              }}
-            />
+            <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <TaskFormModal 
+                task={editingTask}
+                goals={goals}
+                onSave={editingTask ? 
+                  (updates) => handleUpdateTask(editingTask.id, updates) : 
+                  handleCreateTask
+                }
+                onClose={() => {
+                  setIsDialogOpen(false)
+                  setEditingTask(null)
+                }}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -327,260 +330,5 @@ export function TasksManagement() {
         </div>
       )}
     </div>
-  )
-}
-
-// Task Modal Component
-function TaskModal({ task, goals, onSave, onClose }: { 
-  task?: any, 
-  goals: any[],
-  onSave: (data: any) => void, 
-  onClose: () => void 
-}) {
-  const [formData, setFormData] = useState({
-    title: task?.title || "",
-    description: task?.description || "",
-    category: task?.category || "investment",
-    priority: task?.priority || "medium",
-    startDate: task?.startDate || "",
-    endDate: task?.endDate || "",
-    assignedToId: task?.assignedToId || "",
-    team: task?.team || [],
-    goalId: task?.goalId && task.goalId !== "" ? task.goalId : "none",
-    performanceCategory: task?.performanceCategory || "deal_sourcing",
-    isPerformanceTask: task?.isPerformanceTask ?? false,
-    monetaryValue: task?.monetaryValue || "",
-    percentValue: task?.percentValue || "",
-    kpiType: task?.kpi?.type || "Metric",
-    kpiTarget: task?.kpi?.target || "",
-    kpiUnit: task?.kpi?.unit || "",
-    ruleset: task?.ruleset || ">=",
-    status: task?.status || "not_started",
-    progress: task?.progress || 0,
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const submitData = {
-      ...formData,
-      goalId: formData.goalId === "none" ? "" : formData.goalId,
-      monetaryValue: formData.monetaryValue ? parseFloat(formData.monetaryValue) : undefined,
-      percentValue: formData.percentValue ? parseFloat(formData.percentValue) : undefined,
-      progress: parseInt(formData.progress),
-      kpi: formData.isPerformanceTask && formData.kpiTarget ? {
-        type: formData.kpiType,
-        target: parseFloat(formData.kpiTarget),
-        unit: formData.kpiUnit,
-      } : undefined,
-    }
-    onSave(submitData)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="text-sm font-medium">Title</label>
-        <Input
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Task Title"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Description</label>
-        <Input
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Task Description"
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">Category</label>
-          <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="investment">Investment</SelectItem>
-              <SelectItem value="operational">Operational</SelectItem>
-              <SelectItem value="strategic">Strategic</SelectItem>
-              <SelectItem value="compliance">Compliance</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Priority</label>
-          <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">Start Date</label>
-          <Input
-            type="date"
-            value={formData.startDate}
-            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">End Date</label>
-          <Input
-            type="date"
-            value={formData.endDate}
-            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">Assigned To ID</label>
-          <Input
-            value={formData.assignedToId}
-            onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
-            placeholder="User ID"
-            required
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Goal (Optional)</label>
-          <Select value={formData.goalId} onValueChange={(value) => setFormData({ ...formData, goalId: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select Goal" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Goal</SelectItem>
-              {goals.map((goal) => (
-                <SelectItem key={goal.id} value={goal.id}>
-                  {goal.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">Performance Category</label>
-          <Select value={formData.performanceCategory} onValueChange={(value) => setFormData({ ...formData, performanceCategory: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="deal_sourcing">Deal Sourcing</SelectItem>
-              <SelectItem value="due_diligence">Due Diligence</SelectItem>
-              <SelectItem value="portfolio_management">Portfolio Management</SelectItem>
-              <SelectItem value="reporting">Reporting</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Progress (%)</label>
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            value={formData.progress}
-            onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
-            placeholder="0"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="isPerformanceTask"
-          checked={formData.isPerformanceTask}
-          onChange={(e) => setFormData({ ...formData, isPerformanceTask: e.target.checked })}
-          className="rounded"
-        />
-        <label htmlFor="isPerformanceTask" className="text-sm font-medium">Performance Task</label>
-      </div>
-
-      {formData.isPerformanceTask && (
-        <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-          <div>
-            <label className="text-sm font-medium">KPI Type</label>
-            <Select value={formData.kpiType} onValueChange={(value) => setFormData({ ...formData, kpiType: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Metric">Metric</SelectItem>
-                <SelectItem value="Percentage">Percentage</SelectItem>
-                <SelectItem value="Currency">Currency</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-sm font-medium">KPI Target</label>
-            <Input
-              type="number"
-              value={formData.kpiTarget}
-              onChange={(e) => setFormData({ ...formData, kpiTarget: e.target.value })}
-              placeholder="Target"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">KPI Unit</label>
-            <Input
-              value={formData.kpiUnit}
-              onChange={(e) => setFormData({ ...formData, kpiUnit: e.target.value })}
-              placeholder="Unit"
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">Monetary Value (Optional)</label>
-          <Input
-            type="number"
-            value={formData.monetaryValue}
-            onChange={(e) => setFormData({ ...formData, monetaryValue: e.target.value })}
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Percent Value (Optional)</label>
-          <Input
-            type="number"
-            value={formData.percentValue}
-            onChange={(e) => setFormData({ ...formData, percentValue: e.target.value })}
-            placeholder="0"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit">
-          {task ? "Update Task" : "Create Task"}
-        </Button>
-      </div>
-    </form>
   )
 }

@@ -1,14 +1,12 @@
-import { MainLayout } from "@/components/layout/main-layout"
-import { EmployeesTable } from "@/components/payroll/EmployeesTable"
+import { PayrollLayout } from "@/components/layout/payroll-layout"
+import { EmployeesTable } from "@/components/payroll/employees-table"
 
-export default function PayrollEmployeesPage() {
+export default function EmployeesPage() {
   return (
-    <MainLayout>
-      <div className="px-6 py-6">
+    <PayrollLayout>
+      <div className="container mx-auto py-6 px-6">
         <EmployeesTable />
       </div>
-    </MainLayout>
+    </PayrollLayout>
   )
 }
-
-

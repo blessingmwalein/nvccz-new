@@ -1,72 +1,34 @@
 import { KPI, Department, PerformanceGoal, Task, PerformanceMetrics } from "@/lib/store/slices/performanceSlice"
+import { kpiApiService, KPICreateRequest } from "./kpi-api"
+import { departmentApiService } from "./department-api"
 
-// Mock Data for KPIs
-export const mockKPIs: KPI[] = [
-  {
-    id: "kpi_1",
-    name: "Deal Conversion Rate",
-    description: "Percentage of deals that convert from initial contact to closed",
-    type: "Percentage",
-    unit: "%",
-    targetValue: 25.0,
-    currentValue: 18.5,
-    category: "sales",
-    frequency: "monthly",
-    departmentId: "dept_1",
-    weightValue: 0.3,
-    isActive: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-15T00:00:00Z",
-  },
-  {
-    id: "kpi_2",
-    name: "Portfolio IRR",
-    description: "Internal Rate of Return for the entire portfolio",
-    type: "Percentage",
-    unit: "%",
-    targetValue: 15.0,
-    currentValue: 12.3,
-    category: "financial",
-    frequency: "quarterly",
-    departmentId: "dept_1",
-    weightValue: 0.4,
-    isActive: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-15T00:00:00Z",
-  },
-  {
-    id: "kpi_3",
-    name: "Deal Sourcing Volume",
-    description: "Number of new deals sourced per month",
-    type: "Number",
-    unit: "deals",
-    targetValue: 50,
-    currentValue: 42,
-    category: "operational",
-    frequency: "monthly",
-    departmentId: "dept_2",
-    weightValue: 0.2,
-    isActive: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-15T00:00:00Z",
-  },
-  {
-    id: "kpi_4",
-    name: "Due Diligence Completion Time",
-    description: "Average time to complete due diligence process",
-    type: "Number",
-    unit: "days",
-    targetValue: 30,
-    currentValue: 35,
-    category: "operational",
-    frequency: "monthly",
-    departmentId: "dept_2",
-    weightValue: 0.1,
-    isActive: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-15T00:00:00Z",
-  },
-]
+// Transform backend KPI data to frontend format
+const transformKPIData = (backendKPI: any): KPI => {
+  return {
+    id: backendKPI.id,
+    name: backendKPI.name,
+    description: backendKPI.description || "",
+    type: backendKPI.type as KPI['type'],
+    branch: backendKPI.branch,
+    weightValue: backendKPI.weightValue,
+    hasUnit: backendKPI.hasUnit,
+    unitCategory: backendKPI.unitCategory,
+    unit: backendKPI.unit,
+    unitSymbol: backendKPI.unitSymbol,
+    unitPosition: backendKPI.unitPosition,
+    isActive: backendKPI.isActive,
+    createdAt: backendKPI.createdAt,
+    updatedAt: backendKPI.updatedAt,
+    performanceGoals: backendKPI.performanceGoals || [],
+    _count: backendKPI._count,
+    // Add default values for frontend compatibility
+    targetValue: 0,
+    currentValue: 0,
+    category: "sales" as const,
+    frequency: "monthly" as const,
+    departmentId: "default",
+  }
+}
 
 // Mock Data for Departments
 export const mockDepartments: Department[] = [
@@ -323,41 +285,130 @@ export const mockMetrics: PerformanceMetrics = {
   ],
 }
 
-// API Service Functions (Mock implementations)
+// Transform backend Department data to frontend format
+const transformDepartmentData = (backendDepartment: any): Department => {
+  return {
+    id: backendDepartment.id,
+    name: backendDepartment.name,
+    description: backendDepartment.description,
+    branch: backendDepartment.branch,
+    isActive: backendDepartment.isActive,
+    createdAt: backendDepartment.createdAt,
+    updatedAt: backendDepartment.updatedAt,
+    users: backendDepartment.users || [],
+    goals: backendDepartment.goals || [],
+    _count: backendDepartment._count || { users: 0, goals: 0 }
+  }
+}
+
+// API Service Functions (Real backend integration)
 export const performanceAPI = {
   // KPI APIs
   getKPIs: async (): Promise<KPI[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
-    return mockKPIs
+    try {
+      const response = await kpiApiService.getKPIs()
+      return response.kpis.map(transformKPIData)
+    } catch (error) {
+      console.error('Failed to fetch KPIs:', error)
+      throw new Error('Failed to fetch KPIs')
+    }
   },
   
   createKPI: async (kpi: Omit<KPI, 'id' | 'createdAt' | 'updatedAt'>): Promise<KPI> => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const newKPI: KPI = {
-      ...kpi,
-      id: `kpi_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    try {
+      const createRequest: KPICreateRequest = {
+        name: kpi.name,
+        description: kpi.description,
+        type: kpi.type,
+        unit: kpi.unit,
+        targetValue: kpi.targetValue,
+        currentValue: kpi.currentValue,
+        category: kpi.category,
+        frequency: kpi.frequency,
+        departmentId: kpi.departmentId,
+        weightValue: parseFloat(kpi.weightValue),
+        isActive: kpi.isActive,
+      }
+      
+      const response = await kpiApiService.createKPI(createRequest)
+      return transformKPIData(response.kpi)
+    } catch (error) {
+      console.error('Failed to create KPI:', error)
+      throw new Error('Failed to create KPI')
     }
-    return newKPI
   },
   
   updateKPI: async (id: string, updates: Partial<KPI>): Promise<KPI> => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const kpi = mockKPIs.find(k => k.id === id)
-    if (!kpi) throw new Error('KPI not found')
-    return { ...kpi, ...updates, updatedAt: new Date().toISOString() }
+    try {
+      const updateRequest: Partial<KPICreateRequest> = {
+        name: updates.name,
+        description: updates.description,
+        type: updates.type,
+        unit: updates.unit,
+        targetValue: updates.targetValue,
+        currentValue: updates.currentValue,
+        category: updates.category,
+        frequency: updates.frequency,
+        departmentId: updates.departmentId,
+        weightValue: updates.weightValue ? parseFloat(updates.weightValue) : undefined,
+        isActive: updates.isActive,
+      }
+      
+      const response = await kpiApiService.updateKPI(id, updateRequest)
+      return transformKPIData(response.kpi)
+    } catch (error) {
+      console.error('Failed to update KPI:', error)
+      throw new Error('Failed to update KPI')
+    }
   },
   
   deleteKPI: async (id: string): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    // Mock deletion
+    try {
+      await kpiApiService.deleteKPI(id)
+    } catch (error) {
+      console.error('Failed to delete KPI:', error)
+      throw new Error('Failed to delete KPI')
+    }
   },
-  
+
   // Department APIs
   getDepartments: async (): Promise<Department[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    return mockDepartments
+    try {
+      const response = await departmentApiService.getDepartments()
+      return response.departments.map(transformDepartmentData)
+    } catch (error) {
+      console.error('Failed to fetch departments:', error)
+      throw new Error('Failed to fetch departments')
+    }
+  },
+
+  createDepartment: async (department: Omit<Department, 'id' | 'createdAt' | 'updatedAt' | 'users' | 'goals' | '_count'>): Promise<Department> => {
+    try {
+      const response = await departmentApiService.createDepartment(department)
+      return transformDepartmentData(response.department)
+    } catch (error) {
+      console.error('Failed to create department:', error)
+      throw new Error('Failed to create department')
+    }
+  },
+
+  updateDepartment: async (id: string, updates: Partial<Department>): Promise<Department> => {
+    try {
+      const response = await departmentApiService.updateDepartment(id, updates)
+      return transformDepartmentData(response.department)
+    } catch (error) {
+      console.error('Failed to update department:', error)
+      throw new Error('Failed to update department')
+    }
+  },
+
+  deleteDepartment: async (id: string): Promise<void> => {
+    try {
+      await departmentApiService.deleteDepartment(id)
+    } catch (error) {
+      console.error('Failed to delete department:', error)
+      throw new Error('Failed to delete department')
+    }
   },
   
   createDepartment: async (department: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>): Promise<Department> => {

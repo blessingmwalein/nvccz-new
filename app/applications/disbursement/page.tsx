@@ -1,10 +1,10 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { FundDisbursement } from "@/components/applications/fund-disbursement"
 
 export default function DisbursementPage() {
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <FundDisbursement />
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

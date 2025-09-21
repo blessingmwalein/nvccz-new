@@ -1,10 +1,10 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { DueDiligence } from "@/components/applications/due-diligence"
 
 export default function DueDiligencePage() {
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <DueDiligence />
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

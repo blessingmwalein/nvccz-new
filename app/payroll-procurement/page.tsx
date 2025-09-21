@@ -1,8 +1,8 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { ProcurementLayout } from "@/components/layout/procurement-layout"
 
 export default function PayrollProcurementPage() {
   return (
-    <MainLayout>
+    <ProcurementLayout>
       <div className="p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Payroll & Procurement</h1>
@@ -65,6 +65,6 @@ export default function PayrollProcurementPage() {
         </div>
       </div>
       </div>
-    </MainLayout>
+    </ProcurementLayout>
   )
 }

@@ -4,18 +4,28 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 export interface KPI {
   id: string
   name: string
-  description: string
-  type: "Percentage" | "Number" | "Currency" | "Ratio"
+  description?: string
+  type: "Percentage" | "Number" | "Currency" | "Ratio" | "Metric"
+  branch?: string | null
+  weightValue: string
+  hasUnit: boolean
+  unitCategory?: string | null
   unit: string
-  targetValue: number
-  currentValue: number
-  category: "sales" | "financial" | "operational" | "investment"
-  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
-  departmentId: string
-  weightValue: number
+  unitSymbol?: string | null
+  unitPosition: "prefix" | "suffix"
   isActive: boolean
   createdAt: string
   updatedAt: string
+  performanceGoals?: PerformanceGoal[]
+  _count?: {
+    performanceGoals: number
+  }
+  // Additional fields for frontend compatibility
+  targetValue?: number
+  currentValue?: number
+  category?: "sales" | "financial" | "operational" | "investment"
+  frequency?: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+  departmentId?: string
 }
 
 // Department Types
@@ -27,6 +37,12 @@ export interface Department {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  users: any[]
+  goals: PerformanceGoal[]
+  _count: {
+    users: number
+    goals: number
+  }
 }
 
 // Performance Goal Types

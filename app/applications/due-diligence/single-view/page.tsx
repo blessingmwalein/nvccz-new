@@ -31,7 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { MainLayout } from '@/components/layout/main-layout'
+import { PortfolioLayout } from '@/components/layout/portfolio-layout'
 import DocumentUploadModal from '../../components/DocumentUploadModal'
 
 function DueDiligenceSingleView() {
@@ -456,8 +456,8 @@ function DueDiligenceSingleView() {
 
 export default function DueDiligenceSingleViewPage() {
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <DueDiligenceSingleView />
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

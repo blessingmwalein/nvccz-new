@@ -1,10 +1,10 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { RiskAssessment } from "@/components/portfolio/risk-assessment"
 
 export default function RiskAssessmentPage() {
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <RiskAssessment />
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

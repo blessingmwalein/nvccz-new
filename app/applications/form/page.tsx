@@ -20,7 +20,7 @@ import Step1 from "../components/Step1"
 import Step2 from "../components/Step2"
 import Step3 from "../components/Step3"
 import { Button } from "@/components/ui/button"
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 
 // Validation schemas for each step
 const step1Schema = yup.object({
@@ -127,7 +127,7 @@ export default function ApplicationFormPage() {
   }
 
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <div className="min-h-screen bg-white py-8">
         <div className="max-w-6xl mx-auto px-12">
           {/* Header */}
@@ -176,6 +176,6 @@ export default function ApplicationFormPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

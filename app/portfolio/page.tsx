@@ -1,10 +1,10 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { PortfolioOverview } from "@/components/portfolio/portfolio-overview"
 
 export default function PortfolioPage() {
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <PortfolioOverview />
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

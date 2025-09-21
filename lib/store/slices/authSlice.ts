@@ -1,4 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
+import { apiClient, ApiError } from '@/lib/api/api-client'
+import { getAuthToken, getAuthUser, setCookie, clearAuthCookies } from '@/lib/utils/cookies'
 
 // Types
 export interface User {
@@ -42,8 +44,8 @@ export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://nvccz-pi.vercel.app/api'
-      const response = await fetch(`${apiBaseUrl}/auth/login`, {
+      // Use API client without authentication for login
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://nvccz-pi.vercel.app/api'}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,15 +64,17 @@ export const loginUser = createAsyncThunk(
       if (typeof document !== 'undefined') {
         const tokenKey = process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token'
         const userKey = process.env.NEXT_PUBLIC_AUTH_USER_KEY || 'user'
-        const maxAge = process.env.NEXT_PUBLIC_AUTH_COOKIE_MAX_AGE || 7 * 24 * 60 * 60
-        const isHttps = window.location.protocol === 'https:'
+        const maxAge = parseInt(process.env.NEXT_PUBLIC_AUTH_COOKIE_MAX_AGE || '604800') // 7 days
 
-        document.cookie = `${tokenKey}=${data.token}; path=/; max-age=${maxAge}; ${isHttps ? 'secure;' : ''} samesite=lax`
-        document.cookie = `${userKey}=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=${maxAge}; ${isHttps ? 'secure;' : ''} samesite=lax`
+        setCookie(tokenKey, data.token, { maxAge })
+        setCookie(userKey, encodeURIComponent(JSON.stringify(data.user)), { maxAge })
       }
 
       return data
     } catch (error) {
+      if (error instanceof ApiError) {
+        return rejectWithValue(error.message)
+      }
       return rejectWithValue('Network error occurred')
     }
   }
@@ -81,13 +85,7 @@ export const logoutUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       // Clear cookies
-      if (typeof document !== 'undefined') {
-        const tokenKey = process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token'
-        const userKey = process.env.NEXT_PUBLIC_AUTH_USER_KEY || 'user'
-        
-        document.cookie = `${tokenKey}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-        document.cookie = `${userKey}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-      }
+      clearAuthCookies()
       return true
     } catch (error) {
       return rejectWithValue('Logout failed')
@@ -103,21 +101,8 @@ export const checkAuthStatus = createAsyncThunk(
         return rejectWithValue('Server side')
       }
 
-      const cookies = document.cookie.split(';')
-      let token = null
-      let user = null
-
-      const tokenKey = process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token'
-      const userKey = process.env.NEXT_PUBLIC_AUTH_USER_KEY || 'user'
-      
-      cookies.forEach(cookie => {
-        const [name, value] = cookie.trim().split('=')
-        if (name === tokenKey) {
-          token = value
-        } else if (name === userKey) {
-          user = JSON.parse(decodeURIComponent(value))
-        }
-      })
+      const token = getAuthToken()
+      const user = getAuthUser()
 
       if (token && user) {
         return { token, user }

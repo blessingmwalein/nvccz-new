@@ -1,12 +1,12 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PerformanceLayout } from "@/components/layout/performance-layout"
 import { PerformanceDashboard } from "@/components/performance/performance-dashboard"
 
 export default function PerformancePage() {
   return (
-    <MainLayout>
+    <PerformanceLayout>
       <div className="p-6">
         <PerformanceDashboard />
       </div>
-    </MainLayout>
+    </PerformanceLayout>
   )
 }

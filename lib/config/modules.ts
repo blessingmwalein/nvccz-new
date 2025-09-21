@@ -105,8 +105,11 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [
       { id: "performance-dashboard", name: "Performance Dashboard", path: "/performance", icon: CiGrid41, description: "Overview and metrics" },
       { id: "kpi-management", name: "KPI Management", path: "/performance/kpis", icon: CiViewTimeline, description: "KPIs" },
+      { id: "departments-management", name: "Departments", path: "/performance/departments", icon: CiUser, description: "Department management" },
       { id: "goals-management", name: "Goals Management", path: "/performance/goals", icon: CiCircleCheck, description: "Goals" },
-      { id: "tasks-management", name: "Tasks Management", path: "/performance/tasks", icon: CiViewList, description: "Tasks" }
+      { id: "tasks-management", name: "Tasks Management", path: "/performance/tasks", icon: CiViewList, description: "Tasks" },
+      { id: "department-scorecards", name: "Department Scorecards", path: "/performance/department-scorecards", icon: CiViewBoard, description: "Department performance scorecards" },
+      { id: "user-scorecards", name: "User Scorecards", path: "/performance/user-scorecards", icon: CiViewTable, description: "User performance scorecards" }
     ]
   },
   {
@@ -131,13 +134,10 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       { id: "payroll-dashboard", name: "Dashboard", path: "/payroll", icon: CiGrid41, description: "Payroll dashboard" },
       { id: "payroll-employees", name: "Employees", path: "/payroll/employees", icon: CiViewList, description: "Employees" },
       { id: "payroll-runs", name: "Pay Runs", path: "/payroll/runs", icon: CiCalendar, description: "Pay runs" },
-      { id: "payroll-payslips", name: "Payslips", path: "/payroll/payslips", icon: CiFileOn, description: "Payslips" },
-      { id: "payroll-payments", name: "Payments", path: "/payroll/payments", icon: CiWallet, description: "Payment batches" },
-      { id: "payroll-components", name: "Components", path: "/payroll/components", icon: CiViewTable, description: "Pay components" },
-      { id: "payroll-schedules", name: "Schedules", path: "/payroll/schedules", icon: CiViewTable, description: "Pay schedules" },
-      { id: "payroll-groups", name: "Groups", path: "/payroll/groups", icon: CiViewTable, description: "Pay groups" },
-      { id: "payroll-assignments", name: "Assignments", path: "/payroll/assignments", icon: CiViewTable, description: "Employee assignments" },
-      { id: "payroll-timesheets", name: "Time & Leave", path: "/payroll/time", icon: CiViewTimeline, description: "Time entries" }
+      { id: "payroll-tax-rules", name: "Tax Rules", path: "/payroll/tax-rules", icon: CiDollar, description: "Tax rules management" },
+      { id: "payroll-allowance-types", name: "Allowance Types", path: "/payroll/allowance-types", icon: CiViewTable, description: "Allowance types" },
+      { id: "payroll-deduction-types", name: "Deduction Types", path: "/payroll/deduction-types", icon: CiViewTable, description: "Deduction types" },
+      { id: "payroll-bank-templates", name: "Bank Templates", path: "/payroll/bank-templates", icon: CiViewTable, description: "Bank file templates" }
     ]
   },
   {

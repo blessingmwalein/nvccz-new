@@ -1,12 +1,12 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PerformanceLayout } from "@/components/layout/performance-layout"
 import { KPIManagement } from "@/components/performance/kpi-management"
 
 export default function KPIsPage() {
   return (
-    <MainLayout>
+    <PerformanceLayout>
       <div className="p-6">
         <KPIManagement />
       </div>
-    </MainLayout>
+    </PerformanceLayout>
   )
 }

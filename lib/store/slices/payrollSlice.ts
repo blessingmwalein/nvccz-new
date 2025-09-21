@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
+import { TaxRule, AllowanceType, DeductionType, BankTemplate, Employee as ApiEmployee, PayrollRun, Payslip as ApiPayslip } from "@/lib/api/payroll-api"
 
 export type PayrollSettings = {
   id: string
@@ -110,6 +111,34 @@ type PayrollState = {
     entries: { date: string; hours: number; type: string; componentId?: string }[]
     status: "DRAFT" | "APPROVED"
   }[]
+  // New API data
+  taxRules: TaxRule[]
+  allowanceTypes: AllowanceType[]
+  deductionTypes: DeductionType[]
+  bankTemplates: BankTemplate[]
+  apiEmployees: ApiEmployee[]
+  apiPayrollRuns: PayrollRun[]
+  apiPayslips: ApiPayslip[]
+  // Loading states
+  loading: {
+    taxRules: boolean
+    allowanceTypes: boolean
+    deductionTypes: boolean
+    bankTemplates: boolean
+    employees: boolean
+    payrollRuns: boolean
+    payslips: boolean
+  }
+  // Error states
+  errors: {
+    taxRules: string | null
+    allowanceTypes: string | null
+    deductionTypes: string | null
+    bankTemplates: string | null
+    employees: string | null
+    payrollRuns: string | null
+    payslips: string | null
+  }
 }
 
 const initialState: PayrollState = {
@@ -130,6 +159,34 @@ const initialState: PayrollState = {
       cashBankCoAId: "coa-bank-001",
     },
     approvalWorkflow: { requiresTwoStepApproval: true, approverRoleNames: ["Payroll Manager", "Finance Manager"] },
+  },
+  // New API data
+  taxRules: [],
+  allowanceTypes: [],
+  deductionTypes: [],
+  bankTemplates: [],
+  apiEmployees: [],
+  apiPayrollRuns: [],
+  apiPayslips: [],
+  // Loading states
+  loading: {
+    taxRules: false,
+    allowanceTypes: false,
+    deductionTypes: false,
+    bankTemplates: false,
+    employees: false,
+    payrollRuns: false,
+    payslips: false,
+  },
+  // Error states
+  errors: {
+    taxRules: null,
+    allowanceTypes: null,
+    deductionTypes: null,
+    bankTemplates: null,
+    employees: null,
+    payrollRuns: null,
+    payslips: null,
   },
   schedules: [
     { id: "sched-monthly-001", name: "Monthly", frequency: "MONTHLY", cutoffDay: 25, payoutDay: 28, proRataBasis: "CALENDAR_DAYS" },
@@ -209,10 +266,208 @@ const payrollSlice = createSlice({
         state.payRuns = state.payRuns.map(r => ({ ...r, status: r.id === runId ? r.status : r.status }))
       }
     },
+    // Tax Rules actions
+    setTaxRules(state, action: PayloadAction<TaxRule[]>) {
+      state.taxRules = action.payload
+    },
+    addTaxRule(state, action: PayloadAction<TaxRule>) {
+      state.taxRules.push(action.payload)
+    },
+    updateTaxRule(state, action: PayloadAction<TaxRule>) {
+      const index = state.taxRules.findIndex(rule => rule.id === action.payload.id)
+      if (index !== -1) {
+        state.taxRules[index] = action.payload
+      }
+    },
+    removeTaxRule(state, action: PayloadAction<string>) {
+      state.taxRules = state.taxRules.filter(rule => rule.id !== action.payload)
+    },
+    setTaxRulesLoading(state, action: PayloadAction<boolean>) {
+      state.loading.taxRules = action.payload
+    },
+    setTaxRulesError(state, action: PayloadAction<string | null>) {
+      state.errors.taxRules = action.payload
+    },
+    // Allowance Types actions
+    setAllowanceTypes(state, action: PayloadAction<AllowanceType[]>) {
+      state.allowanceTypes = action.payload
+    },
+    addAllowanceType(state, action: PayloadAction<AllowanceType>) {
+      state.allowanceTypes.push(action.payload)
+    },
+    updateAllowanceType(state, action: PayloadAction<AllowanceType>) {
+      const index = state.allowanceTypes.findIndex(type => type.id === action.payload.id)
+      if (index !== -1) {
+        state.allowanceTypes[index] = action.payload
+      }
+    },
+    removeAllowanceType(state, action: PayloadAction<string>) {
+      state.allowanceTypes = state.allowanceTypes.filter(type => type.id !== action.payload)
+    },
+    setAllowanceTypesLoading(state, action: PayloadAction<boolean>) {
+      state.loading.allowanceTypes = action.payload
+    },
+    setAllowanceTypesError(state, action: PayloadAction<string | null>) {
+      state.errors.allowanceTypes = action.payload
+    },
+    // Deduction Types actions
+    setDeductionTypes(state, action: PayloadAction<DeductionType[]>) {
+      state.deductionTypes = action.payload
+    },
+    addDeductionType(state, action: PayloadAction<DeductionType>) {
+      state.deductionTypes.push(action.payload)
+    },
+    updateDeductionType(state, action: PayloadAction<DeductionType>) {
+      const index = state.deductionTypes.findIndex(type => type.id === action.payload.id)
+      if (index !== -1) {
+        state.deductionTypes[index] = action.payload
+      }
+    },
+    removeDeductionType(state, action: PayloadAction<string>) {
+      state.deductionTypes = state.deductionTypes.filter(type => type.id !== action.payload)
+    },
+    setDeductionTypesLoading(state, action: PayloadAction<boolean>) {
+      state.loading.deductionTypes = action.payload
+    },
+    setDeductionTypesError(state, action: PayloadAction<string | null>) {
+      state.errors.deductionTypes = action.payload
+    },
+    // Bank Templates actions
+    setBankTemplates(state, action: PayloadAction<BankTemplate[]>) {
+      state.bankTemplates = action.payload
+    },
+    addBankTemplate(state, action: PayloadAction<BankTemplate>) {
+      state.bankTemplates.push(action.payload)
+    },
+    updateBankTemplate(state, action: PayloadAction<BankTemplate>) {
+      const index = state.bankTemplates.findIndex(template => template.id === action.payload.id)
+      if (index !== -1) {
+        state.bankTemplates[index] = action.payload
+      }
+    },
+    removeBankTemplate(state, action: PayloadAction<string>) {
+      state.bankTemplates = state.bankTemplates.filter(template => template.id !== action.payload)
+    },
+    setBankTemplatesLoading(state, action: PayloadAction<boolean>) {
+      state.loading.bankTemplates = action.payload
+    },
+    setBankTemplatesError(state, action: PayloadAction<string | null>) {
+      state.errors.bankTemplates = action.payload
+    },
+    // Employees actions
+    setApiEmployees(state, action: PayloadAction<ApiEmployee[]>) {
+      state.apiEmployees = action.payload
+    },
+    addApiEmployee(state, action: PayloadAction<ApiEmployee>) {
+      state.apiEmployees.push(action.payload)
+    },
+    updateApiEmployee(state, action: PayloadAction<ApiEmployee>) {
+      const index = state.apiEmployees.findIndex(emp => emp.id === action.payload.id)
+      if (index !== -1) {
+        state.apiEmployees[index] = action.payload
+      }
+    },
+    removeApiEmployee(state, action: PayloadAction<string>) {
+      state.apiEmployees = state.apiEmployees.filter(emp => emp.id !== action.payload)
+    },
+    setEmployeesLoading(state, action: PayloadAction<boolean>) {
+      state.loading.employees = action.payload
+    },
+    setEmployeesError(state, action: PayloadAction<string | null>) {
+      state.errors.employees = action.payload
+    },
+    // Payroll Runs actions
+    setApiPayrollRuns(state, action: PayloadAction<PayrollRun[]>) {
+      state.apiPayrollRuns = action.payload
+    },
+    addApiPayrollRun(state, action: PayloadAction<PayrollRun>) {
+      state.apiPayrollRuns.push(action.payload)
+    },
+    updateApiPayrollRun(state, action: PayloadAction<PayrollRun>) {
+      const index = state.apiPayrollRuns.findIndex(run => run.id === action.payload.id)
+      if (index !== -1) {
+        state.apiPayrollRuns[index] = action.payload
+      }
+    },
+    removeApiPayrollRun(state, action: PayloadAction<string>) {
+      state.apiPayrollRuns = state.apiPayrollRuns.filter(run => run.id !== action.payload)
+    },
+    setPayrollRunsLoading(state, action: PayloadAction<boolean>) {
+      state.loading.payrollRuns = action.payload
+    },
+    setPayrollRunsError(state, action: PayloadAction<string | null>) {
+      state.errors.payrollRuns = action.payload
+    },
+    // Payslips actions
+    setApiPayslips(state, action: PayloadAction<ApiPayslip[]>) {
+      state.apiPayslips = action.payload
+    },
+    addApiPayslip(state, action: PayloadAction<ApiPayslip>) {
+      state.apiPayslips.push(action.payload)
+    },
+    updateApiPayslip(state, action: PayloadAction<ApiPayslip>) {
+      const index = state.apiPayslips.findIndex(payslip => payslip.id === action.payload.id)
+      if (index !== -1) {
+        state.apiPayslips[index] = action.payload
+      }
+    },
+    removeApiPayslip(state, action: PayloadAction<string>) {
+      state.apiPayslips = state.apiPayslips.filter(payslip => payslip.id !== action.payload)
+    },
+    setPayslipsLoading(state, action: PayloadAction<boolean>) {
+      state.loading.payslips = action.payload
+    },
+    setPayslipsError(state, action: PayloadAction<string | null>) {
+      state.errors.payslips = action.payload
+    },
   },
 })
 
-export const { setActivePayRun } = payrollSlice.actions
+export const { 
+  setActivePayRun,
+  setTaxRules,
+  addTaxRule,
+  updateTaxRule,
+  removeTaxRule,
+  setTaxRulesLoading,
+  setTaxRulesError,
+  setAllowanceTypes,
+  addAllowanceType,
+  updateAllowanceType,
+  removeAllowanceType,
+  setAllowanceTypesLoading,
+  setAllowanceTypesError,
+  setDeductionTypes,
+  addDeductionType,
+  updateDeductionType,
+  removeDeductionType,
+  setDeductionTypesLoading,
+  setDeductionTypesError,
+  setBankTemplates,
+  addBankTemplate,
+  updateBankTemplate,
+  removeBankTemplate,
+  setBankTemplatesLoading,
+  setBankTemplatesError,
+  setApiEmployees,
+  addApiEmployee,
+  updateApiEmployee,
+  removeApiEmployee,
+  setEmployeesLoading,
+  setEmployeesError,
+  setApiPayrollRuns,
+  addApiPayrollRun,
+  updateApiPayrollRun,
+  removeApiPayrollRun,
+  setPayrollRunsLoading,
+  setPayrollRunsError,
+  setApiPayslips,
+  addApiPayslip,
+  updateApiPayslip,
+  removeApiPayslip,
+  setPayslipsLoading,
+  setPayslipsError,
+} = payrollSlice.actions
 export default payrollSlice.reducer
 
 

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 
 const portfolioCompanies = [
   {
@@ -72,7 +72,7 @@ export default function CompaniesPage() {
   })
 
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -264,6 +264,6 @@ export default function CompaniesPage() {
         ))}
       </div>
       </div>
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

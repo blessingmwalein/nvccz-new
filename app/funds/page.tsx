@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Wallet, TrendingUp, Users, DollarSign, Search, Plus, Calendar } from "lucide-react"
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 
 const funds = [
   {
@@ -69,7 +69,7 @@ export default function FundsPage() {
   })
 
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -236,6 +236,6 @@ export default function FundsPage() {
         ))}
       </div>
       </div>
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

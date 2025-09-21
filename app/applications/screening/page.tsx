@@ -1,10 +1,10 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { InitialScreening } from "@/components/applications/initial-screening"
 
 export default function ScreeningPage() {
   return (
-    <MainLayout>
+    <PortfolioLayout>
       <InitialScreening />
-    </MainLayout>
+    </PortfolioLayout>
   )
 }

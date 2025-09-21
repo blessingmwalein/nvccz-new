@@ -1,12 +1,12 @@
-import { MainLayout } from "@/components/layout/main-layout"
+import { PerformanceLayout } from "@/components/layout/performance-layout"
 import { GoalsManagement } from "@/components/performance/goals-management"
 
 export default function GoalsPage() {
   return (
-    <MainLayout>
+    <PerformanceLayout>
       <div className="p-6">
         <GoalsManagement />
       </div>
-    </MainLayout>
+    </PerformanceLayout>
   )
 }
