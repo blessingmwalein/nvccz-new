@@ -178,12 +178,12 @@ export function AllowanceTypesTable() {
     )
   }
 
-  const columns: Column<AllowanceType>[] = [
+  const columns: Column<any>[] = [
     {
       key: 'name',
       label: 'Name',
       sortable: true,
-      filterable: true,
+      filterable: false,
       render: (value, row) => (
         <div className="flex items-center gap-2">
           <Building className="w-4 h-4 text-blue-600" />
@@ -195,7 +195,7 @@ export function AllowanceTypesTable() {
       key: 'code',
       label: 'Code',
       sortable: true,
-      filterable: true,
+      filterable: false,
       render: (value) => (
         <Badge variant="outline" className="font-mono">
           {value}
@@ -203,11 +203,11 @@ export function AllowanceTypesTable() {
       )
     },
     {
-      key: 'name',
+      key: '__type' as any,
       label: 'Type',
       sortable: true,
       filterable: true,
-      render: (value, row) => getTypeBadge(value)
+      render: (value, row) => getTypeBadge(row.name)
     },
     {
       key: 'description',

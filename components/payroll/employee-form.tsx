@@ -8,9 +8,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem
+} from "@/components/ui/command"
 import { employeeFormSchema, EmployeeFormData } from "@/lib/validations/payroll"
 import { Employee } from "@/lib/api/payroll-api"
-import { User, Building2, CreditCard, DollarSign, AlertCircle } from "lucide-react"
+import { User, Building2, CreditCard, DollarSign, AlertCircle, Loader2 } from "lucide-react"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { usersApi } from "@/lib/api/users-api"
+import { setUsers, setUsersError, setUsersLoading } from "@/lib/store/slices/usersSlice"
+import { accountingApi } from "@/lib/api/accounting-api"
+import { setCurrencies, setCurrenciesError, setCurrenciesLoading } from "@/lib/store/slices/currenciesSlice"
 
 interface EmployeeFormProps {
   isOpen: boolean
@@ -20,22 +33,17 @@ interface EmployeeFormProps {
   loading?: boolean
 }
 
-// Mock users data - in real app, this would come from an API
-const mockUsers = [
-  { id: "cme40ejfb0002uno01jhz7bo8", firstName: "Admin", lastName: "User", email: "admin@nvccz.co.zw" },
-  { id: "user2", firstName: "John", lastName: "Doe", email: "john.doe@company.com" },
-  { id: "user3", firstName: "Jane", lastName: "Smith", email: "jane.smith@company.com" },
-  { id: "user4", firstName: "Mike", lastName: "Johnson", email: "mike.johnson@company.com" }
-]
-
-// Mock currencies data
-const mockCurrencies = [
-  { id: "cmefh5k3m0003un8gyi9sy1zk", code: "USD", name: "United States Dollar", symbol: "$" },
-  { id: "currency2", code: "ZWL", name: "Zimbabwean Dollar", symbol: "Z$" },
-  { id: "currency3", code: "EUR", name: "Euro", symbol: "€" }
-]
+const getDefaultCurrencyId = (currencies: { id: string; isDefault: boolean }[]) => {
+  const def = currencies.find(c => c.isDefault)
+  return def ? def.id : currencies[0]?.id || ""
+}
 
 export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loading }: EmployeeFormProps) {
+  const dispatch = useAppDispatch()
+  const { items: users } = useAppSelector(state => state.users)
+  const { items: currencies, loading: currenciesLoading } = useAppSelector(state => state.currencies)
+  const [isUserOpen, setIsUserOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const {
     control,
     handleSubmit,
@@ -57,7 +65,7 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
       branchCode: '',
       accountNumber: '',
       basicSalary: 0,
-      currencyId: 'cmefh5k3m0003un8gyi9sy1zk' // Default to USD
+      currencyId: ''
     }
   })
 
@@ -80,15 +88,57 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
         branchCode: '',
         accountNumber: '',
         basicSalary: 0,
-        currencyId: 'cmefh5k3m0003un8gyi9sy1zk'
+        currencyId: ''
       })
     }
   }, [editingEmployee, reset])
 
-  const handleFormSubmit = (data: EmployeeFormData) => {
-    onSubmit(data)
-    if (!editingEmployee) {
-      reset()
+  // Load users and currencies on mount
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        dispatch(setUsersLoading(true))
+        dispatch(setUsersError(null))
+        const res = await usersApi.getAll()
+        dispatch(setUsers(res.data || []))
+      } catch (e: any) {
+        dispatch(setUsersError(e?.message || 'Failed to load users'))
+      } finally {
+        dispatch(setUsersLoading(false))
+      }
+    }
+    const loadCurrencies = async () => {
+      try {
+        dispatch(setCurrenciesLoading(true))
+        dispatch(setCurrenciesError(null))
+        const res = await accountingApi.currencies.getAll()
+        const list = res.data || []
+        dispatch(setCurrencies(list))
+        if (!editingEmployee) {
+          reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(list) }))
+        }
+      } catch (e: any) {
+        dispatch(setCurrenciesError(e?.message || 'Failed to load currencies'))
+      } finally {
+        dispatch(setCurrenciesLoading(false))
+      }
+    }
+    loadUsers()
+    if (!currencies || currencies.length === 0) loadCurrencies()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleFormSubmit = async (data: EmployeeFormData) => {
+    setIsSubmitting(true)
+    try {
+      await onSubmit(data)
+      if (!editingEmployee) {
+        reset()
+      }
+    } catch (e) {
+      // no-op, parent should toast
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -100,7 +150,7 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
   }
 
   const selectedUserId = watch('userId')
-  const selectedUser = mockUsers.find(user => user.id === selectedUserId)
+  const selectedUser = users.find(user => user.id === selectedUserId)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -132,21 +182,43 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
                   name="userId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="rounded-full">
-                        <SelectValue placeholder="Choose a user..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockUsers.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{user.firstName} {user.lastName}</span>
-                              <span className="text-sm text-gray-500">{user.email}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={isUserOpen} onOpenChange={setIsUserOpen}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full justify-between rounded-full">
+                          {field.value ? (
+                            <span>
+                              {users.find(u => u.id === field.value)?.firstName} {users.find(u => u.id === field.value)?.lastName}
+                              <span className="text-gray-500 text-xs ml-2">{users.find(u => u.id === field.value)?.email}</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">Choose a user...</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-[420px]" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search users by name or email..." />
+                          <CommandEmpty>No users found.</CommandEmpty>
+                          <CommandGroup>
+                            {users.map(user => (
+                              <CommandItem
+                                key={user.id}
+                                value={`${user.firstName} ${user.lastName} ${user.email}`}
+                                onSelect={() => {
+                                  field.onChange(user.id)
+                                  setIsUserOpen(false)
+                                }}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{user.firstName} {user.lastName}</span>
+                                  <span className="text-sm text-gray-500">{user.email}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   )}
                 />
                 {errors.userId && (
@@ -282,10 +354,10 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className="rounded-full">
-                        <SelectValue placeholder="Select currency..." />
+                        <SelectValue placeholder={currenciesLoading ? 'Loading...' : 'Select currency...'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCurrencies.map((currency) => (
+                        {currencies.map((currency) => (
                           <SelectItem key={currency.id} value={currency.id}>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{currency.symbol}</span>
@@ -313,16 +385,23 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
               type="button"
               variant="outline"
               onClick={handleClose}
-              disabled={loading}
+              disabled={loading || isSubmitting}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               className="gradient-primary"
-              disabled={loading}
+              disabled={loading || isSubmitting}
             >
-              {loading ? 'Saving...' : editingEmployee ? 'Update Employee' : 'Create Employee'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {editingEmployee ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                editingEmployee ? 'Update Employee' : 'Create Employee'
+              )}
             </Button>
           </div>
         </form>

@@ -11,6 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker"
 import { payrollRunFormSchema, PayrollRunFormData } from "@/lib/validations/payroll"
 import { PayrollRun } from "@/lib/api/payroll-api"
+import { accountingApi, type Currency } from "@/lib/api/accounting-api"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { setCurrencies, setCurrenciesError, setCurrenciesLoading } from "@/lib/store/slices/currenciesSlice"
 import { Calendar, AlertCircle, Loader2, Play } from "lucide-react"
 import { toast } from "sonner"
 
@@ -22,12 +25,11 @@ interface PayrollRunFormProps {
   loading?: boolean
 }
 
-// Mock currencies data
-const mockCurrencies = [
-  { id: "cmefh5k3m0003un8gyi9sy1zk", code: "USD", name: "United States Dollar", symbol: "$" },
-  { id: "currency2", code: "ZWL", name: "Zimbabwean Dollar", symbol: "Z$" },
-  { id: "currency3", code: "EUR", name: "Euro", symbol: "€" }
-]
+// Helper to get default currency id from list
+const getDefaultCurrencyId = (currencies: Currency[]) => {
+  const def = currencies.find(c => c.isDefault)
+  return def ? def.id : currencies[0]?.id || ""
+}
 
 export function PayrollRunForm({ 
   isOpen, 
@@ -37,6 +39,8 @@ export function PayrollRunForm({
   loading 
 }: PayrollRunFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const dispatch = useAppDispatch()
+  const { items: currencies, loading: currenciesLoading } = useAppSelector(state => state.currencies)
 
   const {
     control,
@@ -57,7 +61,7 @@ export function PayrollRunForm({
       payPeriod: '',
       startDate: new Date(),
       endDate: new Date(),
-      currencyId: 'cmefh5k3m0003un8gyi9sy1zk'
+      currencyId: ''
     }
   })
 
@@ -73,15 +77,44 @@ export function PayrollRunForm({
       }
       reset(formData)
     } else {
-      reset({
+      reset(prev => ({
+        ...prev,
         name: '',
         payPeriod: '',
         startDate: new Date(),
         endDate: new Date(),
-        currencyId: 'cmefh5k3m0003un8gyi9sy1zk'
-      })
+        currencyId: ''
+      }))
     }
   }, [editingRun, reset])
+
+  // Load currencies once
+  useEffect(() => {
+    const loadCurrencies = async () => {
+      try {
+        dispatch(setCurrenciesLoading(true))
+        dispatch(setCurrenciesError(null))
+        const res = await accountingApi.currencies.getAll()
+        const list = res.data || []
+        dispatch(setCurrencies(list))
+        // set default currency if none selected
+        if (!editingRun) {
+          reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(list) }))
+        }
+      } catch (e: any) {
+        dispatch(setCurrenciesError(e?.message || 'Failed to load currencies'))
+      } finally {
+        dispatch(setCurrenciesLoading(false))
+      }
+    }
+    if (!currencies || currencies.length === 0) {
+      loadCurrencies()
+    } else if (!editingRun) {
+      // ensure default set when items already present
+      reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(currencies) }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleFormSubmit = async (data: PayrollRunFormData) => {
     setIsSubmitting(true)
@@ -255,10 +288,10 @@ export function PayrollRunForm({
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className="rounded-full">
-                        <SelectValue placeholder="Select currency..." />
+                        <SelectValue placeholder={currenciesLoading ? 'Loading...' : 'Select currency...'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCurrencies.map((currency) => (
+                        {currencies.map((currency) => (
                           <SelectItem key={currency.id} value={currency.id}>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{currency.symbol}</span>

@@ -4,11 +4,14 @@ import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RichDataTable } from "./rich-data-table"
+import { DatePicker } from "@/components/ui/date-picker"
 import { PayrollRunForm } from "./payroll-run-form"
 import { PayrollRunDrawer } from "./payroll-run-drawer"
 import { PayrollRun, payrollRunsApi } from "@/lib/api/payroll-api"
-import { Play, Plus, Calendar, DollarSign, Users, FileText } from "lucide-react"
+import { Play, Plus, Calendar, DollarSign, Users, FileText, Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
+import { ApiError } from "@/lib/api/api-client"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export function PayrollRunsTable() {
   const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>([])
@@ -17,8 +20,11 @@ export function PayrollRunsTable() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingRun, setEditingRun] = useState<PayrollRun | null>(null)
   const [viewingRun, setViewingRun] = useState<PayrollRun | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [periodStart, setPeriodStart] = useState<Date | null>(null)
+  const [periodEnd, setPeriodEnd] = useState<Date | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [deletingRun, setDeletingRun] = useState<PayrollRun | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Load payroll runs
   const loadPayrollRuns = async () => {
@@ -32,7 +38,8 @@ export function PayrollRunsTable() {
       }
     } catch (error) {
       console.error('Error loading payroll runs:', error)
-      toast.error('Failed to load payroll runs')
+      const message = error instanceof ApiError ? (error.response?.message || error.message) : 'Failed to load payroll runs'
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -42,26 +49,17 @@ export function PayrollRunsTable() {
     loadPayrollRuns()
   }, [])
 
-  // Filter and search data
+  // Apply date range filtering (status and search are handled by the table internally)
   const filteredData = useMemo(() => {
-    let filtered = payrollRuns
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(run =>
-        run.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        run.payPeriod.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        run.status.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(run => run.status === statusFilter)
-    }
-
-    return filtered
-  }, [payrollRuns, searchTerm, statusFilter])
+    if (!periodStart && !periodEnd) return payrollRuns
+    return payrollRuns.filter(run => {
+      const start = new Date(run.startDate)
+      const end = new Date(run.endDate)
+      const afterStart = periodStart ? start >= new Date(periodStart.setHours(0,0,0,0)) : true
+      const beforeEnd = periodEnd ? end <= new Date(periodEnd.setHours(23,59,59,999)) : true
+      return afterStart && beforeEnd
+    })
+  }, [payrollRuns, periodStart, periodEnd])
 
   // Get status badge variant
   const getStatusBadge = (status: string) => {
@@ -94,6 +92,10 @@ export function PayrollRunsTable() {
 
   // Handle edit
   const handleEdit = (run: PayrollRun) => {
+    if (run.status !== 'DRAFT') {
+      toast.error('You can only edit a payroll run in Draft status')
+      return
+    }
     setEditingRun(run)
     setIsFormOpen(true)
   }
@@ -104,31 +106,44 @@ export function PayrollRunsTable() {
     setIsDrawerOpen(true)
   }
 
-  // Handle delete
-  const handleDelete = async (run: PayrollRun) => {
-    if (window.confirm(`Are you sure you want to delete "${run.name}"?`)) {
-      try {
-        await payrollRunsApi.delete(run.id)
-        toast.success('Payroll run deleted successfully')
-        loadPayrollRuns()
-      } catch (error) {
-        console.error('Error deleting payroll run:', error)
-        toast.error('Failed to delete payroll run')
-      }
+  // Delete dialog
+  const openDeleteDialog = (run: PayrollRun) => {
+    setDeletingRun(run)
+    setIsDeleteOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingRun) return
+    try {
+      setIsDeleting(true)
+      await payrollRunsApi.delete(deletingRun.id)
+      toast.success('Payroll run deleted successfully')
+      setIsDeleteOpen(false)
+      setDeletingRun(null)
+      loadPayrollRuns()
+    } catch (error) {
+      console.error('Error deleting payroll run:', error)
+      const message = error instanceof ApiError ? (error.response?.message || error.message) : 'Failed to delete payroll run'
+      toast.error(message)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   // Handle process
-  const handleProcess = async (run: PayrollRun) => {
-    if (window.confirm(`Are you sure you want to process "${run.name}"? This will calculate all employee payrolls.`)) {
-      try {
-        await payrollRunsApi.process(run.id)
-        toast.success('Payroll run processed successfully')
-        loadPayrollRuns()
-      } catch (error) {
-        console.error('Error processing payroll run:', error)
-        toast.error('Failed to process payroll run')
-      }
+  const handleProcess = async (run: PayrollRun, options?: { skipConfirm?: boolean }) => {
+    if (run.status !== 'DRAFT') {
+      toast.error('You can only process a payroll run in Draft status')
+      return
+    }
+    try {
+      await payrollRunsApi.process(run.id)
+      toast.success('Payroll run processed successfully')
+      loadPayrollRuns()
+    } catch (error) {
+      console.error('Error processing payroll run:', error)
+      const message = error instanceof ApiError ? (error.response?.message || error.message) : 'Failed to process payroll run'
+      toast.error(message)
     }
   }
 
@@ -147,7 +162,9 @@ export function PayrollRunsTable() {
       loadPayrollRuns()
     } catch (error) {
       console.error('Error saving payroll run:', error)
-      toast.error(editingRun ? 'Failed to update payroll run' : 'Failed to create payroll run')
+      const fallback = editingRun ? 'Failed to update payroll run' : 'Failed to create payroll run'
+      const message = error instanceof ApiError ? (error.response?.message || error.message || fallback) : fallback
+      toast.error(message)
       throw error
     }
   }
@@ -180,6 +197,7 @@ export function PayrollRunsTable() {
       key: "status" as keyof PayrollRun,
       label: "Status",
       sortable: true,
+      filterable: true,
       render: (value: string) => getStatusBadge(value),
     },
     {
@@ -287,17 +305,35 @@ export function PayrollRunsTable() {
         data={filteredData}
         columns={columns}
         loading={loading}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        filterBy="status"
-        filterValue={statusFilter}
-        onFilterChange={setStatusFilter}
         filterOptions={filterOptions}
+        extraControls={(
+          <>
+            <DatePicker
+              value={periodStart}
+              onChange={setPeriodStart}
+              placeholder="Period Start"
+              allowFutureDates={true}
+              className="h-10 w-[160px]"
+            />
+            <DatePicker
+              value={periodEnd}
+              onChange={setPeriodEnd}
+              placeholder="Period End"
+              allowFutureDates={true}
+              className="h-10 w-[160px]"
+            />
+            {(periodStart || periodEnd) && (
+              <Button variant="outline" onClick={() => { setPeriodStart(null); setPeriodEnd(null) }} className="rounded-full h-10">
+                Clear
+              </Button>
+            )}
+          </>
+        )}
         searchPlaceholder="Search payroll runs..."
         title=""
         onView={handleView}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={openDeleteDialog}
         customActions={(row: PayrollRun) => (
           <div className="flex items-center gap-1">
             {row.status === 'DRAFT' && (
@@ -335,6 +371,52 @@ export function PayrollRunsTable() {
         onEdit={handleEdit}
         onProcess={handleProcess}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-normal">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              Delete Payroll Run
+            </DialogTitle>
+            <DialogDescription>
+              {deletingRun ? (
+                <>Are you sure you want to delete "{deletingRun.name}"? This action cannot be undone.</>
+              ) : (
+                <>Are you sure you want to delete this payroll run?</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isDeleting}
+              className="rounded-full"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="rounded-full"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

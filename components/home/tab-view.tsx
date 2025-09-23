@@ -10,7 +10,7 @@ import {
   CiViewTable 
 } from "react-icons/ci"
 
-export type TabType = "feed" | "newsletter" | "forum" | "calendar" | "dashboard"
+export type TabType = "feed" | "newsletter" | "calendar" | "dashboard"
 
 interface TabViewProps {
   children: React.ReactNode
@@ -28,11 +28,6 @@ const tabs = [
     id: "newsletter" as TabType,
     label: "Newsletter", 
     icon: CiMail
-  },
-  {
-    id: "forum" as TabType,
-    label: "Forum",
-    icon: CiChat1
   },
   {
     id: "calendar" as TabType,

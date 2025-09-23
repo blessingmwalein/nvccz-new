@@ -40,6 +40,7 @@ export interface RichDataTableProps<T> {
   title: string
   searchPlaceholder?: string
   filterOptions?: { label: string; value: string }[]
+  extraControls?: React.ReactNode
   onEdit?: (row: T) => void
   onDelete?: (row: T) => void
   onView?: (row: T) => void
@@ -57,6 +58,7 @@ export function RichDataTable<T extends { id: string }>({
   title,
   searchPlaceholder = "Search...",
   filterOptions = [],
+  extraControls,
   onEdit,
   onDelete,
   onView,
@@ -82,19 +84,44 @@ export function RichDataTable<T extends { id: string }>({
       filtered = filtered.filter(row =>
         columns.some(column => {
           const value = row[column.key]
-          return value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          const term = searchTerm.toLowerCase()
+          if (value == null) return false
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            return value.toString().toLowerCase().includes(term)
+          }
+          if (typeof value === 'object') {
+            try {
+              const flattened = Object.values(value)
+                .filter(v => v != null && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'))
+                .map(v => v.toString().toLowerCase())
+                .join(' ')
+              return flattened.includes(term)
+            } catch {
+              return false
+            }
+          }
+          return false
         })
       )
     }
 
     // Apply filter
     if (filterValue !== "all") {
-      // Find the column that has filterable: true and matches the filter value
-      const filterableColumn = columns.find(col => col.filterable)
-      if (filterableColumn) {
+      // Apply filter across any filterable columns; if none, try a known derived type key
+      const filterableColumns = columns.filter(col => col.filterable)
+      if (filterableColumns.length > 0) {
+        filtered = filtered.filter(row =>
+          filterableColumns.some(col => {
+            const value: any = (row as any)[col.key as any]
+            if (value == null) return false
+            return value.toString() === filterValue
+          })
+        )
+      } else {
+        // Fallback: support derived type field '__type' computed on the fly
         filtered = filtered.filter(row => {
-          const value = row[filterableColumn.key]
-          return value && value.toString() === filterValue
+          const v = (row as any)['__type'] ?? (row as any)['type'] ?? ''
+          return v.toString() === filterValue
         })
       }
     }
@@ -246,8 +273,9 @@ export function RichDataTable<T extends { id: string }>({
       </CardHeader>
       <CardContent>
         {/* Search and Filter Bar */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="relative flex-1 min-w-[200px]">
             <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder={searchPlaceholder}
@@ -255,22 +283,28 @@ export function RichDataTable<T extends { id: string }>({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 rounded-full"
             />
+            </div>
+            {filterOptions.length > 0 && (
+              <Select value={filterValue} onValueChange={setFilterValue}>
+                <SelectTrigger className="w-48 rounded-full">
+                  <CiFilter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {filterOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          {filterOptions.length > 0 && (
-            <Select value={filterValue} onValueChange={setFilterValue}>
-              <SelectTrigger className="w-48 rounded-full">
-                <CiFilter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {filterOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {extraControls && (
+            <div className="flex items-center gap-3 shrink-0">
+              {extraControls}
+            </div>
           )}
         </div>
 
@@ -354,13 +388,13 @@ export function RichDataTable<T extends { id: string }>({
                             View
                           </DropdownMenuItem>
                         )}
-                        {onEdit && (
-                          <DropdownMenuItem onClick={() => onEdit(row)}>
+                {onEdit && (row as any).status === 'DRAFT' && (
+                  <DropdownMenuItem onClick={() => onEdit(row)}>
                             <CiEdit className="w-4 h-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                         )}
-                        {onDelete && (
+                {onDelete && (row as any).status !== 'COMPLETED' && (
                           <DropdownMenuItem 
                             onClick={() => onDelete(row)}
                             className="text-red-600"

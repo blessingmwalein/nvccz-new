@@ -12,6 +12,9 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { salaryStructureFormSchema, SalaryStructureFormData } from "@/lib/validations/payroll"
 import { SalaryStructure, AllowanceType, allowanceTypesApi } from "@/lib/api/payroll-api"
 import { DollarSign, Calendar, AlertCircle, Loader2 } from "lucide-react"
+import { useAppSelector, useAppDispatch } from "@/lib/store"
+import { accountingApi } from "@/lib/api/accounting-api"
+import { setCurrencies, setCurrenciesError, setCurrenciesLoading } from "@/lib/store/slices/currenciesSlice"
 import { toast } from "sonner"
 
 interface SalaryStructureFormProps {
@@ -23,12 +26,10 @@ interface SalaryStructureFormProps {
   loading?: boolean
 }
 
-// Mock currencies data
-const mockCurrencies = [
-  { id: "cmefh5k3m0003un8gyi9sy1zk", code: "USD", name: "United States Dollar", symbol: "$" },
-  { id: "currency2", code: "ZWL", name: "Zimbabwean Dollar", symbol: "Z$" },
-  { id: "currency3", code: "EUR", name: "Euro", symbol: "€" }
-]
+const getDefaultCurrencyId = (currencies: { id: string; isDefault: boolean }[]) => {
+  const def = currencies.find(c => c.isDefault)
+  return def ? def.id : currencies[0]?.id || ""
+}
 
 export function SalaryStructureForm({ 
   isOpen, 
@@ -41,6 +42,8 @@ export function SalaryStructureForm({
   const [allowanceTypes, setAllowanceTypes] = useState<AllowanceType[]>([])
   const [loadingAllowanceTypes, setLoadingAllowanceTypes] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const dispatch = useAppDispatch()
+  const { items: currencies, loading: currenciesLoading } = useAppSelector(state => state.currencies)
 
   const {
     control,
@@ -61,7 +64,7 @@ export function SalaryStructureForm({
       employeeId: employeeId,
       allowanceTypeId: '',
       amount: 0,
-      currencyId: 'cmefh5k3m0003un8gyi9sy1zk', // Default to USD
+      currencyId: '',
       effectiveDate: new Date(),
       endDate: null
     }
@@ -87,14 +90,15 @@ export function SalaryStructureForm({
       }
       reset(formData)
     } else {
-      reset({
+      reset(prev => ({
+        ...prev,
         employeeId: employeeId,
         allowanceTypeId: '',
         amount: 0,
-        currencyId: 'cmefh5k3m0003un8gyi9sy1zk',
+        currencyId: '',
         effectiveDate: new Date(),
         endDate: null
-      })
+      }))
     }
   }, [editingStructure, employeeId, reset])
 
@@ -128,6 +132,33 @@ export function SalaryStructureForm({
       setIsSubmitting(false)
     }
   }
+
+  // Load currencies once
+  useEffect(() => {
+    const loadCurrencies = async () => {
+      try {
+        dispatch(setCurrenciesLoading(true))
+        dispatch(setCurrenciesError(null))
+        const res = await accountingApi.currencies.getAll()
+        const list = res.data || []
+        dispatch(setCurrencies(list))
+        if (!editingStructure) {
+          // set default
+          reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(list) }))
+        }
+      } catch (e: any) {
+        dispatch(setCurrenciesError(e?.message || 'Failed to load currencies'))
+      } finally {
+        dispatch(setCurrenciesLoading(false))
+      }
+    }
+    if (!currencies || currencies.length === 0) {
+      loadCurrencies()
+    } else if (!editingStructure) {
+      reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(currencies) }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleClose = () => {
     onClose()
@@ -250,10 +281,10 @@ export function SalaryStructureForm({
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className="rounded-full">
-                        <SelectValue placeholder="Select currency..." />
+                        <SelectValue placeholder={currenciesLoading ? 'Loading...' : 'Select currency...'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCurrencies.map((currency) => (
+                        {currencies.map((currency) => (
                           <SelectItem key={currency.id} value={currency.id}>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{currency.symbol}</span>

@@ -44,7 +44,7 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const dispatch = useAppDispatch()
   const currency = useAppSelector((state) => state.ui.currency)
-  const { user } = useAppSelector((state) => state.auth)
+  const { user, token, isAuthenticated } = useAppSelector((state) => state.auth)
 
   const handleCurrencyToggle = (newCurrency: "USD" | "ZIG") => {
     dispatch(setCurrency(newCurrency))

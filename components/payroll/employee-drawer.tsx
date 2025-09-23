@@ -5,9 +5,10 @@ import { motion } from "framer-motion"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Employee, SalaryStructure, salaryStructuresApi } from "@/lib/api/payroll-api"
+import { Employee, SalaryStructure, salaryStructuresApi, leaveBalancesApi, type LeaveBalance } from "@/lib/api/payroll-api"
 import { CopyText } from "@/components/ui/copy-text"
 import { SalaryStructureForm } from "./salary-structure-form"
+import { LeaveBalanceForm, type LeaveBalanceFormData } from "./leave-balance-form"
 import { RichDataTable } from "./rich-data-table"
 import { toast } from "sonner"
 import { 
@@ -33,7 +34,7 @@ interface EmployeeDrawerProps {
   onEdit: (employee: Employee) => void
 }
 
-type TabType = "overview" | "banking" | "salary" | "salary-structures"
+type TabType = "overview" | "banking" | "salary" | "salary-structures" | "leave-balances"
 
 const tabs = [
   {
@@ -55,14 +56,22 @@ const tabs = [
     id: "salary-structures" as TabType,
     label: "Salary Structures",
     icon: CreditCard
+  },
+  {
+    id: "leave-balances" as TabType,
+    label: "Leave Balances",
+    icon: Calendar
   }
 ]
 
 export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview")
   const [salaryStructures, setSalaryStructures] = useState<SalaryStructure[]>([])
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingStructure, setEditingStructure] = useState<SalaryStructure | null>(null)
+  const [isLeaveFormOpen, setIsLeaveFormOpen] = useState(false)
+  const [editingLeave, setEditingLeave] = useState<LeaveBalance | null>(null)
   const [loading, setLoading] = useState(false)
 
   const loadSalaryStructures = useCallback(async () => {
@@ -84,12 +93,31 @@ export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDr
     }
   }, [employee])
 
+  const loadLeaveBalances = useCallback(async () => {
+    if (!employee) return
+    try {
+      setLoading(true)
+      const res = await leaveBalancesApi.getByEmployee(employee.id)
+      if (res.success && res.data) {
+        setLeaveBalances(res.data)
+      } else {
+        toast.error('Failed to load leave balances')
+      }
+    } catch (e) {
+      console.error('Error loading leave balances:', e)
+      toast.error('Failed to load leave balances')
+    } finally {
+      setLoading(false)
+    }
+  }, [employee])
+
   // Load salary structures when employee changes
   useEffect(() => {
     if (employee) {
       loadSalaryStructures()
+      loadLeaveBalances()
     }
-  }, [employee, loadSalaryStructures])
+  }, [employee, loadSalaryStructures, loadLeaveBalances])
 
   if (!employee) return null
 
@@ -103,9 +131,19 @@ export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDr
     setIsFormOpen(true)
   }
 
+  const handleCreateLeave = () => {
+    setEditingLeave(null)
+    setIsLeaveFormOpen(true)
+  }
+
   const handleEditStructure = (structure: SalaryStructure) => {
     setEditingStructure(structure)
     setIsFormOpen(true)
+  }
+
+  const handleEditLeave = (lb: LeaveBalance) => {
+    setEditingLeave(lb)
+    setIsLeaveFormOpen(true)
   }
 
   const handleDeleteStructure = async (structure: SalaryStructure) => {
@@ -119,6 +157,34 @@ export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDr
         toast.error('Failed to delete salary structure')
       }
     }
+  }
+
+  const handleLeaveSubmit = async (data: LeaveBalanceFormData) => {
+    try {
+      if (editingLeave) {
+        await leaveBalancesApi.update(editingLeave.id, {
+          leaveType: data.leaveType,
+          balance: data.balance,
+          currencyId: data.currencyId,
+        })
+        toast.success('Leave balance updated successfully')
+      } else {
+        await leaveBalancesApi.create(data)
+        toast.success('Leave balance created successfully')
+      }
+      setIsLeaveFormOpen(false)
+      setEditingLeave(null)
+      loadLeaveBalances()
+    } catch (e) {
+      console.error('Error saving leave balance:', e)
+      toast.error(editingLeave ? 'Failed to update leave balance' : 'Failed to create leave balance')
+      throw e
+    }
+  }
+
+  const handleLeaveClose = () => {
+    setIsLeaveFormOpen(false)
+    setEditingLeave(null)
   }
 
   const handleFormSubmit = async (data: any) => {
@@ -557,6 +623,36 @@ export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDr
                 />
               </div>
             )}
+
+            {/* Leave Balances Tab */}
+            {activeTab === "leave-balances" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-normal text-gray-900 flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Leave Balances
+                  </h3>
+                  <Button onClick={handleCreateLeave} className="rounded-full gradient-primary text-white font-normal">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Set Leave Balance
+                  </Button>
+                </div>
+
+                <RichDataTable
+                  data={leaveBalances}
+                  columns={[
+                    { key: 'leaveType' as keyof LeaveBalance, label: 'Leave Type', sortable: true },
+                    { key: 'balance' as keyof LeaveBalance, label: 'Balance', sortable: true, render: (v: string) => <span className="text-sm text-gray-900">{parseFloat(v).toLocaleString()}</span> },
+                    { key: 'currency' as keyof LeaveBalance, label: 'Currency', sortable: false, render: (v: any) => <span className="text-sm text-gray-900">{v?.code}</span> },
+                    { key: 'updatedAt' as keyof LeaveBalance, label: 'Updated', sortable: true, render: (v: string) => <span className="text-sm text-gray-600">{new Date(v).toLocaleDateString()}</span> },
+                  ]}
+                  loading={loading}
+                  searchPlaceholder="Search leave balances..."
+                  title=""
+                  onEdit={handleEditLeave}
+                />
+              </div>
+            )}
           </div>
 
           {/* Salary Structure Form Modal */}
@@ -568,6 +664,15 @@ export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDr
             employeeId={employee.id}
             loading={loading}
           />
+
+        {/* Leave Balance Form Modal */}
+        <LeaveBalanceForm
+          isOpen={isLeaveFormOpen}
+          onClose={handleLeaveClose}
+          onSubmit={handleLeaveSubmit}
+          editing={editingLeave}
+          employeeId={employee.id}
+        />
         </div>
       </SheetContent>
     </Sheet>

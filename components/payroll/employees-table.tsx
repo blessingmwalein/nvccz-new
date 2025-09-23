@@ -254,6 +254,7 @@ export function EmployeesTable({ title, description }: EmployeesTableProps) {
       key: "isActive" as keyof Employee,
       label: "Status",
       sortable: true,
+      filterable: true,
       render: (value: boolean) => (
         <Badge variant={value ? "default" : "secondary"}>
           {value ? "Active" : "Inactive"}
@@ -264,8 +265,8 @@ export function EmployeesTable({ title, description }: EmployeesTableProps) {
 
   const filterOptions = [
     { value: "all", label: "All Employees" },
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
+    { value: "true", label: "Active" },
+    { value: "false", label: "Inactive" },
   ];
 
   return (

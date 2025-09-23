@@ -11,6 +11,8 @@ import authSlice from "./slices/authSlice"
 import financialDataSlice from "./slices/financialDataSlice"
 import performanceSlice from "./slices/performanceSlice"
 import payrollSlice from "./slices/payrollSlice"
+import currenciesSlice from "./slices/currenciesSlice"
+import usersSlice from "./slices/usersSlice"
 
 export const store = configureStore({
   reducer: {
@@ -25,6 +27,8 @@ export const store = configureStore({
     financialData: financialDataSlice,
     performance: performanceSlice,
     payroll: payrollSlice,
+    currencies: currenciesSlice,
+    users: usersSlice,
   },
 })
 

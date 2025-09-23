@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,119 +17,9 @@ import {
   Plus,
   X
 } from "lucide-react"
+import { EventForm, type EventFormValues } from "./event-form"
 
-const events = [
-  // September 2024 Events
-  {
-    id: 1,
-    title: "Q3 Portfolio Review",
-    date: new Date(2024, 8, 5),
-    time: "14:00",
-    duration: "2 hours",
-    location: "Conference Room A",
-    attendees: 12,
-    type: "meeting",
-    priority: "high",
-    description: "Quarterly portfolio performance review and strategy discussion for Q3 2024"
-  },
-  {
-    id: 2,
-    title: "African Markets Summit",
-    date: new Date(2024, 8, 12),
-    time: "09:00",
-    duration: "6 hours",
-    location: "Convention Center",
-    attendees: 150,
-    type: "conference",
-    priority: "high",
-    description: "Annual summit discussing investment opportunities across African markets"
-  },
-  {
-    id: 3,
-    title: "Investment Committee Meeting",
-    date: new Date(2024, 8, 18),
-    time: "10:00",
-    duration: "3 hours",
-    location: "Board Room",
-    attendees: 8,
-    type: "meeting",
-    priority: "high",
-    description: "Review new investment opportunities and approve funding decisions"
-  },
-  {
-    id: 4,
-    title: "Client Presentation - TechCorp",
-    date: new Date(2024, 8, 20),
-    time: "15:30",
-    duration: "1 hour",
-    location: "Presentation Hall",
-    attendees: 25,
-    type: "presentation",
-    priority: "medium",
-    description: "Present investment proposal to TechCorp management team"
-  },
-  {
-    id: 5,
-    title: "Market Analysis Workshop",
-    date: new Date(2024, 8, 22),
-    time: "09:00",
-    duration: "4 hours",
-    location: "Training Center",
-    attendees: 15,
-    type: "workshop",
-    priority: "medium",
-    description: "Deep dive into African market trends and opportunities"
-  },
-  {
-    id: 6,
-    title: "Fund II Annual Meeting",
-    date: new Date(2024, 8, 25),
-    time: "18:00",
-    duration: "3 hours",
-    location: "Grand Hotel",
-    attendees: 100,
-    type: "celebration",
-    priority: "high",
-    description: "Annual meeting for Fund II investors and stakeholders"
-  },
-  {
-    id: 7,
-    title: "Risk Management Training",
-    date: new Date(2024, 8, 28),
-    time: "10:00",
-    duration: "3 hours",
-    location: "Training Room B",
-    attendees: 20,
-    type: "workshop",
-    priority: "medium",
-    description: "Advanced risk management techniques for investment professionals"
-  },
-  // December 2024 Events (keeping some for variety)
-  {
-    id: 8,
-    title: "Q4 Portfolio Review Meeting",
-    date: new Date(2024, 11, 15),
-    time: "14:00",
-    duration: "2 hours",
-    location: "Conference Room A",
-    attendees: 12,
-    type: "meeting",
-    priority: "high",
-    description: "Quarterly portfolio performance review and strategy discussion"
-  },
-  {
-    id: 9,
-    title: "Fund III Closing Ceremony",
-    date: new Date(2024, 11, 25),
-    time: "18:00",
-    duration: "3 hours",
-    location: "Grand Hotel",
-    attendees: 100,
-    type: "celebration",
-    priority: "high",
-    description: "Celebrate the successful closing of Fund III"
-  }
-]
+import { eventsApi, type AppEvent } from "@/lib/api/events-api"
 
 const eventTypes = [
   { id: "all", label: "All Events", color: "bg-gray-500" },
@@ -147,10 +37,29 @@ const priorityColors = {
 }
 
 export function EventCalendarTab() {
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 8, 1)) // Start with September 2024
-  const [selectedType, setSelectedType] = useState("all")
-  const [selectedEvent, setSelectedEvent] = useState<typeof events[0] | null>(null)
+  const [currentDate, setCurrentDate] = useState(new Date())
+  // Removed filter by type for now
+  const [selectedEvent, setSelectedEvent] = useState<AppEvent | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [apiEvents, setApiEvents] = useState<AppEvent[]>([])
+  const [loading, setLoading] = useState(false)
+  const [isEventFormOpen, setIsEventFormOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        const res = await eventsApi.getAll()
+        setApiEvents(res.data || [])
+      } catch (e) {
+        // silent
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear()
@@ -176,10 +85,22 @@ export function EventCalendarTab() {
   }
 
   const getEventsForDate = (date: Date) => {
-    return events.filter(event => 
-      event.date.toDateString() === date.toDateString() &&
-      (selectedType === "all" || event.type === selectedType)
-    )
+    const dayStr = date.toDateString()
+    return apiEvents.filter(evt => {
+      const start = new Date(evt.startDate)
+      const end = new Date(evt.endDate || evt.startDate)
+      const inRange = start <= date && date <= end
+      return inRange
+    }).map(evt => ({
+      id: evt.id,
+      title: evt.title,
+      date,
+      time: new Date(evt.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      duration: '',
+      location: evt.location,
+      priority: 'high',
+      description: evt.description
+    }))
   }
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -197,7 +118,38 @@ export function EventCalendarTab() {
   const days = getDaysInMonth(currentDate)
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-  return (
+  const handleSubmitEvent = async (values: EventFormValues) => {
+    try {
+      if (editingEvent) {
+        const res = await eventsApi.update(editingEvent.id, {
+          title: values.title,
+          description: values.description,
+          location: values.location,
+          startDate: values.startDate,
+          endDate: values.endDate,
+        })
+        if (res.success && res.data) {
+          setApiEvents(prev => prev.map(e => e.id === editingEvent.id ? (res.data as any) : e))
+        }
+        setEditingEvent(null)
+      } else {
+        const res = await eventsApi.create({
+          title: values.title,
+          description: values.description,
+          location: values.location,
+          startDate: values.startDate,
+          endDate: values.endDate,
+        })
+        if (res.success && res.data) {
+          setApiEvents(prev => [res.data as any, ...prev])
+        }
+      }
+    } finally {
+      setIsEventFormOpen(false)
+    }
+  }
+
+  return (<>
     <div className="space-y-6">
       {/* Calendar Header */}
       <div className="border rounded-xl border-gray-200 p-6">
@@ -207,7 +159,7 @@ export function EventCalendarTab() {
               <CalendarIcon className="w-5 h-5" />
               Event Calendar
             </CardTitle>
-            <Button className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded-full border-0 cursor-pointer">
+            <Button onClick={() => { setEditingEvent(null); setIsEventFormOpen(true) }} className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded-full border-0 cursor-pointer">
               <Plus className="w-4 h-4" />
               Add Event
             </Button>
@@ -215,40 +167,7 @@ export function EventCalendarTab() {
         </CardHeader>
       </div>
 
-      {/* Filters */}
-      <div className="border rounded-xl border-gray-200 p-6">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-700">Filter by type:</span>
-            <div className="flex gap-2">
-              {eventTypes.map(type => (
-                <Button
-                  key={type.id}
-                  variant={selectedType === type.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedType(type.id)}
-                  className={`flex items-center gap-2 rounded-full cursor-pointer transition-all duration-200 ${
-                    selectedType === type.id 
-                      ? "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0" 
-                      : "bg-transparent border-2 border-transparent text-gray-700 hover:text-white hover:from-green-600 hover:to-teal-700"
-                  }`}
-                  style={selectedType === type.id ? {
-                    color: 'white'
-                  } : {
-                    color: '#374151',
-                    background: 'linear-gradient(white, white) padding-box, linear-gradient(to right, #10b981, #0d9488) border-box',
-                    border: '2px solid transparent'
-                  }}
-                >
-                  <div className={`w-2 h-2 rounded-full ${type.color}`} />
-                  {type.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </div>
+      {/* Filters removed per request */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar View */}
@@ -309,10 +228,10 @@ export function EventCalendarTab() {
                                 <DialogTrigger asChild>
                                   <div
                                     className={`text-xs p-2 rounded border-2 border-dashed cursor-pointer hover:shadow-sm transition-all ${
-                                      priorityColors[event.priority as keyof typeof priorityColors]
+                                      'bg-blue-500'
                                     } text-white hover:scale-105`}
                                     onClick={() => {
-                                      setSelectedEvent(event)
+                                      setSelectedEvent(apiEvents.find(e => e.id === event.id) || null)
                                       setIsDialogOpen(true)
                                     }}
                                   >
@@ -323,9 +242,7 @@ export function EventCalendarTab() {
                                 <DialogContent className="max-w-md">
                                   <DialogHeader>
                                     <DialogTitle className="flex items-center gap-2">
-                                      <div className={`w-3 h-3 rounded-full ${
-                                        priorityColors[event.priority as keyof typeof priorityColors]
-                                      }`} />
+                                      <div className={`w-3 h-3 rounded-full bg-blue-500`} />
                                       {event.title}
                                     </DialogTitle>
                                   </DialogHeader>
@@ -334,8 +251,8 @@ export function EventCalendarTab() {
                                       <div className="flex items-center gap-3">
                                         <CalendarIcon className="w-4 h-4 text-gray-500" />
                                         <div>
-                                          <div className="text-sm">{event.date.toLocaleDateString()}</div>
-                                          <div className="text-xs text-gray-500">{event.time} • {event.duration}</div>
+                                          <div className="text-sm">{new Date(event.date).toLocaleDateString()}</div>
+                                          <div className="text-xs text-gray-500">{event.time}</div>
                                         </div>
                                       </div>
                                       
@@ -349,14 +266,7 @@ export function EventCalendarTab() {
                                         <div className="text-sm">{event.attendees} attendees</div>
                                       </div>
                                       
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${
-                                          priorityColors[event.priority as keyof typeof priorityColors]
-                                        }`} />
-                                        <Badge variant="outline" className="capitalize">
-                                          {event.priority} priority
-                                        </Badge>
-                                      </div>
+                                      
                                     </div>
                                     
                                     <div className="pt-3 border-t">
@@ -367,8 +277,9 @@ export function EventCalendarTab() {
                                       <Button 
                                         size="sm" 
                                         className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-full border-0 cursor-pointer"
+                                        onClick={() => { const evt = apiEvents.find(e => e.id === event.id); if (evt) { setEditingEvent(evt); setIsEventFormOpen(true); }}}
                                       >
-                                        Join Event
+                                        Edit
                                       </Button>
                                       <Button 
                                         variant="outline" 
@@ -379,7 +290,7 @@ export function EventCalendarTab() {
                                           border: '2px solid transparent'
                                         }}
                                       >
-                                        Edit
+                                        Close
                                       </Button>
                                     </div>
                                   </div>
@@ -409,34 +320,32 @@ export function EventCalendarTab() {
               <CardTitle className="text-base text-gray-900">Upcoming Events</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {events
-                .filter(event => event.date >= new Date() && (selectedType === "all" || event.type === selectedType))
+              {apiEvents
+                .filter(evt => new Date(evt.startDate) >= new Date())
                 .slice(0, 5)
-                .map((event, index) => (
+                .map((evt, index) => (
                   <motion.div
-                    key={event.id}
+                    key={evt.id}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
                     className="p-2 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => setSelectedEvent(event)}
+                    onClick={() => setSelectedEvent(evt)}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-3 h-3 rounded-full mt-1 ${
-                        priorityColors[event.priority as keyof typeof priorityColors]
-                      }`} />
+                      <div className="w-3 h-3 rounded-full mt-1 bg-blue-500" />
                       <div className="flex-1">
                         <h4 className="text-xs text-gray-900 mb-1">
-                          {event.title}
+                          {evt.title}
                         </h4>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <div className="flex items-center gap-1">
                             <CalendarIcon className="w-3 h-3" />
-                            {event.date.toLocaleDateString()}
+                            {new Date(evt.startDate).toLocaleDateString()}
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {event.time}
+                            {new Date(evt.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       </div>
@@ -461,8 +370,11 @@ export function EventCalendarTab() {
                     <div className="flex items-center gap-3">
                       <CalendarIcon className="w-4 h-4 text-gray-500" />
                       <div>
-                        <div className="text-sm">{selectedEvent.date.toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-500">{selectedEvent.time} • {selectedEvent.duration}</div>
+                        <div className="text-sm">{new Date(selectedEvent.startDate).toLocaleDateString()} - {new Date(selectedEvent.endDate || selectedEvent.startDate).toLocaleDateString()}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(selectedEvent.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {selectedEvent.endDate ? ` - ${new Date(selectedEvent.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                        </div>
                       </div>
                     </div>
                     
@@ -471,19 +383,9 @@ export function EventCalendarTab() {
                       <div className="text-sm">{selectedEvent.location}</div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
-                      <Users className="w-4 h-4 text-gray-500" />
-                      <div className="text-sm">{selectedEvent.attendees} attendees</div>
-                    </div>
+                    {/* Attendees not available from API */}
                     
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        priorityColors[selectedEvent.priority as keyof typeof priorityColors]
-                      }`} />
-                      <Badge variant="outline" className="capitalize">
-                        {selectedEvent.priority} priority
-                      </Badge>
-                    </div>
+                    {/* Priority not available from API */}
                   </div>
                   
                   <div className="pt-3 border-t">
@@ -492,12 +394,7 @@ export function EventCalendarTab() {
                   
                   <div className="flex gap-2">
                     <Button 
-                      size="sm" 
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-full border-0 cursor-pointer"
-                    >
-                      Join Event
-                    </Button>
-                    <Button 
+                      onClick={() => { setEditingEvent(selectedEvent); setIsEventFormOpen(true) }}
                       variant="outline" 
                       size="sm"
                       className="bg-transparent border-2 border-transparent bg-gradient-to-r from-green-500 to-teal-600 bg-clip-border rounded-full text-gray-700 hover:from-green-600 hover:to-teal-700 hover:text-white transition-all duration-200 cursor-pointer"
@@ -516,5 +413,18 @@ export function EventCalendarTab() {
         </div>
       </div>
     </div>
-  )
+    <EventForm
+      open={isEventFormOpen}
+      onClose={() => { setIsEventFormOpen(false); setEditingEvent(null) }}
+      onSubmit={handleSubmitEvent}
+      mode={editingEvent ? 'edit' : 'create'}
+      initialValues={editingEvent ? {
+        title: editingEvent.title,
+        description: editingEvent.description,
+        location: editingEvent.location,
+        startDate: editingEvent.startDate?.slice(0,16),
+        endDate: editingEvent.endDate?.slice(0,16),
+      } : undefined}
+    />
+  </>)
 }

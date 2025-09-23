@@ -315,6 +315,27 @@ export interface EmployeePayroll {
   }
 }
 
+export interface LeaveBalance {
+  id: string
+  employeeId: string
+  leaveType: string
+  balance: string
+  currencyId: string
+  createdAt: string
+  updatedAt: string
+  employee: Employee
+  currency: {
+    id: string
+    code: string
+    name: string
+    symbol: string
+    isActive: boolean
+    isDefault: boolean
+    createdAt: string
+    updatedAt: string
+  }
+}
+
 export interface Payslip {
   id: string
   payRunId: string
@@ -578,6 +599,10 @@ export const payslipsApi = {
 
   getByEmployee: async (employeeId: string): Promise<ApiResponse<Payslip[]>> => {
     return apiClient.get<ApiResponse<Payslip[]>>(`/payroll/payslips?employeeId=${employeeId}`)
+  },
+
+  getByEmployeeAndRun: async (employeeId: string, payrollRunId: string): Promise<ApiResponse<Payslip>> => {
+    return apiClient.get<ApiResponse<Payslip>>(`/payroll/payslips/${employeeId}/${payrollRunId}`)
   }
 }
 
@@ -608,6 +633,31 @@ export const allowanceTypesApi = {
 
   delete: async (id: string): Promise<ApiResponse<void>> => {
     return apiClient.delete<ApiResponse<void>>(`/payroll/allowance-types/${id}`)
+  }
+}
+
+
+// Leave Balances API
+export const leaveBalancesApi = {
+  getByEmployee: async (employeeId: string): Promise<ApiResponse<LeaveBalance[]>> => {
+    return apiClient.get<ApiResponse<LeaveBalance[]>>(`/payroll/leave-balances?employeeId=${employeeId}`)
+  },
+
+  create: async (data: {
+    employeeId: string
+    leaveType: string
+    balance: number
+    currencyId: string
+  }): Promise<ApiResponse<LeaveBalance>> => {
+    return apiClient.post<ApiResponse<LeaveBalance>>('/payroll/leave-balances', data)
+  },
+
+  update: async (id: string, data: {
+    leaveType?: string
+    balance?: number
+    currencyId?: string
+  }): Promise<ApiResponse<LeaveBalance>> => {
+    return apiClient.put<ApiResponse<LeaveBalance>>(`/payroll/leave-balances/${id}`, data)
   }
 }
 

@@ -20,6 +20,8 @@ import {
   X,
   Download
 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Loader2 } from "lucide-react"
 
 interface PayrollRunDrawerProps {
   isOpen: boolean
@@ -54,6 +56,8 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
   const [detailedRun, setDetailedRun] = useState<PayrollRun | null>(null)
   const [loading, setLoading] = useState(false)
   const [isBankFileDialogOpen, setIsBankFileDialogOpen] = useState(false)
+  const [isProcessOpen, setIsProcessOpen] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   // Load detailed payroll run data
   const loadDetailedRun = useCallback(async () => {
@@ -89,8 +93,7 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
   }
 
   const handleProcess = () => {
-    onProcess(payrollRun)
-    onClose()
+    setIsProcessOpen(true)
   }
 
   // Get status badge variant
@@ -193,14 +196,16 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
               Payroll Run Details
             </SheetTitle>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEdit}
-                className="h-8 w-8 p-0 rounded-full"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
+              {payrollRun.status === 'DRAFT' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEdit}
+                  className="h-8 w-8 p-0 rounded-full"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -240,7 +245,7 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  className={`relative flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -337,13 +342,15 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
                       Generate Bank File
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    onClick={handleEdit}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Run
-                  </Button>
+                  {payrollRun.status === 'DRAFT' && (
+                    <Button
+                      variant="outline"
+                      onClick={handleEdit}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Run
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -555,6 +562,61 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
           payrollRunName={payrollRun.name}
         />
       )}
+
+      {/* Process Confirmation Dialog */}
+      <Dialog open={isProcessOpen} onOpenChange={setIsProcessOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-normal flex items-center gap-2">
+              <Play className="w-5 h-5 text-blue-600" />
+              Process Payroll Run
+            </DialogTitle>
+            <DialogDescription>
+              {payrollRun ? (
+                <>This will calculate all employee payrolls for "{payrollRun.name}" and update totals. You can only process runs in Draft status.</>
+              ) : (
+                <>This will calculate all employee payrolls and update totals. You can only process runs in Draft status.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsProcessOpen(false)}
+              disabled={isProcessing}
+              className="rounded-full"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="gradient-primary text-white rounded-full"
+              disabled={isProcessing}
+              onClick={async () => {
+                if (!payrollRun) return
+                try {
+                  setIsProcessing(true)
+                  await onProcess(payrollRun)
+                  setIsProcessOpen(false)
+                  onClose()
+                } finally {
+                  setIsProcessing(false)
+                }
+              }}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Process'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   )
 }

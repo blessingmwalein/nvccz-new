@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useRef, useEffect } from "react"
 import { MODULE_CONFIG } from "@/lib/config/modules"
+import { useRouter } from "next/navigation"
 
 interface AppSwitcherDropdownProps {
   isOpen: boolean
@@ -12,6 +13,7 @@ interface AppSwitcherDropdownProps {
 
 export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentModule }: AppSwitcherDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -67,6 +69,10 @@ export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentMo
                   e.stopPropagation()
                   console.log('App switcher clicked:', module.id)
                   onModuleSelect(module.id)
+                  // Client-side navigate to module path
+                  if (module.path) {
+                    router.push(module.path)
+                  }
                   onClose()
                 }}
                 className={`

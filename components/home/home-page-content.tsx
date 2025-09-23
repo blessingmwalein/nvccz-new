@@ -13,7 +13,7 @@ import { TabView, type TabType } from "./tab-view";
 import { FeedTab } from "./feed-tab";
 import { ArticlesFeed } from "./articles-feed";
 import { NewsletterTab } from "./newsletter-tab";
-import { ForumTab } from "./forum-tab";
+// import { ForumTab } from "./forum-tab";
 import { EventCalendarTab } from "./event-calendar-tab";
 import { DashboardTab } from "./dashboard-tab";
 import { FinancialDataProvider } from "@/components/providers/financial-data-provider";
@@ -29,8 +29,8 @@ export function HomePageContent() {
         return <ArticlesFeed />;
       case "newsletter":
         return <NewsletterTab />;
-      case "forum":
-        return <ForumTab />;
+      // case "forum":
+      //   return <ForumTab />;
       case "calendar":
         return <EventCalendarTab />;
       case "dashboard":
@@ -69,13 +69,15 @@ export function HomePageContent() {
       case "account-performance":
         targetPath = "/account";
         break;
+      case "payroll":
+        targetPath = "/payroll";
+        break;
       default:
         targetPath = "/";
     }
     
     console.log('Home page navigating to:', targetPath);
-    // router.refresh(targetPath);
-    //use js redirect to the target path
+    // router.push(targetPath);
     window.location.href = targetPath;
   };
 
