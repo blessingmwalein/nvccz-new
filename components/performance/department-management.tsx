@@ -8,12 +8,14 @@ import {
   removeDepartment,
   setDepartments,
   setLoading,
+  setCrudLoading,
   setError
 } from "@/lib/store/slices/performanceSlice"
 import { performanceAPI } from "@/lib/api/performance-data"
 import { DepartmentManagementSkeleton } from "./department-skeleton"
 import { DepartmentForm } from "./department-form"
 import { DepartmentViewDrawer } from "./department-view-drawer"
+import { ConfirmDeleteModal } from "./confirm-delete-modal"
 import {
   Pagination,
   PaginationContent,
@@ -45,21 +47,31 @@ import {
   Search,
   Plus,
   RefreshCw,
-  Eye
+  X
 } from "lucide-react"
+import { 
+  CiViewList,
+  CiEdit,
+  CiTrash,
+  CiBank,
+  CiRedo
+} from "react-icons/ci"
 import { toast } from "sonner"
 
 export function DepartmentManagement() {
   const dispatch = useAppDispatch()
-  const { departments, loading, error } = useAppSelector((state) => state.performance)
+  const { departments, loading, crudLoading, error } = useAppSelector((state) => state.performance)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingDepartment, setEditingDepartment] = useState<any>(null)
   const [hasLoaded, setHasLoaded] = useState(false)
   const [viewingDepartment, setViewingDepartment] = useState<any>(null)
   const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [departmentToDelete, setDepartmentToDelete] = useState<any>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedBranch, setSelectedBranch] = useState("all")
+  const [selectedStatus, setSelectedStatus] = useState("all")
   const itemsPerPage = 9
 
   // Load departments on component mount - prevent duplicate calls
@@ -69,26 +81,45 @@ export function DepartmentManagement() {
     try {
       dispatch(setLoading(true))
       dispatch(setError(null))
-      const departments = await performanceAPI.getDepartments()
+      
+      // Use backend filtering
+      const filters: { isActive?: boolean; branch?: string } = {}
+      if (selectedBranch !== "all") {
+        filters.branch = selectedBranch
+      }
+      if (selectedStatus !== "all") {
+        filters.isActive = selectedStatus === "active"
+      }
+      
+      console.log('Loading departments with filters:', filters)
+      const departments = await performanceAPI.getDepartments(filters)
       dispatch(setDepartments(departments))
       setHasLoaded(true)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load departments:', error)
-      dispatch(setError('Failed to load departments'))
+      dispatch(setError(error.message || 'Failed to load departments'))
     } finally {
       dispatch(setLoading(false))
     }
-  }, [dispatch, hasLoaded, loading])
+  }, [dispatch, hasLoaded, loading, selectedBranch, selectedStatus])
 
   useEffect(() => {
     loadDepartments()
   }, [loadDepartments])
 
+  // Reload departments when filters change
+  useEffect(() => {
+    if (hasLoaded) {
+      console.log('Filter changed, reloading departments...')
+      loadDepartments(true)
+    }
+  }, [selectedBranch, selectedStatus])
+
+  // Only apply client-side search filtering since branch and status are handled by backend
   const filteredDepartments = departments.filter(dept => {
-    const matchesBranch = selectedBranch === "all" || dept.branch === selectedBranch
     const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          dept.description.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesBranch && matchesSearch
+    return matchesSearch
   })
 
   // Pagination logic
@@ -100,11 +131,50 @@ export function DepartmentManagement() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedBranch, searchTerm])
+  }, [selectedBranch, selectedStatus, searchTerm])
 
   const handleViewDepartment = (department: any) => {
     setViewingDepartment(department)
     setIsViewDrawerOpen(true)
+  }
+
+  const handleEditDepartment = (department: any) => {
+    setEditingDepartment(department)
+    setIsDialogOpen(true)
+  }
+
+  const handleDeleteDepartment = (department: any) => {
+    setDepartmentToDelete(department)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!departmentToDelete) return
+    
+    console.log('Parent: Starting delete operation for department:', departmentToDelete.id)
+    try {
+      dispatch(setCrudLoading(true))
+      console.log('Parent: CRUD loading set to true')
+      await performanceAPI.deleteDepartment(departmentToDelete.id)
+      console.log('Parent: API call completed successfully')
+      dispatch(removeDepartment(departmentToDelete.id))
+      toast.success("Department deleted successfully")
+      // Close modal only after successful deletion
+      handleCloseDeleteModal()
+    } catch (error: any) {
+      console.error('Parent: Failed to delete department:', error)
+      toast.error(error.message || "Failed to delete department")
+      // Re-throw the error so the modal can handle it
+      throw error
+    } finally {
+      dispatch(setCrudLoading(false))
+      console.log('Parent: CRUD loading set to false')
+    }
+  }
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setDepartmentToDelete(null)
   }
 
   const handlePageChange = (page: number) => {
@@ -113,8 +183,9 @@ export function DepartmentManagement() {
 
   const handleCreateDepartment = async (departmentData: any) => {
     try {
-      dispatch(setLoading(true))
+      dispatch(setCrudLoading(true))
       const department = await performanceAPI.createDepartment(departmentData)
+      // Add new department to the top of the list
       dispatch(addDepartment(department))
       toast.success("Department created successfully")
       setIsDialogOpen(false)
@@ -122,13 +193,13 @@ export function DepartmentManagement() {
       console.error('Failed to create department:', error)
       toast.error(error.message || "Failed to create department")
     } finally {
-      dispatch(setLoading(false))
+      dispatch(setCrudLoading(false))
     }
   }
 
   const handleUpdateDepartment = async (id: string, updates: any) => {
     try {
-      dispatch(setLoading(true))
+      dispatch(setCrudLoading(true))
       const department = await performanceAPI.updateDepartment(id, updates)
       dispatch(updateDepartment({ id, updates: department }))
       toast.success("Department updated successfully")
@@ -138,28 +209,17 @@ export function DepartmentManagement() {
       console.error('Failed to update department:', error)
       toast.error(error.message || "Failed to update department")
     } finally {
-      dispatch(setLoading(false))
+      dispatch(setCrudLoading(false))
     }
   }
 
-  const handleDeleteDepartment = async (id: string) => {
-    try {
-      dispatch(setLoading(true))
-      await performanceAPI.deleteDepartment(id)
-      dispatch(removeDepartment(id))
-      toast.success("Department deleted successfully")
-    } catch (error: any) {
-      console.error('Failed to delete department:', error)
-      toast.error(error.message || "Failed to delete department")
-    } finally {
-      dispatch(setLoading(false))
-    }
-  }
 
   const getBranchColor = (branch: string) => {
     switch (branch) {
-      case 'main': return 'bg-blue-100 text-blue-800'
       case 'main_office': return 'bg-green-100 text-green-800'
+      case 'main': return 'bg-blue-100 text-blue-800'
+      case 'branch_1': return 'bg-purple-100 text-purple-800'
+      case 'branch_2': return 'bg-orange-100 text-orange-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -177,10 +237,10 @@ export function DepartmentManagement() {
             variant="outline"
             onClick={() => loadDepartments(true)}
             disabled={loading}
-            className="rounded-full"
+            className="rounded-full bg-gradient-to-br from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-gray-300"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <CiRedo className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -205,7 +265,7 @@ export function DepartmentManagement() {
                   setIsDialogOpen(false)
                   setEditingDepartment(null)
                 }}
-                isLoading={loading}
+                isLoading={crudLoading}
               />
             </DialogContent>
           </Dialog>
@@ -234,37 +294,119 @@ export function DepartmentManagement() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search departments..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+      <div className="space-y-4">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search departments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
+          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by branch" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              <SelectItem value="main_office">Main Office</SelectItem>
+              <SelectItem value="main">Main</SelectItem>
+              <SelectItem value="branch_1">Branch 1</SelectItem>
+              <SelectItem value="branch_2">Branch 2</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active Only</SelectItem>
+              <SelectItem value="inactive">Inactive Only</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by branch" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Branches</SelectItem>
-            <SelectItem value="main">Main</SelectItem>
-            <SelectItem value="main_office">Main Office</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Filter Indicators */}
+        {(selectedBranch !== "all" || selectedStatus !== "all" || searchTerm) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-gray-600 font-medium">
+              {[
+                selectedBranch !== "all" ? 1 : 0,
+                selectedStatus !== "all" ? 1 : 0,
+                searchTerm ? 1 : 0
+              ].reduce((a, b) => a + b, 0)} filter{[
+                selectedBranch !== "all" ? 1 : 0,
+                selectedStatus !== "all" ? 1 : 0,
+                searchTerm ? 1 : 0
+              ].reduce((a, b) => a + b, 0) !== 1 ? 's' : ''} applied
+            </span>
+            
+            {selectedBranch !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Branch: {selectedBranch.replace('_', ' ')}
+                <button
+                  onClick={() => setSelectedBranch("all")}
+                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            )}
+            
+            {selectedStatus !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Status: {selectedStatus}
+                <button
+                  onClick={() => setSelectedStatus("all")}
+                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            )}
+            
+            {searchTerm && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Search: "{searchTerm}"
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            )}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedBranch("all")
+                setSelectedStatus("all")
+                setSearchTerm("")
+              }}
+              className="text-xs"
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Empty State */}
       {!loading && !error && filteredDepartments.length === 0 && (
         <div className="text-center py-12">
-          <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <CiBank className="w-10 h-10 text-white" />
+          </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No departments found</h3>
           <p className="text-gray-600 mb-6">
-            {searchTerm || selectedBranch !== "all" 
+            {searchTerm || selectedBranch !== "all" || selectedStatus !== "all"
               ? "Try adjusting your search or filter criteria."
               : "Get started by creating your first department."
             }
@@ -284,15 +426,33 @@ export function DepartmentManagement() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-normal">{department.name}</CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="rounded-full w-9 h-9 p-0 gradient-primary text-white"
+                      className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                       onClick={() => handleViewDepartment(department)}
                       title="View Details"
                     >
-                      <Eye className="w-4 h-4" />
+                      <CiViewList className="w-5 h-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                      onClick={() => handleEditDepartment(department)}
+                      title="Edit Department"
+                    >
+                      <CiEdit className="w-5 h-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                      onClick={() => handleDeleteDepartment(department)}
+                      title="Delete Department"
+                    >
+                      <CiTrash className="w-5 h-5" />
                     </Button>
                   </div>
                 </div>
@@ -377,6 +537,18 @@ export function DepartmentManagement() {
           setIsViewDrawerOpen(false)
           setViewingDepartment(null)
         }}
+        onEdit={handleEditDepartment}
+      />
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Delete Department"
+        description="Are you sure you want to delete this department? This action will permanently remove the department and all its associated data."
+        itemName={departmentToDelete?.name || ""}
+        isLoading={crudLoading}
       />
     </div>
   )

@@ -1,11 +1,11 @@
 import { PerformanceLayout } from "@/components/layout/performance-layout"
-import { TasksManagement } from "@/components/performance/tasks-management"
+import { TaskManagement } from "@/components/performance/task-management"
 
 export default function TasksPage() {
   return (
     <PerformanceLayout>
       <div className="p-6">
-        <TasksManagement />
+        <TaskManagement />
       </div>
     </PerformanceLayout>
   )

@@ -130,7 +130,7 @@ export function DepartmentScorecardDrawer({ scorecard, isOpen, onClose, loading 
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto p-4">
+      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto p-4 [&>button[aria-label='Close']]:hidden">
         <SheetHeader>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">

@@ -6,7 +6,12 @@ import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { 
+  CiFloppyDisk,
+  CiSquareRemove
+} from "react-icons/ci"
 import { 
   Select,
   SelectContent,
@@ -103,11 +108,12 @@ export function DepartmentForm({ department, onSave, onClose, isLoading = false 
           name="description"
           control={control}
           render={({ field }) => (
-            <Input
+            <Textarea
               {...field}
               id="description"
               placeholder="Department Description"
               className={errors.description ? "border-red-500" : ""}
+              rows={3}
             />
           )}
         />
@@ -122,12 +128,17 @@ export function DepartmentForm({ department, onSave, onClose, isLoading = false 
           name="branch"
           control={control}
           render={({ field }) => (
-            <Input
-              {...field}
-              id="branch"
-              placeholder="Branch"
-              className={errors.branch ? "border-red-500" : ""}
-            />
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger className={errors.branch ? "border-red-500" : ""}>
+                <SelectValue placeholder="Select branch" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="main_office">Main Office</SelectItem>
+                <SelectItem value="main">Main</SelectItem>
+                <SelectItem value="branch_1">Branch 1</SelectItem>
+                <SelectItem value="branch_2">Branch 2</SelectItem>
+              </SelectContent>
+            </Select>
           )}
         />
         {errors.branch && (
@@ -152,20 +163,23 @@ export function DepartmentForm({ department, onSave, onClose, isLoading = false 
         <Label htmlFor="isActive">Active</Label>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         <Button 
           type="button" 
           variant="outline" 
           onClick={onClose}
           disabled={isSubmitting}
+          className="rounded-full bg-gradient-to-br from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-gray-300"
         >
+          <CiSquareRemove className="w-4 h-4 mr-2" />
           Cancel
         </Button>
         <Button 
           type="submit" 
-          className="gradient-primary text-white"
+          className="rounded-full gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
           disabled={!isValid || isSubmitting || isLoading}
         >
+          <CiFloppyDisk className="w-4 h-4 mr-2" />
           {isSubmitting ? "Saving..." : department ? "Update Department" : "Create Department"}
         </Button>
       </div>

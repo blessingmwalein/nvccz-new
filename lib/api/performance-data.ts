@@ -1,5 +1,5 @@
 import { KPI, Department, PerformanceGoal, Task, PerformanceMetrics } from "@/lib/store/slices/performanceSlice"
-import { kpiApiService, KPICreateRequest } from "./kpi-api"
+import { kpiDataService } from "./kpi-data"
 import { departmentApiService } from "./department-api"
 
 // Transform backend KPI data to frontend format
@@ -304,81 +304,31 @@ const transformDepartmentData = (backendDepartment: any): Department => {
 // API Service Functions (Real backend integration)
 export const performanceAPI = {
   // KPI APIs
-  getKPIs: async (): Promise<KPI[]> => {
-    try {
-      const response = await kpiApiService.getKPIs()
-      return response.kpis.map(transformKPIData)
-    } catch (error) {
-      console.error('Failed to fetch KPIs:', error)
-      throw new Error('Failed to fetch KPIs')
-    }
+  getKPIs: async (filters?: { type?: string; category?: string; departmentId?: string; isActive?: boolean }): Promise<KPI[]> => {
+    return kpiDataService.getKPIs(filters)
   },
   
-  createKPI: async (kpi: Omit<KPI, 'id' | 'createdAt' | 'updatedAt'>): Promise<KPI> => {
-    try {
-      const createRequest: KPICreateRequest = {
-        name: kpi.name,
-        description: kpi.description,
-        type: kpi.type,
-        unit: kpi.unit,
-        targetValue: kpi.targetValue,
-        currentValue: kpi.currentValue,
-        category: kpi.category,
-        frequency: kpi.frequency,
-        departmentId: kpi.departmentId,
-        weightValue: parseFloat(kpi.weightValue),
-        isActive: kpi.isActive,
-      }
-      
-      const response = await kpiApiService.createKPI(createRequest)
-      return transformKPIData(response.kpi)
-    } catch (error) {
-      console.error('Failed to create KPI:', error)
-      throw new Error('Failed to create KPI')
-    }
+  createKPI: async (kpiData: any): Promise<KPI> => {
+    return kpiDataService.createKPI(kpiData)
   },
   
-  updateKPI: async (id: string, updates: Partial<KPI>): Promise<KPI> => {
-    try {
-      const updateRequest: Partial<KPICreateRequest> = {
-        name: updates.name,
-        description: updates.description,
-        type: updates.type,
-        unit: updates.unit,
-        targetValue: updates.targetValue,
-        currentValue: updates.currentValue,
-        category: updates.category,
-        frequency: updates.frequency,
-        departmentId: updates.departmentId,
-        weightValue: updates.weightValue ? parseFloat(updates.weightValue) : undefined,
-        isActive: updates.isActive,
-      }
-      
-      const response = await kpiApiService.updateKPI(id, updateRequest)
-      return transformKPIData(response.kpi)
-    } catch (error) {
-      console.error('Failed to update KPI:', error)
-      throw new Error('Failed to update KPI')
-    }
+  updateKPI: async (id: string, updates: any): Promise<KPI> => {
+    return kpiDataService.updateKPI(id, updates)
   },
   
   deleteKPI: async (id: string): Promise<void> => {
-    try {
-      await kpiApiService.deleteKPI(id)
-    } catch (error) {
-      console.error('Failed to delete KPI:', error)
-      throw new Error('Failed to delete KPI')
-    }
+    return kpiDataService.deleteKPI(id)
   },
 
   // Department APIs
-  getDepartments: async (): Promise<Department[]> => {
+  getDepartments: async (filters?: { isActive?: boolean; branch?: string }): Promise<Department[]> => {
     try {
-      const response = await departmentApiService.getDepartments()
+      const response = await departmentApiService.getDepartments(filters)
       return response.departments.map(transformDepartmentData)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch departments:', error)
-      throw new Error('Failed to fetch departments')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to fetch departments'
+      throw new Error(errorMessage)
     }
   },
 
@@ -386,9 +336,10 @@ export const performanceAPI = {
     try {
       const response = await departmentApiService.createDepartment(department)
       return transformDepartmentData(response.department)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create department:', error)
-      throw new Error('Failed to create department')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create department'
+      throw new Error(errorMessage)
     }
   },
 
@@ -396,30 +347,21 @@ export const performanceAPI = {
     try {
       const response = await departmentApiService.updateDepartment(id, updates)
       return transformDepartmentData(response.department)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update department:', error)
-      throw new Error('Failed to update department')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update department'
+      throw new Error(errorMessage)
     }
   },
 
   deleteDepartment: async (id: string): Promise<void> => {
     try {
       await departmentApiService.deleteDepartment(id)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete department:', error)
-      throw new Error('Failed to delete department')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete department'
+      throw new Error(errorMessage)
     }
-  },
-  
-  createDepartment: async (department: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>): Promise<Department> => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const newDepartment: Department = {
-      ...department,
-      id: `dept_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    return newDepartment
   },
   
   // Goal APIs

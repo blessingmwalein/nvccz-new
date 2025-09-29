@@ -13,6 +13,7 @@ import performanceSlice from "./slices/performanceSlice"
 import payrollSlice from "./slices/payrollSlice"
 import currenciesSlice from "./slices/currenciesSlice"
 import usersSlice from "./slices/usersSlice"
+import taskSlice from "./slices/taskSlice"
 
 export const store = configureStore({
   reducer: {
@@ -29,6 +30,7 @@ export const store = configureStore({
     payroll: payrollSlice,
     currencies: currenciesSlice,
     users: usersSlice,
+    tasks: taskSlice,
   },
 })
 

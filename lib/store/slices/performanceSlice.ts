@@ -123,6 +123,7 @@ interface PerformanceState {
   
   // UI State
   loading: boolean
+  crudLoading: boolean
   error: string | null
   
   // Filters
@@ -131,6 +132,19 @@ interface PerformanceState {
   selectedPriority: string
   selectedStatus: string
   searchTerm: string
+  
+  // KPI Filters
+  selectedKPIType: string
+  selectedKPICategory: string
+  selectedKPIDepartment: string
+  selectedKPIStatus: string
+  kpiSearchTerm: string
+  
+  // Goal Filters
+  selectedGoalType: string
+  selectedGoalCategory: string
+  selectedGoalDepartment: string
+  selectedGoalAssignedTo: string
   
   // Pagination
   currentPage: number
@@ -147,6 +161,7 @@ const initialState: PerformanceState = {
   
   // UI State
   loading: false,
+  crudLoading: false,
   error: null,
   
   // Filters
@@ -155,6 +170,19 @@ const initialState: PerformanceState = {
   selectedPriority: "all",
   selectedStatus: "all",
   searchTerm: "",
+  
+  // KPI Filters
+  selectedKPIType: "all",
+  selectedKPICategory: "all",
+  selectedKPIDepartment: "all",
+  selectedKPIStatus: "all",
+  kpiSearchTerm: "",
+  
+  // Goal Filters
+  selectedGoalType: "all",
+  selectedGoalCategory: "all",
+  selectedGoalDepartment: "all",
+  selectedGoalAssignedTo: "all",
   
   // Pagination
   currentPage: 1,
@@ -169,6 +197,9 @@ const performanceSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload
     },
+    setCrudLoading: (state, action: PayloadAction<boolean>) => {
+      state.crudLoading = action.payload
+    },
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload
     },
@@ -178,7 +209,7 @@ const performanceSlice = createSlice({
       state.kpis = action.payload
     },
     addKPI: (state, action: PayloadAction<KPI>) => {
-      state.kpis.push(action.payload)
+      state.kpis.unshift(action.payload)
     },
     updateKPI: (state, action: PayloadAction<{ id: string; updates: Partial<KPI> }>) => {
       const index = state.kpis.findIndex((kpi) => kpi.id === action.payload.id)
@@ -195,7 +226,7 @@ const performanceSlice = createSlice({
       state.departments = action.payload
     },
     addDepartment: (state, action: PayloadAction<Department>) => {
-      state.departments.push(action.payload)
+      state.departments.unshift(action.payload)
     },
     updateDepartment: (state, action: PayloadAction<{ id: string; updates: Partial<Department> }>) => {
       const index = state.departments.findIndex((dept) => dept.id === action.payload.id)
@@ -212,7 +243,7 @@ const performanceSlice = createSlice({
       state.goals = action.payload
     },
     addGoal: (state, action: PayloadAction<PerformanceGoal>) => {
-      state.goals.push(action.payload)
+      state.goals.unshift(action.payload)
     },
     updateGoal: (state, action: PayloadAction<{ id: string; updates: Partial<PerformanceGoal> }>) => {
       const index = state.goals.findIndex((goal) => goal.id === action.payload.id)
@@ -229,7 +260,7 @@ const performanceSlice = createSlice({
       state.tasks = action.payload
     },
     addTask: (state, action: PayloadAction<Task>) => {
-      state.tasks.push(action.payload)
+      state.tasks.unshift(action.payload)
     },
     updateTask: (state, action: PayloadAction<{ id: string; updates: Partial<Task> }>) => {
       const index = state.tasks.findIndex((task) => task.id === action.payload.id)
@@ -263,6 +294,37 @@ const performanceSlice = createSlice({
       state.searchTerm = action.payload
     },
     
+    // KPI Filters
+    setSelectedKPIType: (state, action: PayloadAction<string>) => {
+      state.selectedKPIType = action.payload
+    },
+    setSelectedKPICategory: (state, action: PayloadAction<string>) => {
+      state.selectedKPICategory = action.payload
+    },
+    setSelectedKPIDepartment: (state, action: PayloadAction<string>) => {
+      state.selectedKPIDepartment = action.payload
+    },
+    setSelectedKPIStatus: (state, action: PayloadAction<string>) => {
+      state.selectedKPIStatus = action.payload
+    },
+    setKPISearchTerm: (state, action: PayloadAction<string>) => {
+      state.kpiSearchTerm = action.payload
+    },
+    
+    // Goal Filters
+    setSelectedGoalType: (state, action: PayloadAction<string>) => {
+      state.selectedGoalType = action.payload
+    },
+    setSelectedGoalCategory: (state, action: PayloadAction<string>) => {
+      state.selectedGoalCategory = action.payload
+    },
+    setSelectedGoalDepartment: (state, action: PayloadAction<string>) => {
+      state.selectedGoalDepartment = action.payload
+    },
+    setSelectedGoalAssignedTo: (state, action: PayloadAction<string>) => {
+      state.selectedGoalAssignedTo = action.payload
+    },
+    
     // Pagination
     setCurrentPage: (state, action: PayloadAction<number>) => {
       state.currentPage = action.payload
@@ -280,12 +342,23 @@ const performanceSlice = createSlice({
       state.searchTerm = ""
       state.currentPage = 1
     },
+    
+    // Reset KPI filters
+    resetKPIFilters: (state) => {
+      state.selectedKPIType = "all"
+      state.selectedKPICategory = "all"
+      state.selectedKPIDepartment = "all"
+      state.selectedKPIStatus = "all"
+      state.kpiSearchTerm = ""
+      state.currentPage = 1
+    },
   },
 })
 
 export const {
   // Loading and Error
   setLoading,
+  setCrudLoading,
   setError,
   
   // KPIs
@@ -322,12 +395,26 @@ export const {
   setSelectedStatus,
   setSearchTerm,
   
+  // KPI Filters
+  setSelectedKPIType,
+  setSelectedKPICategory,
+  setSelectedKPIDepartment,
+  setSelectedKPIStatus,
+  setKPISearchTerm,
+  
+  // Goal Filters
+  setSelectedGoalType,
+  setSelectedGoalCategory,
+  setSelectedGoalDepartment,
+  setSelectedGoalAssignedTo,
+  
   // Pagination
   setCurrentPage,
   setItemsPerPage,
   
   // Reset
   resetFilters,
+  resetKPIFilters,
 } = performanceSlice.actions
 
 export default performanceSlice.reducer

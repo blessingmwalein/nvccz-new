@@ -1,26 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { usePathname } from "next/navigation"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { getModuleById } from "@/lib/config/modules"
-import { 
-  CiGrid41,
-  CiViewTimeline,
-  CiCircleCheck,
-  CiViewList
-} from "react-icons/ci"
 
 export function PerformanceSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
 
   const module = getModuleById("performance-management")
-
-  const handleItemClick = (path: string) => {
-    router.push(path)
-  }
 
   const isPathActive = (path: string) => {
     const base = path.split("?")[0]
@@ -53,19 +41,18 @@ export function PerformanceSidebar() {
             const Icon = subModule.icon
             const active = isPathActive(subModule.path)
             return (
-              <Button
+              <Link
                 key={subModule.id}
-                variant="ghost"
+                href={subModule.path}
                 className={cn(
-                  "w-full justify-start gap-3 h-12 cursor-pointer rounded-full transition-all duration-200 text-gray-800",
+                  "flex items-center gap-3 h-12 cursor-pointer rounded-full transition-all duration-200 text-gray-800 px-3",
                   "hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:rounded-full",
                   active && "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg rounded-full",
                 )}
-                onClick={() => handleItemClick(subModule.path)}
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-sm font-normal">{subModule.name}</span>
-              </Button>
+              </Link>
             )
           })}
         </div>

@@ -85,9 +85,23 @@ export interface TaskCreateResponse extends ApiResponse {
 }
 
 class DepartmentApiService {
-  // Get all departments
-  async getDepartments(): Promise<DepartmentsResponse> {
-    return apiClient.get<DepartmentsResponse>('/departments')
+  // Get all departments with optional filters
+  async getDepartments(filters?: {
+    isActive?: boolean;
+    branch?: string;
+  }): Promise<DepartmentsResponse> {
+    const queryParams = new URLSearchParams();
+    if (filters?.isActive !== undefined) {
+      queryParams.append('isActive', filters.isActive.toString());
+    }
+    if (filters?.branch) {
+      queryParams.append('branch', filters.branch);
+    }
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/departments?${queryString}` : '/departments';
+    
+    return apiClient.get<DepartmentsResponse>(url)
   }
 
   // Create a new department

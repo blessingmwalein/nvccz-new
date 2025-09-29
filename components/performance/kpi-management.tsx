@@ -3,19 +3,48 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { 
+  setKPIs,
   addKPI, 
   updateKPI, 
   removeKPI,
-  setSelectedCategory,
-  setSearchTerm,
-  setKPIs,
   setLoading,
-  setError
+  setCrudLoading,
+  setError,
+  setSelectedKPIType,
+  setSelectedKPICategory,
+  setSelectedKPIDepartment,
+  setSelectedKPIStatus,
+  setKPISearchTerm,
+  resetKPIFilters,
+  setDepartments
 } from "@/lib/store/slices/performanceSlice"
+import { kpiDataService } from "@/lib/api/kpi-data"
 import { performanceAPI } from "@/lib/api/performance-data"
-import { KPIManagementSkeleton } from "./kpi-skeleton"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
+import { 
+  CiCirclePlus, 
+  CiRedo, 
+  CiCircleCheck,
+  CiViewList,
+  CiEdit,
+  CiTrash
+} from "react-icons/ci"
+import { KPI } from "@/lib/store/slices/performanceSlice"
+import { KPICard } from "./kpi-card"
 import { KPIForm } from "./kpi-form"
-import { KPIViewModal } from "./kpi-view-modal"
+import { KPIViewDrawer } from "./kpi-view-drawer"
+import { KPIConfirmDeleteModal } from "./kpi-confirm-delete-modal"
+import { KPIManagementSkeleton } from "./kpi-skeleton"
 import {
   Pagination,
   PaginationContent,
@@ -24,78 +53,178 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { 
-  Target,
-  Edit,
-  Trash2,
-  Search,
-  Plus,
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-  Eye
-} from "lucide-react"
-import { toast } from "sonner"
 
 export function KPIManagement() {
   const dispatch = useAppDispatch()
-  const { kpis, selectedCategory, searchTerm, loading, error } = useAppSelector((state) => state.performance)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingKPI, setEditingKPI] = useState<any>(null)
-  const [hasLoaded, setHasLoaded] = useState(false)
-  const [viewingKPI, setViewingKPI] = useState<any>(null)
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 9
+  const {
+    kpis,
+    departments,
+    loading,
+    crudLoading,
+    error,
+    selectedKPIType,
+    selectedKPICategory,
+    selectedKPIDepartment,
+    selectedKPIStatus,
+    kpiSearchTerm
+  } = useAppSelector((state) => state.performance)
 
-  // Load KPIs on component mount - prevent duplicate calls
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [editingKPI, setEditingKPI] = useState<KPI | null>(null)
+  const [viewingKPI, setViewingKPI] = useState<KPI | null>(null)
+  const [kpiToDelete, setKpiToDelete] = useState<KPI | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(9)
+
+  const loadDepartments = useCallback(async () => {
+    try {
+      const departmentsData = await performanceAPI.getDepartments()
+      dispatch(setDepartments(departmentsData))
+    } catch (error: any) {
+      console.error('Failed to load departments:', error)
+    }
+  }, [dispatch])
+
   const loadKPIs = useCallback(async (forceReload = false) => {
     if ((hasLoaded || loading) && !forceReload) return
     
     try {
       dispatch(setLoading(true))
       dispatch(setError(null))
-      const fetchedKPIs = await performanceAPI.getKPIs()
-      dispatch(setKPIs(fetchedKPIs))
+
+      const filters: { 
+        type?: string
+        category?: string
+        departmentId?: string
+        isActive?: boolean
+      } = {}
+      
+      if (selectedKPIType !== "all") {
+        filters.type = selectedKPIType
+      }
+      if (selectedKPICategory !== "all") {
+        filters.category = selectedKPICategory
+      }
+      if (selectedKPIDepartment !== "all") {
+        filters.departmentId = selectedKPIDepartment
+      }
+      if (selectedKPIStatus !== "all") {
+        filters.isActive = selectedKPIStatus === "active"
+      }
+
+      console.log('Loading KPIs with filters:', filters)
+      const kpisData = await kpiDataService.getKPIs(filters)
+      dispatch(setKPIs(kpisData))
       setHasLoaded(true)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load KPIs:', error)
-      dispatch(setError('Failed to load KPIs'))
+      dispatch(setError(error.message || 'Failed to load KPIs'))
     } finally {
       dispatch(setLoading(false))
     }
-  }, [dispatch, hasLoaded, loading])
+  }, [dispatch, hasLoaded, loading, selectedKPIType, selectedKPICategory, selectedKPIDepartment, selectedKPIStatus])
 
   useEffect(() => {
+    loadDepartments()
     loadKPIs()
-  }, [loadKPIs])
+  }, [loadDepartments, loadKPIs])
 
-  const filteredKPIs = kpis.filter(kpi => {
-    const matchesCategory = selectedCategory === "all" || kpi.category === selectedCategory
-    const matchesSearch = kpi.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (kpi.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
-    return matchesCategory && matchesSearch
-  })
+  // Reload KPIs when filters change
+  useEffect(() => {
+    if (hasLoaded) {
+      console.log('KPI filter changed, reloading KPIs...')
+      loadKPIs(true)
+    }
+  }, [selectedKPIType, selectedKPICategory, selectedKPIDepartment, selectedKPIStatus])
+
+  const handleCreateKPI = () => {
+    setEditingKPI(null)
+    setIsDialogOpen(true)
+  }
+
+  const handleEditKPI = (kpi: KPI) => {
+    setEditingKPI(kpi)
+    setIsDialogOpen(true)
+  }
+
+  const handleViewKPI = (kpi: KPI) => {
+    setViewingKPI(kpi)
+    setIsViewDrawerOpen(true)
+  }
+
+  const handleDeleteKPI = (kpi: KPI) => {
+    setKpiToDelete(kpi)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleSubmitKPI = async (kpiData: any) => {
+    try {
+      dispatch(setCrudLoading(true))
+      if (editingKPI) {
+        const updatedKPI = await kpiDataService.updateKPI(editingKPI.id, kpiData)
+        dispatch(updateKPI({ id: editingKPI.id, updates: updatedKPI }))
+        toast.success("KPI updated successfully")
+      } else {
+        const newKPI = await kpiDataService.createKPI(kpiData)
+        dispatch(addKPI(newKPI))
+        toast.success("KPI created successfully")
+      }
+      setIsDialogOpen(false)
+      setEditingKPI(null)
+    } catch (error: any) {
+      console.error('Failed to save KPI:', error)
+      toast.error(error.message || "Failed to save KPI")
+    } finally {
+      dispatch(setCrudLoading(false))
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!kpiToDelete) return
+    
+    console.log('Parent: Starting KPI delete operation for:', kpiToDelete.id)
+    try {
+      dispatch(setCrudLoading(true))
+      console.log('Parent: CRUD loading set to true')
+      await kpiDataService.deleteKPI(kpiToDelete.id)
+      console.log('Parent: API call completed successfully')
+      dispatch(removeKPI(kpiToDelete.id))
+      toast.success("KPI deleted successfully")
+      // Close modal only after successful deletion
+      handleCloseDeleteModal()
+    } catch (error: any) {
+      console.error('Parent: Failed to delete KPI:', error)
+      toast.error(error.message || "Failed to delete KPI")
+      // Re-throw the error so the modal can handle it
+      throw error
+    } finally {
+      dispatch(setCrudLoading(false))
+      console.log('Parent: CRUD loading set to false')
+    }
+  }
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setKpiToDelete(null)
+  }
+
+  const handleRefresh = () => {
+    loadKPIs(true)
+  }
+
+  const handleResetFilters = () => {
+    dispatch(resetKPIFilters())
+  }
+
+  // Filter KPIs based on search term
+  const filteredKPIs = kpis.filter((kpi) =>
+    kpi.name.toLowerCase().includes(kpiSearchTerm.toLowerCase()) ||
+    kpi.description?.toLowerCase().includes(kpiSearchTerm.toLowerCase()) ||
+    kpi.category?.toLowerCase().includes(kpiSearchTerm.toLowerCase())
+  )
 
   // Pagination logic
   const totalPages = Math.ceil(filteredKPIs.length / itemsPerPage)
@@ -106,81 +235,20 @@ export function KPIManagement() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedCategory, searchTerm])
-
-  const handleViewKPI = (kpi: any) => {
-    setViewingKPI(kpi)
-    setIsViewModalOpen(true)
-  }
+  }, [selectedKPIType, selectedKPICategory, selectedKPIDepartment, selectedKPIStatus, kpiSearchTerm])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
   }
 
-  const handleCreateKPI = async (kpiData: any) => {
-    try {
-      dispatch(setLoading(true))
-      const newKPI = await performanceAPI.createKPI(kpiData)
-      dispatch(addKPI(newKPI))
-      toast.success("KPI created successfully")
-      setIsDialogOpen(false)
-    } catch (error: any) {
-      console.error('Failed to create KPI:', error)
-      toast.error(error.message || "Failed to create KPI")
-    } finally {
-      dispatch(setLoading(false))
-    }
-  }
-
-  const handleUpdateKPI = async (id: string, updates: any) => {
-    try {
-      dispatch(setLoading(true))
-      const updatedKPI = await performanceAPI.updateKPI(id, updates)
-      dispatch(updateKPI({ id, updates: updatedKPI }))
-      toast.success("KPI updated successfully")
-      setIsDialogOpen(false)
-      setEditingKPI(null)
-    } catch (error: any) {
-      console.error('Failed to update KPI:', error)
-      toast.error(error.message || "Failed to update KPI")
-    } finally {
-      dispatch(setLoading(false))
-    }
-  }
-
-  const handleDeleteKPI = async (id: string) => {
-    try {
-      dispatch(setLoading(true))
-      await performanceAPI.deleteKPI(id)
-      dispatch(removeKPI(id))
-      toast.success("KPI deleted successfully")
-    } catch (error: any) {
-      console.error('Failed to delete KPI:', error)
-      toast.error(error.message || "Failed to delete KPI")
-    } finally {
-      dispatch(setLoading(false))
-    }
-  }
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'sales': return 'bg-blue-100 text-blue-800'
-      case 'financial': return 'bg-green-100 text-green-800'
-      case 'operational': return 'bg-orange-100 text-orange-800'
-      case 'investment': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getFrequencyColor = (frequency: string) => {
-    switch (frequency) {
-      case 'daily': return 'bg-red-100 text-red-800'
-      case 'weekly': return 'bg-orange-100 text-orange-800'
-      case 'monthly': return 'bg-blue-100 text-blue-800'
-      case 'quarterly': return 'bg-green-100 text-green-800'
-      case 'yearly': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
+  const getFilterCount = () => {
+    let count = 0
+    if (selectedKPIType !== "all") count++
+    if (selectedKPICategory !== "all") count++
+    if (selectedKPIDepartment !== "all") count++
+    if (selectedKPIStatus !== "all") count++
+    if (kpiSearchTerm) count++
+    return count
   }
 
   return (
@@ -193,168 +261,169 @@ export function KPIManagement() {
         </div>
         <div className="flex gap-2">
           <Button 
-            variant="outline"
-            onClick={() => loadKPIs(true)}
+            onClick={handleRefresh}
             disabled={loading}
-            className="rounded-full"
+            variant="outline"
+            className="rounded-full bg-gradient-to-br from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-gray-300"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <CiRedo className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? "Refreshing..." : "Refresh"}
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full gradient-primary text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add KPI
+          <Button 
+            onClick={handleCreateKPI}
+            className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <CiCirclePlus className="w-4 h-4 mr-2" />
+            Create KPI
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl md:max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingKPI ? "Edit KPI" : "Create New KPI"}
-              </DialogTitle>
-            </DialogHeader>
-            <KPIForm 
-              kpi={editingKPI}
-              onSave={editingKPI ? 
-                (updates) => handleUpdateKPI(editingKPI.id, updates) : 
-                handleCreateKPI
-              }
-              onClose={() => {
-                setIsDialogOpen(false)
-                setEditingKPI(null)
-              }}
-              isLoading={loading}
-            />
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+        {getFilterCount() > 0 && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              {getFilterCount()} filter{getFilterCount() !== 1 ? 's' : ''} applied
+            </Badge>
+            <Button
+              onClick={handleResetFilters}
+              variant="ghost"
+              size="sm"
+              className="text-blue-600 hover:text-blue-700"
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Search */}
+          <div className="lg:col-span-1">
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Search</label>
             <Input
               placeholder="Search KPIs..."
-              value={searchTerm}
-              onChange={(e) => dispatch(setSearchTerm(e.target.value))}
-              className="pl-10"
+              value={kpiSearchTerm}
+              onChange={(e) => dispatch(setKPISearchTerm(e.target.value))}
+              className="w-full"
             />
           </div>
+
+          {/* Type Filter */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Type</label>
+            <Select value={selectedKPIType} onValueChange={(value) => dispatch(setSelectedKPIType(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="Percentage">Percentage</SelectItem>
+                <SelectItem value="Metric">Metric</SelectItem>
+                <SelectItem value="Count">Count</SelectItem>
+              </SelectContent>
+            </Select>
         </div>
-        <Select value={selectedCategory} onValueChange={(value) => dispatch(setSelectedCategory(value))}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by category" />
+
+          {/* Category Filter */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Category</label>
+            <Select value={selectedKPICategory} onValueChange={(value) => dispatch(setSelectedKPICategory(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             <SelectItem value="sales">Sales</SelectItem>
-            <SelectItem value="financial">Financial</SelectItem>
-            <SelectItem value="operational">Operational</SelectItem>
-            <SelectItem value="investment">Investment</SelectItem>
+                <SelectItem value="marketing">Marketing</SelectItem>
+                <SelectItem value="operations">Operations</SelectItem>
+                <SelectItem value="finance">Finance</SelectItem>
+                <SelectItem value="hr">Human Resources</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Department Filter */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Department</label>
+            <Select value={selectedKPIDepartment} onValueChange={(value) => dispatch(setSelectedKPIDepartment(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Loading State */}
-      {loading && <KPIManagementSkeleton />}
+          {/* Status Filter */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
+            <Select value={selectedKPIStatus} onValueChange={(value) => dispatch(setSelectedKPIStatus(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 text-red-500">⚠️</div>
-            <span className="text-red-700">{error}</span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => loadKPIs(true)}
-              className="ml-auto"
-            >
-              Retry
-            </Button>
+            <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+              <span className="text-red-600 text-sm">!</span>
+            </div>
+            <p className="text-red-800 font-medium">Error loading KPIs</p>
           </div>
+          <p className="text-red-600 text-sm mt-1">{error}</p>
         </div>
       )}
 
       {/* KPIs Grid */}
-      {!loading && !error && (
+      {loading ? (
+        <KPIManagementSkeleton />
+      ) : filteredKPIs.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {paginatedKPIs.map((kpi) => (
-          <Card key={kpi.id} className="bg-white border border-gray-200 rounded-2xl shadow-none">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-normal">{kpi.name}</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-full w-9 h-9 p-0 gradient-primary text-white"
-                    onClick={() => handleViewKPI(kpi)}
-                    title="View Details"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className={getCategoryColor(kpi.category || "sales")}>
-                  {kpi.category || "sales"}
-                </Badge>
-                <Badge className={getFrequencyColor(kpi.frequency || "monthly")}>
-                  {kpi.frequency || "monthly"}
-                </Badge>
-                <Badge variant={kpi.isActive ? "default" : "secondary"}>
-                  {kpi.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">{kpi.description || "No description available"}</p>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span>Type: {kpi.type}</span>
-                  <span>Unit: {kpi.unit}</span>
-                </div>
-                
-                <div className="flex justify-between text-sm">
-                  <span>Weight: {kpi.weightValue}%</span>
-                  <span>Goals: {kpi._count?.performanceGoals || 0}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-600">
-                      {kpi.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <span className="text-sm text-gray-500">
-                    {kpi.unitPosition === "prefix" ? `${kpi.unitSymbol || ""}${kpi.unit || ""}` : `${kpi.unit || ""}${kpi.unitSymbol || ""}`}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <KPICard
+              key={kpi.id}
+              kpi={kpi}
+              onView={handleViewKPI}
+              onEdit={handleEditKPI}
+              onDelete={handleDeleteKPI}
+            />
           ))}
         </div>
-      )}
-
-      {!loading && !error && filteredKPIs.length === 0 && (
+      ) : (
         <div className="text-center py-12">
-          <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No KPIs found</h3>
-          <p className="text-gray-600 mb-4">
-            {searchTerm || selectedCategory !== "all" 
-              ? "Try adjusting your search or filter criteria"
-              : "Get started by creating your first KPI"
-            }
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-4">
+            <CiCircleCheck className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No KPIs Found</h3>
+          <p className="text-gray-600 mb-6">
+            {kpiSearchTerm || selectedKPIType !== "all" || selectedKPICategory !== "all" || selectedKPIDepartment !== "all" || selectedKPIStatus !== "all"
+              ? "No KPIs match your current filters. Try adjusting your search criteria."
+              : "Get started by creating your first KPI to track performance metrics."}
           </p>
-          <Button onClick={() => setIsDialogOpen(true)} className="rounded-full gradient-primary text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Add KPI
+          <Button 
+            onClick={handleCreateKPI}
+            className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <CiCirclePlus className="w-4 h-4 mr-2" />
+            Create Your First KPI
           </Button>
         </div>
       )}
@@ -397,16 +466,43 @@ export function KPIManagement() {
         </div>
       )}
 
-      {/* View Modal */}
-      <KPIViewModal
-        kpi={viewingKPI}
-        isOpen={isViewModalOpen}
+      {/* KPI Form Dialog */}
+      <KPIForm
+        isOpen={isDialogOpen}
         onClose={() => {
-          setIsViewModalOpen(false)
+          setIsDialogOpen(false)
+          setEditingKPI(null)
+        }}
+        onSubmit={handleSubmitKPI}
+        kpi={editingKPI}
+        isLoading={crudLoading}
+      />
+
+      {/* KPI View Drawer */}
+      <KPIViewDrawer
+        isOpen={isViewDrawerOpen}
+        onClose={() => {
+          setIsViewDrawerOpen(false)
           setViewingKPI(null)
         }}
+        kpi={viewingKPI}
+        onEdit={handleEditKPI}
+        onDelete={handleDeleteKPI}
+      />
+
+      {/* Confirm Delete Modal */}
+      <KPIConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Delete KPI"
+        description="Are you sure you want to delete this KPI? This action will permanently remove the KPI and may affect associated performance goals."
+        itemName={kpiToDelete?.name || ""}
+        isLoading={crudLoading}
       />
     </div>
   )
 }
+
+
 

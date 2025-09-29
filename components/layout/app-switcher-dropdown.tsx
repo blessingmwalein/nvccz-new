@@ -65,15 +65,17 @@ export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentMo
               <div
                 key={module.id}
                 onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  console.log('App switcher clicked:', module.id)
-                  onModuleSelect(module.id)
-                  // Client-side navigate to module path
-                  if (module.path) {
-                    router.push(module.path)
-                  }
-                  onClose()
+                  // e.preventDefault()
+                  // e.stopPropagation()
+                  // console.log('App switcher clicked:', module.id)
+                  // onModuleSelect(module.id)
+                  // // Client-side navigate to module path
+                  // if (module.path) {
+                  //   router.push(module.path)
+                  // }
+                  // onClose()
+
+                  window.location.href = module.path
                 }}
                 className={`
                   group relative p-4 rounded-xl cursor-pointer transition-all duration-200
