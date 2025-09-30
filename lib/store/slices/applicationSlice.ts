@@ -33,6 +33,7 @@ export interface ApplicationFormData {
   currentStep: number
   isSubmitting: boolean
   errors: Record<string, string>
+  lastResponse?: any
 }
 
 const initialState: ApplicationFormData = {
@@ -51,7 +52,8 @@ const initialState: ApplicationFormData = {
   documents: [],
   currentStep: 1,
   isSubmitting: false,
-  errors: {}
+  errors: {},
+  lastResponse: undefined
 }
 
 const applicationSlice = createSlice({
@@ -109,6 +111,9 @@ const applicationSlice = createSlice({
     setSubmitting: (state, action: PayloadAction<boolean>) => {
       state.isSubmitting = action.payload
     },
+    setLastResponse: (state, action: PayloadAction<any>) => {
+      state.lastResponse = action.payload
+    },
     
     resetForm: (state) => {
       return { ...initialState }
@@ -127,6 +132,7 @@ export const {
   setErrors,
   clearErrors,
   setSubmitting,
+  setLastResponse,
   resetForm
 } = applicationSlice.actions
 

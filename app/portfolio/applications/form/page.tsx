@@ -20,7 +20,8 @@ import Step1 from "../components/Step1"
 import Step2 from "../components/Step2"
 import Step3 from "../components/Step3"
 import { Button } from "@/components/ui/button"
-import { PortfolioLayout } from "@/components/layout/portfolio-layout"
+import { useRouter } from "next/navigation"
+import { setLastResponse } from "@/lib/store/slices/applicationSlice"
 
 // Validation schemas for each step
 const step1Schema = yup.object({
@@ -42,12 +43,17 @@ const step2Schema = yup.object({
 })
 
 const step3Schema = yup.object({
-  documents: yup.array().min(1, "At least one document is required")
+  documents: yup.array().test('required-docs', 'Please upload all required docs', (docs: any) => {
+    const required = ['BUSINESS_PLAN','PROOF_OF_CONCEPT','MARKET_RESEARCH','PROJECTED_CASH_FLOWS']
+    const uploadedTypes = new Set((docs || []).filter((d: any) => d && d.documentType).map((d: any) => d.documentType))
+    return required.every(t => uploadedTypes.has(t))
+  })
 })
 
 export default function ApplicationFormPage() {
   const dispatch = useAppDispatch()
   const { currentStep, isSubmitting, errors, ...formData } = useAppSelector(state => state.application)
+  const router = useRouter()
 
   const updateField = (field: string, value: any) => {
     dispatch(updateFormField({ field: field as any, value }))
@@ -99,15 +105,47 @@ export default function ApplicationFormPage() {
   }
 
   const handleSubmit = async () => {
+    const isValid = await validateStep(3)
+    if (!isValid) return
     dispatch(setSubmitting(true))
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      toast.success("Application submitted successfully!")
-      dispatch(resetForm())
-    } catch (error) {
-      toast.error("Failed to submit application. Please try again.")
+      const payload = {
+        applicantName: `${formData.firstName} ${formData.lastName}`.trim(),
+        applicantEmail: formData.applicantEmail,
+        applicantPhone: formData.applicantPhone,
+        applicantAddress: formData.applicantAddress,
+        businessName: formData.businessName,
+        businessDescription: formData.businessDescription,
+        industry: formData.industry,
+        businessStage: formData.businessStage,
+        foundingDate: formData.foundingDate,
+        requestedAmount: formData.requestedAmount,
+        documents: (formData.documents || []).map((d: any) => ({
+          documentType: d.documentType,
+          fileName: d.fileName,
+          fileUrl: d.fileUrl,
+          fileSize: d.fileSize,
+          isRequired: d.isRequired,
+        })),
+      }
+
+      const res = await fetch('https://nvccz-pi.vercel.app/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(errText || 'Request failed')
+      }
+
+      const json = await res.json()
+      dispatch(setLastResponse(json))
+      toast.success('Application created successfully')
+      router.push('/applications/form/success')
+    } catch (error: any) {
+      toast.error('Failed to submit application', { description: error?.message || 'Please try again.' })
     } finally {
       dispatch(setSubmitting(false))
     }
@@ -127,13 +165,19 @@ export default function ApplicationFormPage() {
   }
 
   return (
-    <PortfolioLayout>
       <div className="min-h-screen bg-white py-8">
         <div className="max-w-6xl mx-auto px-12">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Investment Application</h1>
-            <p className="text-gray-600">Complete your application in 3 simple steps</p>
+          <div className="mb-8">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Investment Application</h1>
+              <p className="text-gray-600">Complete your application in 3 simple steps</p>
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <a href="/" className="text-sm text-gray-600 hover:text-gray-800 underline-offset-4 hover:underline">Cancel application</a>
+              <span className="text-gray-300">|</span>
+              <a href="/login" className="text-sm text-blue-600 hover:text-blue-700 underline-offset-4 hover:underline">Go to login</a>
+            </div>
           </div>
 
           {/* Stepper Progress */}
@@ -176,6 +220,5 @@ export default function ApplicationFormPage() {
           </div>
         </div>
       </div>
-    </PortfolioLayout>
   )
 }

@@ -7,6 +7,7 @@ import { motion } from "framer-motion"
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { loginSchema, type LoginFormData } from "@/lib/validations/auth"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { loginUser, clearError } from "@/lib/store/slices/authSlice"
@@ -18,6 +19,7 @@ function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dispatch = useAppDispatch()
   const { error } = useAppSelector((state) => state.auth)
+  const router = useRouter()
 
   const {
     control,
@@ -217,16 +219,21 @@ function LoginForm() {
               </motion.div>
 
               {/* Submit Application Button */}
-              <motion.button
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                className="w-full flex justify-center items-center py-3 px-6 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-700 bg-white hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
               >
-                Submit Application
-              </motion.button>
+                <Button
+                  type="button"
+                  variant="gradient"
+                  size="lg"
+                  className="w-full rounded-full"
+                  onClick={() => router.push('/applications/form')}
+                >
+                  Submit Application
+                </Button>
+              </motion.div>
 
               {/* Sign Up Link */}
               <motion.div

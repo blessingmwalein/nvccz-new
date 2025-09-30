@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { HiUser, HiBuildingOffice, HiDocument, HiCheck } from "react-icons/hi2"
+import { CiUser, CiBank, CiFileOn, CiCircleCheck } from "react-icons/ci"
 
 interface StepperProgressProps {
   currentStep: number
@@ -11,32 +11,26 @@ const StepperProgress = ({ currentStep }: StepperProgressProps) => {
   const steps = [
     { 
       id: 1, 
-      title: "Basic Information", 
+      title: "User Details", 
       description: "Personal details and contact information",
-      icon: HiUser,
+      icon: CiUser,
       days: "0 Days" 
     },
     { 
       id: 2, 
-      title: "Business Information", 
+      title: "Company Info", 
       description: "Company details and business model",
-      icon: HiBuildingOffice,
+      icon: CiBank,
       days: "24 Days" 
     },
     { 
       id: 3, 
-      title: "Document Upload", 
+      title: "Company Docs", 
       description: "Required documents and attachments",
-      icon: HiDocument,
+      icon: CiFileOn,
       days: "48 Days" 
     },
-    { 
-      id: 4, 
-      title: "Review & Submit", 
-      description: "Final review and submission",
-      icon: HiCheck,
-      days: "0 Days" 
-    }
+    
   ]
 
   const getStepStatus = (stepId: number) => {
@@ -96,13 +90,13 @@ const StepperProgress = ({ currentStep }: StepperProgressProps) => {
       {/* Enhanced Progress Bar with Integrated Days */}
       <div className="relative">
         {/* Main Progress Bar Container */}
-        <div className="flex items-center w-full h-12 relative">
+        <div className="flex items-center w-full h-14 relative">
           {/* Faint Blue Background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-blue-100 rounded-full" />
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-full" />
           
           {/* Completed Section (solid gradient bar) */}
           <motion.div 
-            className="bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 h-12 rounded-full flex items-center justify-end pr-2 shadow-lg relative z-10"
+            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 h-14 rounded-full flex items-center justify-end pr-3 shadow-lg relative z-10"
             initial={{ width: "0%" }}
             animate={{ width: `${(currentStep / steps.length) * 100}%` }}
             transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -110,7 +104,7 @@ const StepperProgress = ({ currentStep }: StepperProgressProps) => {
             {/* Show current step number inside completed bar */}
             {currentStep > 0 && (
               <motion.div
-                className="bg-white/20 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center text-white font-bold text-sm"
+                className="bg-white/20 backdrop-blur-sm rounded-full w-9 h-9 flex items-center justify-center text-white font-bold text-sm"
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.4 }}

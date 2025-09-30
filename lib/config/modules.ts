@@ -62,35 +62,35 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [],
     // Grouped navigation per requirements
     groups: [
+     
       {
         id: "applications",
         title: "Applications",
         items: [
-          { id: "applications-dashboard", name: "Dashboard", path: "/applications/dashboard", icon: CiViewBoard, description: "Applications dashboard" },
-          { id: "applications-current", name: "Current Applications", path: "/applications?tab=current", icon: CiViewList, description: "Current applications" },
-          { id: "applications-past", name: "Past Applications", path: "/applications?tab=past", icon: CiViewColumn, description: "Past applications" },
-          { id: "applications-due-diligence", name: "Due Diligence", path: "/applications/due-diligence", icon: CiViewColumn, description: "Due diligence" },
-          { id: "applications-board-review", name: "Board Review", path: "/applications/board-review", icon: CiViewBoard, description: "Board review" },
-          { id: "applications-term-sheet", name: "Term Sheet", path: "/applications/term-sheet", icon: CiFileOn, description: "Term sheet" },
-          { id: "applications-disbursement", name: "Fund Disbursement", path: "/applications/disbursement", icon: CiViewTimeline, description: "Fund disbursement" }
+          { id: "applications-dashboard", name: "Dashboard", path: "/portfolio/applications/dashboard", icon: CiViewBoard, description: "Applications dashboard" },
+          { id: "applications-all", name: "Applications", path: "/portfolio/applications", icon: CiViewList, description: "Applications" },
+          { id: "applications-due-diligence", name: "Due Diligence", path: "/portfolio/applications/due-diligence", icon: CiViewColumn, description: "Due diligence" },
+          { id: "applications-board-review", name: "Board Review", path: "/portfolio/applications/board-review", icon: CiViewBoard, description: "Board review" },
+          { id: "applications-term-sheet", name: "Term Sheet", path: "/portfolio/applications/term-sheet", icon: CiFileOn, description: "Term sheet" },
+          { id: "applications-disbursement", name: "Fund Disbursement", path: "/portfolio/applications/disbursement", icon: CiViewTimeline, description: "Fund disbursement" }
         ]
       },
       {
         id: "funds",
         title: "Funds",
         items: [
-          { id: "funds-dashboard", name: "Dashboard", path: "/funds", icon: CiGrid41, description: "Funds dashboard" },
-          { id: "funds-investors", name: "Investors", path: "/funds/investors", icon: CiViewTable, description: "Fund investors" },
-          { id: "funds-analytics", name: "Fund Analytics", path: "/funds/analytics", icon: CiViewBoard, description: "Analytics" }
+          { id: "funds-dashboard", name: "Dashboard", path: "/portfolio/funds", icon: CiGrid41, description: "Funds dashboard" },
+          { id: "funds-investors", name: "Investors", path: "/portfolio/funds/investors", icon: CiViewTable, description: "Fund investors" },
+          { id: "funds-analytics", name: "Fund Analytics", path: "/portfolio/funds/analytics", icon: CiViewBoard, description: "Analytics" }
         ]
       },
       {
         id: "companies",
         title: "Companies",
         items: [
-          { id: "companies-page", name: "Companies", path: "/companies", icon: CiShop, description: "Companies" },
-          { id: "companies-performance", name: "Performance Dashboard", path: "/companies/performance", icon: CiGrid41, description: "Company performance" },
-          { id: "companies-updates", name: "Quarterly Updates", path: "/companies/updates", icon: CiCalendar, description: "Quarterly updates" }
+          { id: "companies-page", name: "Companies", path: "/portfolio/companies", icon: CiShop, description: "Companies" },
+          { id: "companies-performance", name: "Performance Dashboard", path: "/portfolio/companies/performance", icon: CiGrid41, description: "Company performance" },
+          { id: "companies-updates", name: "Quarterly Updates", path: "/portfolio/companies/updates", icon: CiCalendar, description: "Quarterly updates" }
         ]
       }
     ]
