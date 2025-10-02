@@ -452,10 +452,12 @@ export function InitialScreening() {
                               Remove
                             </Button>
                           </div>
-                          <Button className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded-full">
-                            <CiPlay1 className="w-4 h-4 mr-2" />
-                            Initiate Due Diligence
-                          </Button>
+                          {app.currentStage === "SHORTLISTED" && (
+                            <Button className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded-full">
+                              <CiPlay1 className="w-4 h-4 mr-2" />
+                              Initiate Due Diligence
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CollapsibleContent>

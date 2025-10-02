@@ -30,12 +30,14 @@ const Step1 = ({ formData, updateField, errors }: Step1Props) => (
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">First Name</label>
           <div className="relative">
-            <HiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+              <HiUser className="text-blue-500 w-4 h-4" />
+            </div>
             <Input
               placeholder="Enter your first name"
               value={formData.firstName}
               onChange={(e) => updateField('firstName', e.target.value)}
-              className="pl-10 h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+              className="pl-12 h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
             />
           </div>
           {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
@@ -44,12 +46,14 @@ const Step1 = ({ formData, updateField, errors }: Step1Props) => (
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Last Name</label>
           <div className="relative">
-            <HiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+              <HiUser className="text-blue-500 w-4 h-4" />
+            </div>
             <Input
               placeholder="Enter your last name"
               value={formData.lastName}
               onChange={(e) => updateField('lastName', e.target.value)}
-              className="pl-10 h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+              className="pl-12 h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
             />
           </div>
           {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
@@ -60,12 +64,14 @@ const Step1 = ({ formData, updateField, errors }: Step1Props) => (
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Address</label>
         <div className="relative">
-          <HiMapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+          <div className="absolute left-3 top-3 w-6 h-6 rounded-full bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center">
+            <HiMapPin className="text-green-500 w-4 h-4" />
+          </div>
           <Textarea
             placeholder="Enter your full address"
             value={formData.applicantAddress}
             onChange={(e) => updateField('applicantAddress', e.target.value)}
-            className="pl-10 min-h-[120px] rounded-2xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 resize-none w-full"
+            className="pl-12 min-h-[120px] rounded-2xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 resize-none w-full"
           />
         </div>
         {errors.applicantAddress && <p className="text-red-500 text-sm">{errors.applicantAddress}</p>}
@@ -76,13 +82,15 @@ const Step1 = ({ formData, updateField, errors }: Step1Props) => (
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Email Address</label>
           <div className="relative">
-            <HiEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-pink-200 flex items-center justify-center">
+              <HiEnvelope className="text-purple-500 w-4 h-4" />
+            </div>
             <Input
               type="email"
               placeholder="Enter your email"
               value={formData.applicantEmail}
               onChange={(e) => updateField('applicantEmail', e.target.value)}
-              className="pl-10 h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+              className="pl-12 h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
             />
           </div>
           {errors.applicantEmail && <p className="text-red-500 text-sm">{errors.applicantEmail}</p>}

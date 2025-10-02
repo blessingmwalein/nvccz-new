@@ -157,6 +157,10 @@ export function AllowanceTypesTable() {
     if (nameLower.includes('housing') || nameLower.includes('house')) return 'HOUSING'
     if (nameLower.includes('transport') || nameLower.includes('travel')) return 'TRANSPORT'
     if (nameLower.includes('medical') || nameLower.includes('health')) return 'MEDICAL'
+    if (nameLower.includes('short-time') || nameLower.includes('short time') || nameLower.includes('shorttime')) return 'SHORT_TIME'
+    if (nameLower.includes('sick leave') || nameLower.includes('sick') || nameLower.includes('illness')) return 'SICK_LEAVE'
+    if (nameLower.includes('annual leave') || nameLower.includes('vacation') || nameLower.includes('holiday')) return 'ANNUAL_LEAVE'
+    if (nameLower.includes('unpaid leave') || nameLower.includes('unpaid') || nameLower.includes('no pay')) return 'UNPAID_LEAVE'
     return 'OTHER'
   }
 
@@ -166,6 +170,10 @@ export function AllowanceTypesTable() {
       'HOUSING': { label: 'Housing', color: 'bg-blue-100 text-blue-800' },
       'TRANSPORT': { label: 'Transport', color: 'bg-green-100 text-green-800' },
       'MEDICAL': { label: 'Medical', color: 'bg-red-100 text-red-800' },
+      'SHORT_TIME': { label: 'Short-time', color: 'bg-yellow-100 text-yellow-800' },
+      'SICK_LEAVE': { label: 'Sick Leave', color: 'bg-pink-100 text-pink-800' },
+      'ANNUAL_LEAVE': { label: 'Annual Leave', color: 'bg-indigo-100 text-indigo-800' },
+      'UNPAID_LEAVE': { label: 'Unpaid Leave', color: 'bg-orange-100 text-orange-800' },
       'OTHER': { label: 'Other', color: 'bg-gray-100 text-gray-800' }
     }
     
@@ -285,6 +293,10 @@ export function AllowanceTypesTable() {
             { label: 'Housing', value: 'HOUSING' },
             { label: 'Transport', value: 'TRANSPORT' },
             { label: 'Medical', value: 'MEDICAL' },
+            { label: 'Short-time', value: 'SHORT_TIME' },
+            { label: 'Sick Leave', value: 'SICK_LEAVE' },
+            { label: 'Annual Leave', value: 'ANNUAL_LEAVE' },
+            { label: 'Unpaid Leave', value: 'UNPAID_LEAVE' },
             { label: 'Other', value: 'OTHER' }
           ]}
           onEdit={handleEdit}

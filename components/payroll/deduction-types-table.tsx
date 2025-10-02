@@ -203,11 +203,11 @@ export function DeductionTypesTable() {
       )
     },
     {
-      key: 'name',
+      key: '__type' as any,
       label: 'Type',
       sortable: true,
       filterable: true,
-      render: (value, row) => getTypeBadge(value)
+      render: (value, row) => getTypeBadge(row.name)
     },
     {
       key: 'description',

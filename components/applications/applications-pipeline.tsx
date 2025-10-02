@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Calendar, Building2, ArrowRight } from "lucide-react"
+import { ApplicationsPipelineSkeleton } from "@/components/ui/skeleton-loader"
 
 const applications = [
   {
@@ -98,13 +99,42 @@ const getPriorityColor = (priority: string) => {
   }
 }
 
-export function ApplicationsPipeline() {
+type Application = {
+  id: string
+  applicantName: string
+  applicantEmail: string
+  businessName: string
+  businessDescription: string
+  industry: string
+  businessStage: string
+  requestedAmount: string
+  currentStage: string
+  submittedAt: string | null
+  updatedAt: string
+  createdAt: string
+}
+
+interface ApplicationsPipelineProps {
+  applications?: Application[]
+  loading?: boolean
+  onApplicationClick?: (application: Application) => void
+}
+
+export function ApplicationsPipeline({ applications: propApplications, loading = false, onApplicationClick }: ApplicationsPipelineProps) {
+  // Use prop applications if provided, otherwise use mock data
+  const applicationsToShow = propApplications || applications.slice(0, 10)
+  
+  if (loading) {
+    return <ApplicationsPipelineSkeleton />
+  }
+  
   return (
     <div className="space-y-4">
-      {applications.map((app) => (
+      {applicationsToShow.map((app) => (
         <div
           key={app.id}
           className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+          onClick={() => onApplicationClick?.(app)}
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-start gap-3">
@@ -113,19 +143,19 @@ export function ApplicationsPipeline() {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-sm">{app.company}</h4>
+                  <h4 className="font-medium text-sm">{app.businessName}</h4>
                   <Badge variant="secondary" className="text-xs">
-                    {app.sector}
+                    {app.industry}
                   </Badge>
-                  <Badge className={`text-xs ${getPriorityColor(app.priority)}`}>{app.priority}</Badge>
+                  <Badge className={`text-xs ${getPriorityColor('medium')}`}>Medium</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">{app.id}</p>
               </div>
             </div>
 
             <div className="text-right space-y-1">
-              <div className="font-semibold text-sm">{app.amount}</div>
-              <Badge className={`text-xs ${getStageColor(app.stage)}`}>{app.stage}</Badge>
+              <div className="font-semibold text-sm">${Number(app.requestedAmount || 0).toLocaleString()}</div>
+              <Badge className={`text-xs ${getStageColor(app.currentStage)}`}>{app.currentStage.replaceAll('_', ' ')}</Badge>
             </div>
           </div>
 
@@ -133,21 +163,21 @@ export function ApplicationsPipeline() {
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Avatar className="w-5 h-5">
-                  <AvatarImage src={`/avatar-${app.lead.toLowerCase().replace(" ", "-")}.png`} />
+                  <AvatarImage src={`/avatar-${app.applicantName.toLowerCase().replace(" ", "-")}.png`} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {app.leadAvatar}
+                    {app.applicantName.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
-                <span>{app.lead}</span>
+                <span>{app.applicantName}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                <span>{app.daysInStage} days in stage</span>
+                <span>{Math.floor((Date.now() - new Date(app.updatedAt).getTime()) / (1000 * 60 * 60 * 24))} days in stage</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Next: {app.nextMilestone}</span>
+              <span className="text-xs text-muted-foreground">Next: Review</span>
               <Button size="sm" variant="ghost" className="h-6 px-2">
                 <ArrowRight className="w-3 h-3" />
               </Button>
@@ -155,10 +185,6 @@ export function ApplicationsPipeline() {
           </div>
         </div>
       ))}
-
-      <Button variant="outline" className="w-full bg-transparent">
-        View All Applications
-      </Button>
     </div>
   )
 }

@@ -39,11 +39,13 @@ export function DatePicker({
           )}
           disabled={disabled}
         >
-          <div className="flex items-center">
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {value ? format(value, "PPP") : <span>{placeholder}</span>}
+          <div className="flex items-center min-w-0 flex-1">
+            <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="truncate">
+              {value ? format(value, "PPP") : <span>{placeholder}</span>}
+            </span>
           </div>
-          <ChevronDownIcon className="h-4 w-4" />
+          <ChevronDownIcon className="h-4 w-4 flex-shrink-0 ml-2" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

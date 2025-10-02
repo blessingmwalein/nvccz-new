@@ -51,6 +51,33 @@ const TAX_TYPE_INFO = {
       threshold: { required: false, label: "Threshold Amount", description: "Minimum income before levy applies" },
       ceiling: { required: false, label: "Ceiling Amount", description: "Maximum income for levy calculation" }
     }
+  },
+  NEC: {
+    title: "NEC",
+    description: "National Employment Council levy",
+    icon: <CiPercent className="w-5 h-5" />,
+    fields: {
+      threshold: { required: false, label: "Threshold Amount", description: "Minimum income before NEC applies" },
+      ceiling: { required: false, label: "Ceiling Amount", description: "Maximum income for NEC calculation" }
+    }
+  },
+  STANDARDS_LEVY: {
+    title: "Standards Levy",
+    description: "Standards Association of Zimbabwe levy",
+    icon: <Shield className="w-5 h-5" />,
+    fields: {
+      threshold: { required: false, label: "Threshold Amount", description: "Minimum income before levy applies" },
+      ceiling: { required: false, label: "Ceiling Amount", description: "Maximum income for levy calculation" }
+    }
+  },
+  ZIMDEV: {
+    title: "ZimDev",
+    description: "Zimbabwe Development Fund levy",
+    icon: <CiDollar className="w-5 h-5" />,
+    fields: {
+      threshold: { required: false, label: "Threshold Amount", description: "Minimum income before ZimDev applies" },
+      ceiling: { required: false, label: "Ceiling Amount", description: "Maximum income for ZimDev calculation" }
+    }
   }
 }
 
@@ -86,7 +113,7 @@ export function TaxRulesForm({ isOpen, onClose, onSubmit, editingRule, loading =
   })
 
   // Watch the type field to get the current selected tax type
-  const selectedTaxType = watch('type') as 'PAYE' | 'NSSA' | 'AIDS_LEVY'
+  const selectedTaxType = watch('type') as 'PAYE' | 'NSSA' | 'AIDS_LEVY' | 'NEC' | 'STANDARDS_LEVY' | 'ZIMDEV'
 
   // Reset form when editingRule changes
   useEffect(() => {

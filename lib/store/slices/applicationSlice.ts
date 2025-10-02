@@ -1,4 +1,5 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
+import { applicationsApi, ApplicationCreateRequest } from '@/lib/api/applications-api'
 
 export interface Document {
   documentType: 'BUSINESS_PLAN' | 'PROOF_OF_CONCEPT' | 'MARKET_RESEARCH' | 'PROJECTED_CASH_FLOWS' | 'HISTORICAL_FINANCIALS'
@@ -34,6 +35,7 @@ export interface ApplicationFormData {
   isSubmitting: boolean
   errors: Record<string, string>
   lastResponse?: any
+  submitError?: string
 }
 
 const initialState: ApplicationFormData = {
@@ -53,8 +55,42 @@ const initialState: ApplicationFormData = {
   currentStep: 1,
   isSubmitting: false,
   errors: {},
-  lastResponse: undefined
+  lastResponse: undefined,
+  submitError: undefined
 }
+
+// Async thunk for submitting application
+export const submitApplication = createAsyncThunk(
+  'application/submitApplication',
+  async (formData: ApplicationFormData, { rejectWithValue }) => {
+    try {
+      const payload: ApplicationCreateRequest = {
+        applicantName: `${formData.firstName} ${formData.lastName}`.trim(),
+        applicantEmail: formData.applicantEmail,
+        applicantPhone: formData.applicantPhone,
+        applicantAddress: formData.applicantAddress,
+        businessName: formData.businessName,
+        businessDescription: formData.businessDescription,
+        industry: formData.industry,
+        businessStage: formData.businessStage,
+        foundingDate: formData.foundingDate,
+        requestedAmount: formData.requestedAmount,
+        documents: (formData.documents || []).map((d) => ({
+          documentType: d.documentType,
+          fileName: d.fileName,
+          fileUrl: d.fileUrl,
+          fileSize: d.fileSize,
+          isRequired: d.isRequired,
+        })),
+      }
+
+      const response = await applicationsApi.create(payload)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to submit application')
+    }
+  }
+)
 
 const applicationSlice = createSlice({
   name: 'application',
@@ -118,6 +154,22 @@ const applicationSlice = createSlice({
     resetForm: (state) => {
       return { ...initialState }
     }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(submitApplication.pending, (state) => {
+        state.isSubmitting = true
+        state.submitError = undefined
+      })
+      .addCase(submitApplication.fulfilled, (state, action) => {
+        state.isSubmitting = false
+        state.lastResponse = action.payload
+        state.submitError = undefined
+      })
+      .addCase(submitApplication.rejected, (state, action) => {
+        state.isSubmitting = false
+        state.submitError = action.payload as string
+      })
   }
 })
 

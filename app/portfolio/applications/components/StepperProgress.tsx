@@ -58,12 +58,12 @@ const StepperProgress = ({ currentStep }: StepperProgressProps) => {
             >
               {/* Icon Column */}
               <motion.div
-                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
                   status === 'completed' 
-                    ? 'bg-green-100 text-green-600' 
+                    ? 'bg-gradient-to-br from-green-100 to-emerald-200 text-green-600 shadow-sm' 
                     : status === 'current'
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 text-gray-400'
+                      ? 'bg-gradient-to-br from-blue-100 to-indigo-200 text-blue-600 shadow-sm'
+                      : 'bg-gradient-to-br from-gray-100 to-slate-200 text-gray-400 shadow-sm'
                 }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

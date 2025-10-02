@@ -3,7 +3,7 @@ import * as yup from "yup"
 // Tax Rule validation schemas
 export const taxRuleFormSchema = yup.object({
   name: yup.string().required("Tax rule name is required").min(2, "Name must be at least 2 characters"),
-  type: yup.string().oneOf(['PAYE', 'NSSA', 'AIDS_LEVY'], "Invalid tax type").required("Tax type is required"),
+  type: yup.string().oneOf(['PAYE', 'NSSA', 'AIDS_LEVY', 'NEC', 'STANDARDS_LEVY', 'ZIMDEV'], "Invalid tax type").required("Tax type is required"),
   rate: yup.number().required("Rate is required").min(0, "Rate must be positive").max(100, "Rate cannot exceed 100%"),
   threshold: yup.number().nullable().min(0, "Threshold must be positive"),
   ceiling: yup.number().nullable().min(0, "Ceiling must be positive"),
@@ -17,6 +17,7 @@ export const allowanceTypeFormSchema = yup.object({
   name: yup.string().required("Allowance name is required").min(2, "Name must be at least 2 characters"),
   code: yup.string().required("Code is required").min(2, "Code must be at least 2 characters").max(10, "Code must be at most 10 characters"),
   description: yup.string().required("Description is required").min(10, "Description must be at least 10 characters"),
+  type: yup.string().oneOf(['HOUSING', 'TRANSPORT', 'MEDICAL', 'SHORT_TIME', 'SICK_LEAVE', 'ANNUAL_LEAVE', 'UNPAID_LEAVE', 'OTHER'], "Invalid allowance type").required("Allowance type is required"),
   isTaxable: yup.boolean().required("Taxable status is required")
 })
 

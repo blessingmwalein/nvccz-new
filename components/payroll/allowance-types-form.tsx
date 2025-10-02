@@ -163,6 +163,10 @@ export function AllowanceTypesForm({ isOpen, onClose, onSubmit, editingType, loa
                       <SelectItem value="HOUSING">Housing Allowance</SelectItem>
                       <SelectItem value="TRANSPORT">Transport Allowance</SelectItem>
                       <SelectItem value="MEDICAL">Medical Allowance</SelectItem>
+                      <SelectItem value="SHORT_TIME">Short-time Allowance</SelectItem>
+                      <SelectItem value="SICK_LEAVE">Sick Leave Allowance</SelectItem>
+                      <SelectItem value="ANNUAL_LEAVE">Annual Leave Allowance</SelectItem>
+                      <SelectItem value="UNPAID_LEAVE">Unpaid Leave Allowance</SelectItem>
                       <SelectItem value="OTHER">Other Allowance</SelectItem>
                     </SelectContent>
                   </Select>

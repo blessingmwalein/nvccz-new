@@ -19,7 +19,7 @@ import { taxRulesApi } from "@/lib/api/payroll-api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CiDollar, CiPercent, CiCalendar, CiUser } from "react-icons/ci"
-import { Minus } from "lucide-react"
+import { Minus, Shield } from "lucide-react"
 import { toast } from "sonner"
 
 export function TaxRulesTable() {
@@ -146,6 +146,12 @@ export function TaxRulesTable() {
         return <CiPercent className="w-4 h-4 text-green-600" />
       case 'AIDS_LEVY':
         return <Minus className="w-4 h-4 text-red-600" />
+      case 'NEC':
+        return <CiPercent className="w-4 h-4 text-purple-600" />
+      case 'STANDARDS_LEVY':
+        return <Shield className="w-4 h-4 text-orange-600" />
+      case 'ZIMDEV':
+        return <CiDollar className="w-4 h-4 text-yellow-600" />
       default:
         return <CiDollar className="w-4 h-4" />
     }
@@ -159,6 +165,12 @@ export function TaxRulesTable() {
         return <Badge variant="secondary" className="bg-green-100 text-green-800">NSSA</Badge>
       case 'AIDS_LEVY':
         return <Badge variant="secondary" className="bg-red-100 text-red-800">AIDS Levy</Badge>
+      case 'NEC':
+        return <Badge variant="secondary" className="bg-purple-100 text-purple-800">NEC</Badge>
+      case 'STANDARDS_LEVY':
+        return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Standards Levy</Badge>
+      case 'ZIMDEV':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">ZimDev</Badge>
       default:
         return <Badge variant="secondary">{type}</Badge>
     }
@@ -288,7 +300,10 @@ export function TaxRulesTable() {
             { label: 'All Types', value: 'all' },
             { label: 'PAYE', value: 'PAYE' },
             { label: 'NSSA', value: 'NSSA' },
-            { label: 'AIDS Levy', value: 'AIDS_LEVY' }
+            { label: 'AIDS Levy', value: 'AIDS_LEVY' },
+            { label: 'NEC', value: 'NEC' },
+            { label: 'Standards Levy', value: 'STANDARDS_LEVY' },
+            { label: 'ZimDev', value: 'ZIMDEV' }
           ]}
           onEdit={handleEdit}
           onView={handleView}

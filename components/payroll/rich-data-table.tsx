@@ -112,6 +112,28 @@ export function RichDataTable<T extends { id: string }>({
       if (filterableColumns.length > 0) {
         filtered = filtered.filter(row =>
           filterableColumns.some(col => {
+            // Handle computed fields like '__type'
+            if (col.key === '__type') {
+              const name = (row as any).name || ''
+              const nameLower = name.toLowerCase()
+              let computedType = 'OTHER'
+              
+              // Check if this is an allowance type (housing, transport, medical, short-time, leave types)
+              if (nameLower.includes('housing') || nameLower.includes('house')) computedType = 'HOUSING'
+              else if (nameLower.includes('transport') || nameLower.includes('travel')) computedType = 'TRANSPORT'
+              else if (nameLower.includes('medical') || nameLower.includes('health')) computedType = 'MEDICAL'
+              else if (nameLower.includes('short-time') || nameLower.includes('short time') || nameLower.includes('shorttime')) computedType = 'SHORT_TIME'
+              else if (nameLower.includes('sick leave') || nameLower.includes('sick') || nameLower.includes('illness')) computedType = 'SICK_LEAVE'
+              else if (nameLower.includes('annual leave') || nameLower.includes('vacation') || nameLower.includes('holiday')) computedType = 'ANNUAL_LEAVE'
+              else if (nameLower.includes('unpaid leave') || nameLower.includes('unpaid') || nameLower.includes('no pay')) computedType = 'UNPAID_LEAVE'
+              // Check if this is a deduction type (loan, pension, advance)
+              else if (nameLower.includes('loan') || nameLower.includes('borrow')) computedType = 'LOAN'
+              else if (nameLower.includes('pension') || nameLower.includes('retirement')) computedType = 'PENSION'
+              else if (nameLower.includes('advance') || nameLower.includes('prepaid')) computedType = 'ADVANCE'
+              
+              return computedType === filterValue
+            }
+            
             const value: any = (row as any)[col.key as any]
             if (value == null) return false
             return value.toString() === filterValue
@@ -333,83 +355,125 @@ export function RichDataTable<T extends { id: string }>({
 
         {/* Table */}
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedRows.length === paginatedData.length && paginatedData.length > 0}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                {columns.map(column => (
-                  <TableHead
-                    key={String(column.key)}
-                    className={`${column.width || ''} ${column.sortable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                    onClick={() => column.sortable && handleSort(column.key)}
+          {paginatedData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <CiSearch className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-700 mb-2">No Data Found</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                {searchTerm || filterValue !== 'all' 
+                  ? 'No allowance types match your current search or filter criteria.'
+                  : 'No allowance types have been created yet.'
+                }
+              </p>
+              <div className="flex gap-2">
+                {(searchTerm || filterValue !== 'all') && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-full"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setFilterValue('all')
+                    }}
                   >
-                    <div className="flex items-center gap-2">
-                      {column.label}
-                      {column.sortable && getSortIcon(column.key)}
-                    </div>
-                  </TableHead>
-                ))}
-                <TableHead className="w-12">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedData.map(row => (
-                <TableRow key={row.id}>
-                  <TableCell>
+                    Clear Filters
+                  </Button>
+                )}
+                <Button 
+                  size="sm" 
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+                  onClick={() => window.location.reload()}
+                >
+                  <CiSearch className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedRows.includes(row.id)}
-                      onCheckedChange={() => handleSelectRow(row.id)}
+                      checked={selectedRows.length === paginatedData.length && paginatedData.length > 0}
+                      onCheckedChange={handleSelectAll}
                     />
-                  </TableCell>
+                  </TableHead>
                   {columns.map(column => (
-                    <TableCell key={String(column.key)}>
-                      {column.render 
-                        ? column.render(row[column.key], row)
-                        : String(row[column.key] || '-')
-                      }
-                    </TableCell>
+                    <TableHead
+                      key={String(column.key)}
+                      className={`${column.width || ''} ${column.sortable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                      onClick={() => column.sortable && handleSort(column.key)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {column.label}
+                        {column.sortable && getSortIcon(column.key)}
+                      </div>
+                    </TableHead>
                   ))}
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {onView && (
-                          <DropdownMenuItem onClick={() => onView(row)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View
-                          </DropdownMenuItem>
-                        )}
-                {onEdit && (row as any).status === 'DRAFT' && (
-                  <DropdownMenuItem onClick={() => onEdit(row)}>
-                            <CiEdit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                        )}
-                {onDelete && (row as any).status !== 'COMPLETED' && (
-                          <DropdownMenuItem 
-                            onClick={() => onDelete(row)}
-                            className="text-red-600"
-                          >
-                            <CiTrash className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  <TableHead className="w-12">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paginatedData.map(row => (
+                  <TableRow 
+                    key={row.id}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors duration-150"
+                    onClick={() => onView?.(row)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedRows.includes(row.id)}
+                        onCheckedChange={() => handleSelectRow(row.id)}
+                      />
+                    </TableCell>
+                    {columns.map(column => (
+                      <TableCell key={String(column.key)}>
+                        {column.render 
+                          ? column.render(row[column.key], row)
+                          : String(row[column.key] || '-')
+                        }
+                      </TableCell>
+                    ))}
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {onView && (
+                            <DropdownMenuItem onClick={() => onView(row)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View
+                            </DropdownMenuItem>
+                          )}
+                  {onEdit && (row as any).status === 'DRAFT' && (
+                    <DropdownMenuItem onClick={() => onEdit(row)}>
+                              <CiEdit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                  {onDelete && (row as any).status !== 'COMPLETED' && (
+                            <DropdownMenuItem 
+                              onClick={() => onDelete(row)}
+                              className="text-red-600"
+                            >
+                              <CiTrash className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
 
         {/* Pagination */}

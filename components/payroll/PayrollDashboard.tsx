@@ -91,14 +91,8 @@ export function PayrollDashboard() {
     loadPayslips()
   }, [dispatch])
 
-  const completedRuns = useMemo(() => payrollRuns.filter(r => r.status === 'COMPLETED'), [payrollRuns])
-  const totals = useMemo(() => {
-    const gross = completedRuns.reduce((acc, r: any) => acc + (parseFloat(r.totalGrossPay ?? r.statistics?.grossTotal ?? 0) as number), 0)
-    const net = completedRuns.reduce((acc, r: any) => acc + (parseFloat(r.totalNetPay ?? r.statistics?.netTotal ?? 0) as number), 0)
-    return { gross, net }
-  }, [completedRuns])
-
-  const filteredForChart = useMemo(() => {
+  // Filter runs based on current filters
+  const filteredRuns = useMemo(() => {
     return payrollRuns.filter((r: any) => {
       const start = new Date(r.startDate ?? r.periodStart)
       const end = new Date(r.endDate ?? r.periodEnd)
@@ -110,6 +104,34 @@ export function PayrollDashboard() {
       return inStatus && afterStart && beforeEnd && inYear
     })
   }, [payrollRuns, status, periodStart, periodEnd])
+
+  const completedRuns = useMemo(() => filteredRuns.filter(r => r.status === 'COMPLETED'), [filteredRuns])
+  const totals = useMemo(() => {
+    const gross = completedRuns.reduce((acc, r: any) => acc + (parseFloat(r.totalGrossPay ?? r.statistics?.grossTotal ?? 0) as number), 0)
+    const net = completedRuns.reduce((acc, r: any) => acc + (parseFloat(r.totalNetPay ?? r.statistics?.netTotal ?? 0) as number), 0)
+    return { gross, net }
+  }, [completedRuns])
+
+  // Calculate filtered employee count
+  const filteredEmployeeCount = useMemo(() => {
+    if (status === 'all' && !periodStart && !periodEnd) {
+      return employees.length
+    }
+    
+    // Get unique employee IDs from filtered runs
+    const employeeIds = new Set()
+    filteredRuns.forEach((run: any) => {
+      if (run.employeeIds && Array.isArray(run.employeeIds)) {
+        run.employeeIds.forEach((id: string) => employeeIds.add(id))
+      }
+    })
+    
+    return employeeIds.size || employees.length
+  }, [filteredRuns, employees.length, status, periodStart, periodEnd])
+
+  const filteredForChart = useMemo(() => {
+    return filteredRuns
+  }, [filteredRuns])
 
   const chartData = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => i)
@@ -151,7 +173,7 @@ export function PayrollDashboard() {
         />
         <StatCard 
           title="Employees" 
-          value={employeesLoading ? '—' : employees.length}
+          value={employeesLoading ? '—' : filteredEmployeeCount}
           icon={<CiUser className="w-5 h-5" />} 
         />
         <StatCard 
@@ -163,20 +185,48 @@ export function PayrollDashboard() {
 
       <div className="rounded-2xl border border-gray-200 py-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-normal mb-3">
-            <CiViewTable className="w-5 h-5" /> Current Pay Run
+          <CardTitle className="flex items-center justify-between text-base font-normal mb-3">
+            <div className="flex items-center gap-2">
+              <CiViewTable className="w-5 h-5" /> Current Pay Run
+            </div>
+            {(periodStart || periodEnd || status !== 'all') && (
+              <div className="flex items-center gap-2 text-sm text-blue-600">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                Filters Active
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <DatePicker value={periodStart ?? undefined} onChange={(d) => setPeriodStart(d ?? null)} placeholder="Period Start" className="h-10 w-[160px]" allowFutureDates={true} />
-                <DatePicker value={periodEnd ?? undefined} onChange={(d) => setPeriodEnd(d ?? null)} placeholder="Period End" className="h-10 w-[160px]" allowFutureDates={true} />
-                <Button variant="outline" className="rounded-full h-10" onClick={() => { setPeriodStart(null); setPeriodEnd(null) }}>Clear</Button>
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <DatePicker 
+                    value={periodStart ?? undefined} 
+                    onChange={(d) => setPeriodStart(d ?? null)} 
+                    placeholder="Period Start" 
+                    className="h-10 w-full sm:w-[180px] min-w-[160px]" 
+                    allowFutureDates={true} 
+                  />
+                  <DatePicker 
+                    value={periodEnd ?? undefined} 
+                    onChange={(d) => setPeriodEnd(d ?? null)} 
+                    placeholder="Period End" 
+                    className="h-10 w-full sm:w-[180px] min-w-[160px]" 
+                    allowFutureDates={true} 
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="rounded-full h-10 w-full sm:w-auto" 
+                  onClick={() => { setPeriodStart(null); setPeriodEnd(null) }}
+                >
+                  Clear
+                </Button>
               </div>
               <Select value={status} onValueChange={(v) => setStatus(v as any)}>
-                <SelectTrigger className="w-48 rounded-full">
+                <SelectTrigger className="w-full lg:w-48 rounded-full">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>

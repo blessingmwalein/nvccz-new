@@ -1,0 +1,140 @@
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+
+export interface PDFGenerationOptions {
+  filename?: string
+  format?: 'a4' | 'letter'
+  orientation?: 'portrait' | 'landscape'
+  quality?: number
+}
+
+export const generatePDF = async (
+  element: HTMLElement,
+  options: PDFGenerationOptions = {}
+): Promise<Blob> => {
+  const {
+    filename = 'payslip',
+    format = 'a4',
+    orientation = 'portrait',
+    quality = 0.98
+  } = options
+
+  try {
+    // Create a temporary container to avoid oklch color issues
+    const tempContainer = document.createElement('div')
+    tempContainer.style.position = 'absolute'
+    tempContainer.style.left = '-9999px'
+    tempContainer.style.top = '-9999px'
+    tempContainer.style.width = element.offsetWidth + 'px'
+    tempContainer.style.height = element.offsetHeight + 'px'
+    tempContainer.style.backgroundColor = '#ffffff'
+    
+    // Clone the element and convert oklch colors to standard colors
+    const clonedElement = element.cloneNode(true) as HTMLElement
+    convertOklchToRgb(clonedElement)
+    
+    tempContainer.appendChild(clonedElement)
+    document.body.appendChild(tempContainer)
+
+    // Generate canvas from the temporary container
+    const canvas = await html2canvas(tempContainer, {
+      scale: 2, // Higher scale for better quality
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: tempContainer.offsetWidth,
+      height: tempContainer.offsetHeight,
+      ignoreElements: (element) => {
+        // Skip elements that might cause issues
+        return element.classList.contains('no-print') || 
+               element.style.display === 'none'
+      }
+    })
+
+    // Clean up temporary container
+    document.body.removeChild(tempContainer)
+
+    // Create PDF
+    const imgData = canvas.toDataURL('image/png', quality)
+    const pdf = new jsPDF({
+      orientation,
+      unit: 'mm',
+      format
+    })
+
+    // Calculate dimensions
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+    const imgWidth = canvas.width
+    const imgHeight = canvas.height
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
+    const imgX = (pdfWidth - imgWidth * ratio) / 2
+    const imgY = 0
+
+    // Add image to PDF
+    pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio)
+
+    // Generate blob
+    const pdfBlob = pdf.output('blob')
+    return pdfBlob
+  } catch (error) {
+    console.error('Error generating PDF:', error)
+    throw new Error('Failed to generate PDF')
+  }
+}
+
+// Helper function to convert oklch colors to RGB
+const convertOklchToRgb = (element: HTMLElement) => {
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_ELEMENT,
+    null
+  )
+
+  let node = walker.nextNode()
+  while (node) {
+    const htmlElement = node as HTMLElement
+    const computedStyle = window.getComputedStyle(htmlElement)
+    
+    // Convert common oklch colors to RGB equivalents
+    const style = htmlElement.style
+    if (style.backgroundColor && style.backgroundColor.includes('oklch')) {
+      style.backgroundColor = '#ffffff' // Default to white
+    }
+    if (style.color && style.color.includes('oklch')) {
+      style.color = '#000000' // Default to black
+    }
+    if (style.borderColor && style.borderColor.includes('oklch')) {
+      style.borderColor = '#e5e7eb' // Default to gray
+    }
+
+    node = walker.nextNode()
+  }
+}
+
+export const downloadPDF = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${filename}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+export const generateAndDownloadPDF = async (
+  element: HTMLElement,
+  filename: string,
+  options?: PDFGenerationOptions
+) => {
+  try {
+    const blob = await generatePDF(element, { ...options, filename })
+    downloadPDF(blob, filename)
+    return blob
+  } catch (error) {
+    console.error('Error generating and downloading PDF:', error)
+    throw error
+  }
+}

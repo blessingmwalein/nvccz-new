@@ -57,7 +57,7 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     description: "Manage investment portfolios and assets",
     icon: CiShop,
     color: "oklch(0.72 0.12 225)",
-    path: "/portfolio",
+    path: "/portfolio/applications/dashboard",
     // Flat shortcuts (optional)
     subModules: [],
     // Grouped navigation per requirements
@@ -69,10 +69,10 @@ export const MODULE_CONFIG: ModuleConfig[] = [
         items: [
           { id: "applications-dashboard", name: "Dashboard", path: "/portfolio/applications/dashboard", icon: CiViewBoard, description: "Applications dashboard" },
           { id: "applications-all", name: "Applications", path: "/portfolio/applications", icon: CiViewList, description: "Applications" },
-          { id: "applications-due-diligence", name: "Due Diligence", path: "/portfolio/applications/due-diligence", icon: CiViewColumn, description: "Due diligence" },
-          { id: "applications-board-review", name: "Board Review", path: "/portfolio/applications/board-review", icon: CiViewBoard, description: "Board review" },
-          { id: "applications-term-sheet", name: "Term Sheet", path: "/portfolio/applications/term-sheet", icon: CiFileOn, description: "Term sheet" },
-          { id: "applications-disbursement", name: "Fund Disbursement", path: "/portfolio/applications/disbursement", icon: CiViewTimeline, description: "Fund disbursement" }
+          // { id: "applications-due-diligence", name: "Due Diligence", path: "/portfolio/applications/due-diligence", icon: CiViewColumn, description: "Due diligence" },
+          // { id: "applications-board-review", name: "Board Review", path: "/portfolio/applications/board-review", icon: CiViewBoard, description: "Board review" },
+          // { id: "applications-term-sheet", name: "Term Sheet", path: "/portfolio/applications/term-sheet", icon: CiFileOn, description: "Term sheet" },
+          // { id: "applications-disbursement", name: "Fund Disbursement", path: "/portfolio/applications/disbursement", icon: CiViewTimeline, description: "Fund disbursement" }
         ]
       },
       {

@@ -9,6 +9,22 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { CiSearch, CiViewList, CiRedo, CiFileOn, CiUser, CiDollar, CiCalendar, CiCircleCheck } from "react-icons/ci"
+import { Progress } from "@/components/ui/progress"
+import { FileText, Users, CheckCircle, Clock, AlertCircle, Building2 } from "lucide-react"
+import { ApplicationTimeline } from "./application-timeline"
+import { DueDiligenceConfirmationDialog } from "./due-diligence-confirmation-dialog"
+import { CompleteDueDiligenceConfirmationDialog } from "./complete-due-diligence-confirmation-dialog"
+import { DueDiligenceModal } from "./due-diligence-modal"
+import { BoardReviewModal } from "./board-review-modal"
+import { BoardReviewConfirmationDialog } from "./board-review-confirmation-dialog"
+import { CompleteBoardReviewConfirmationDialog } from "./complete-board-review-confirmation-dialog"
+import { TermSheetModal } from "./term-sheet-modal"
+import { TermSheetConfirmationDialog } from "./term-sheet-confirmation-dialog"
+import { FinalizeTermSheetConfirmationDialog } from "./finalize-term-sheet-confirmation-dialog"
+import { dueDiligenceApi } from "@/lib/api/due-diligence-api"
+import { boardReviewApi } from "@/lib/api/board-review-api"
+import { termSheetApi } from "@/lib/api/term-sheet-api"
+import { toast } from "sonner"
 
 type Application = {
   id: string
@@ -56,6 +72,37 @@ const stageColor = (stage: string) => {
   return "bg-gray-100 text-gray-800"
 }
 
+const getStageProgress = (stage: string) => {
+  const stageOrder = [
+    'SUBMITTED',
+    'INITIAL_SCREENING', 
+    'SHORTLISTED',
+    'UNDER_DUE_DILIGENCE',
+    'DUE_DILIGENCE_COMPLETED',
+    'UNDER_BOARD_REVIEW',
+    'BOARD_APPROVED',
+    'TERM_SHEET',
+    'TERM_SHEET_SIGNED',
+    'INVESTMENT_IMPLEMENTATION',
+    'FUND_DISBURSED'
+  ]
+  
+  const currentIndex = stageOrder.indexOf(stage)
+  if (currentIndex === -1) return 0
+  return Math.round((currentIndex / (stageOrder.length - 1)) * 100)
+}
+
+const getStageIcon = (stage: string) => {
+  const s = stage.toUpperCase()
+  if (s.includes("IMPLEMENT") || s.includes("DISBURSED")) return <CheckCircle className="w-4 h-4" />
+  if (s.includes("BOARD")) return <Users className="w-4 h-4" />
+  if (s.includes("DILIGENCE")) return <FileText className="w-4 h-4" />
+  if (s.includes("SCREEN")) return <AlertCircle className="w-4 h-4" />
+  if (s.includes("SHORTLIST")) return <Building2 className="w-4 h-4" />
+  if (s.includes("TERM_SHEET")) return <FileText className="w-4 h-4" />
+  return <Clock className="w-4 h-4" />
+}
+
 export function UserApplications() {
   const token = useAppSelector((s) => s.auth.token)
   const [apps, setApps] = useState<Application[]>([])
@@ -67,6 +114,16 @@ export function UserApplications() {
   const [itemsPerPage] = useState(6)
   const [selected, setSelected] = useState<Application | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [dueDiligenceModalOpen, setDueDiligenceModalOpen] = useState(false)
+  const [dueDiligenceConfirmationOpen, setDueDiligenceConfirmationOpen] = useState(false)
+  const [completeDueDiligenceConfirmationOpen, setCompleteDueDiligenceConfirmationOpen] = useState(false)
+  const [boardReviewModalOpen, setBoardReviewModalOpen] = useState(false)
+  const [boardReviewConfirmationOpen, setBoardReviewConfirmationOpen] = useState(false)
+  const [completeBoardReviewConfirmationOpen, setCompleteBoardReviewConfirmationOpen] = useState(false)
+  const [termSheetModalOpen, setTermSheetModalOpen] = useState(false)
+  const [termSheetConfirmationOpen, setTermSheetConfirmationOpen] = useState(false)
+  const [finalizeTermSheetConfirmationOpen, setFinalizeTermSheetConfirmationOpen] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const fetchApps = async () => {
     try {
@@ -81,10 +138,27 @@ export function UserApplications() {
       const json = await res.json()
       const list: Application[] = json?.data?.applications || []
       setApps(list)
+      return list // Return the fresh data
     } catch (e: any) {
       setError(e?.message || "Failed to load applications")
+      return null
     } finally {
       setLoading(false)
+    }
+  }
+
+  const refreshSelectedApplication = async () => {
+    if (!selected) return
+    try {
+      const freshApps = await fetchApps()
+      if (freshApps) {
+        const updatedSelected = freshApps.find((app: Application) => app.id === selected.id)
+        if (updatedSelected) {
+          setSelected(updatedSelected)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh selected application:', error)
     }
   }
 
@@ -116,6 +190,85 @@ export function UserApplications() {
     setDrawerOpen(true)
   }
 
+  const EmptyStateWidget = ({ stage }: { stage: string }) => (
+    <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl">
+      <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+          <Clock className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-medium text-gray-700 mb-2">No Applications Found</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          No applications found for the <strong>{stage.replaceAll('_', ' ').toLowerCase()}</strong> stage.
+        </p>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="rounded-full"
+            onClick={() => setSelectedStage('all')}
+          >
+            View All Applications
+          </Button>
+          <Button 
+            size="sm" 
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+          >
+            <CiViewList className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  // Timeline action handlers
+  const handleInitiateDueDiligence = () => {
+    setDueDiligenceConfirmationOpen(true)
+  }
+
+  const handleUpdateDueDiligence = () => {
+    setDueDiligenceModalOpen(true)
+  }
+
+  const handleCompleteDueDiligence = () => {
+    setCompleteDueDiligenceConfirmationOpen(true)
+  }
+
+  const handleInitiateBoardReview = () => {
+    setBoardReviewConfirmationOpen(true)
+  }
+
+  const handleUpdateBoardReview = () => {
+    setBoardReviewModalOpen(true)
+  }
+
+  const handleCompleteBoardReview = () => {
+    setCompleteBoardReviewConfirmationOpen(true)
+  }
+
+  const handleCreateTermSheet = () => {
+    setTermSheetModalOpen(true)
+  }
+
+  const handleUpdateTermSheet = () => {
+    setTermSheetModalOpen(true)
+  }
+
+  const handleFinalizeTermSheet = () => {
+    setFinalizeTermSheetConfirmationOpen(true)
+  }
+
+  const handleInitiateFundDisbursement = async () => {
+    if (!selected) return
+    try {
+      // This would call the fund disbursement API
+      toast.success('Fund disbursement initiated successfully')
+      fetchApps() // Refresh applications
+    } catch (error: any) {
+      toast.error('Failed to initiate fund disbursement', { description: error.message })
+    }
+  }
+
   const stages = [
     "REQUIREMENTS_FORM",
     "INITIAL_SCREENING",
@@ -137,10 +290,7 @@ export function UserApplications() {
           <p className="text-gray-600">Filter and review all applications</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <CiSearch size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input placeholder="Search applications..." className="pl-9 w-64" value={query} onChange={(e) => setQuery(e.target.value)} />
-          </div>
+          
           <Button variant="outline" onClick={fetchApps} disabled={loading}>
             <CiRedo size={18} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Refreshing...' : 'Refresh'}
@@ -158,11 +308,19 @@ export function UserApplications() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Stages</SelectItem>
+              <SelectItem value="SUBMITTED">Submitted</SelectItem>
               <SelectItem value="INITIAL_SCREENING">Initial Screening</SelectItem>
               <SelectItem value="SHORTLISTED">Shortlisted</SelectItem>
+              <SelectItem value="UNDER_DUE_DILIGENCE">Under Due Diligence</SelectItem>
               <SelectItem value="DUE_DILIGENCE_COMPLETED">Due Diligence Completed</SelectItem>
+              <SelectItem value="UNDER_BOARD_REVIEW">Under Board Review</SelectItem>
               <SelectItem value="BOARD_APPROVED">Board Approved</SelectItem>
+              <SelectItem value="TERM_SHEET">Term Sheet</SelectItem>
+              <SelectItem value="TERM_SHEET_SIGNED">Term Sheet Signed</SelectItem>
               <SelectItem value="INVESTMENT_IMPLEMENTATION">Investment Implementation</SelectItem>
+              <SelectItem value="FUND_DISBURSED">Fund Disbursed</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="WITHDRAWN">Withdrawn</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -202,10 +360,16 @@ export function UserApplications() {
             </Card>
           ))}
         </div>
+      ) : filtered.length === 0 ? (
+        <EmptyStateWidget stage={selectedStage} />
       ) : (
         <div className="space-y-4">
           {paginated.map((app) => (
-            <Card key={app.id} className="bg-white border border-gray-200 rounded-2xl shadow-none hover:shadow-lg transition-shadow duration-200">
+            <Card 
+              key={app.id} 
+              className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer hover:border-blue-300 hover:scale-[1.02]"
+              onClick={() => openDrawer(app)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-normal">{app.businessName}</CardTitle>
@@ -217,7 +381,10 @@ export function UserApplications() {
                       variant="ghost"
                       size="sm"
                       className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                      onClick={() => openDrawer(app)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openDrawer(app)
+                      }}
                       title="View Details"
                     >
                       <CiViewList className="w-5 h-5" />
@@ -226,10 +393,21 @@ export function UserApplications() {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Progress Bar */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Application Progress</span>
+                    <span className="text-sm text-gray-500">{getStageProgress(app.currentStage)}%</span>
+                  </div>
+                  <Progress value={getStageProgress(app.currentStage)} className="h-2" />
+                </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <CiFileOn className="w-4 h-4" />
+                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                        <CiFileOn className="w-3 h-3 text-blue-600" />
+                      </div>
                       <span>Company</span>
                     </div>
                     <p className="text-sm font-medium line-clamp-2">{app.businessDescription}</p>
@@ -237,7 +415,9 @@ export function UserApplications() {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <CiUser className="w-4 h-4" />
+                      <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                        <CiUser className="w-3 h-3 text-green-600" />
+                      </div>
                       <span>Applicant</span>
                     </div>
                     <p className="text-sm font-medium">{app.applicantName}</p>
@@ -246,7 +426,9 @@ export function UserApplications() {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <CiDollar className="w-4 h-4" />
+                      <div className="w-6 h-6 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <CiDollar className="w-3 h-3 text-yellow-600" />
+                      </div>
                       <span>Requested</span>
                     </div>
                     <p className="text-sm font-medium">
@@ -256,7 +438,9 @@ export function UserApplications() {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <CiCalendar className="w-4 h-4" />
+                      <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
+                        <CiCalendar className="w-3 h-3 text-purple-600" />
+                      </div>
                       <span>Updated</span>
                     </div>
                     <p className="text-sm font-medium">
@@ -286,7 +470,7 @@ export function UserApplications() {
 
       {/* Detail Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-[35vw] min-w-[800px] max-w-[1200px] overflow-y-auto p-5">
+        <SheetContent className="w-[50vw] min-w-[1000px] max-w-[1600px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
           <SheetHeader>
             <SheetTitle className="text-2xl font-normal flex items-center gap-2">
               <CiFileOn className="w-6 h-6" /> {selected?.businessName}
@@ -294,59 +478,134 @@ export function UserApplications() {
           </SheetHeader>
 
           {selected && (
-            <div className="mt-6 space-y-6">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-normal text-gray-900 mb-4">Overview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-500">Applicant</label>
-                    <p className="text-sm font-medium">{selected.applicantName}</p>
-                    <p className="text-xs text-gray-600">{selected.applicantEmail}</p>
-                    <p className="text-xs text-gray-600">{selected.applicantPhone}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Company</label>
-                    <p className="text-sm font-medium">{selected.businessName}</p>
-                    <p className="text-xs text-gray-600">{selected.industry} • {selected.businessStage}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Requested Amount</label>
-                    <p className="text-sm font-medium">${Number(selected.requestedAmount || 0).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Current Stage</label>
-                    <div className="mt-1"><Badge className={stageColor(selected.currentStage)}>{selected.currentStage.replaceAll('_', ' ')}</Badge></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-normal text-gray-900 mb-4">Documents</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {selected.documents?.map((d) => (
-                    <div key={d.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{humanizeDocType(d.documentType)}</p>
-                        <p className="text-xs text-gray-600">{d.fileName}</p>
-                      </div>
-                      <Badge variant={d.isRequired ? 'destructive' : 'secondary'} className="text-xs">{d.isRequired ? 'Required' : 'Optional'}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-normal text-gray-900 mb-4">Timestamps</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>Submitted: {selected.submittedAt ? new Date(selected.submittedAt).toLocaleString() : 'N/A'}</div>
-                  <div>Updated: {new Date(selected.updatedAt).toLocaleString()}</div>
-                  <div>Created: {new Date(selected.createdAt).toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
+            <ApplicationTimeline
+              application={selected}
+              onInitiateDueDiligence={handleInitiateDueDiligence}
+              onUpdateDueDiligence={handleUpdateDueDiligence}
+              onCompleteDueDiligence={handleCompleteDueDiligence}
+              onInitiateBoardReview={handleInitiateBoardReview}
+              onUpdateBoardReview={handleUpdateBoardReview}
+              onCompleteBoardReview={handleCompleteBoardReview}
+              onCreateTermSheet={handleCreateTermSheet}
+              onUpdateTermSheet={handleUpdateTermSheet}
+              onFinalizeTermSheet={handleFinalizeTermSheet}
+              onInitiateFundDisbursement={handleInitiateFundDisbursement}
+              refreshTrigger={refreshTrigger}
+            />
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Modals */}
+      <DueDiligenceModal
+        isOpen={dueDiligenceModalOpen}
+        onClose={() => setDueDiligenceModalOpen(false)}
+        applicationId={selected?.id || ''}
+        onSuccess={async () => {
+          setDueDiligenceModalOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      <BoardReviewModal
+        isOpen={boardReviewModalOpen}
+        onClose={() => setBoardReviewModalOpen(false)}
+        applicationId={selected?.id || ''}
+        onSuccess={async () => {
+          setBoardReviewModalOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      <TermSheetModal
+        isOpen={termSheetModalOpen}
+        onClose={() => setTermSheetModalOpen(false)}
+        applicationId={selected?.id || ''}
+        onSuccess={async () => {
+          setTermSheetModalOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      {/* Due Diligence Confirmation Dialog */}
+      <DueDiligenceConfirmationDialog
+        isOpen={dueDiligenceConfirmationOpen}
+        onClose={() => setDueDiligenceConfirmationOpen(false)}
+        applicationId={selected?.id || ''}
+        applicationName={selected?.businessName || ''}
+        onSuccess={() => {
+          setDueDiligenceConfirmationOpen(false)
+          fetchApps() // Reload application data
+        }}
+      />
+
+      {/* Complete Due Diligence Confirmation Dialog */}
+      <CompleteDueDiligenceConfirmationDialog
+        isOpen={completeDueDiligenceConfirmationOpen}
+        onClose={() => setCompleteDueDiligenceConfirmationOpen(false)}
+        applicationId={selected?.id || ''}
+        applicationName={selected?.businessName || ''}
+        onSuccess={async () => {
+          setCompleteDueDiligenceConfirmationOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      {/* Board Review Confirmation Dialog */}
+      <BoardReviewConfirmationDialog
+        isOpen={boardReviewConfirmationOpen}
+        onClose={() => setBoardReviewConfirmationOpen(false)}
+        applicationId={selected?.id || ''}
+        applicationName={selected?.businessName || ''}
+        onSuccess={async () => {
+          setBoardReviewConfirmationOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      {/* Complete Board Review Confirmation Dialog */}
+      <CompleteBoardReviewConfirmationDialog
+        isOpen={completeBoardReviewConfirmationOpen}
+        onClose={() => setCompleteBoardReviewConfirmationOpen(false)}
+        applicationId={selected?.id || ''}
+        applicationName={selected?.businessName || ''}
+        onSuccess={async () => {
+          setCompleteBoardReviewConfirmationOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      {/* Term Sheet Confirmation Dialog */}
+      <TermSheetConfirmationDialog
+        isOpen={termSheetConfirmationOpen}
+        onClose={() => setTermSheetConfirmationOpen(false)}
+        applicationId={selected?.id || ''}
+        applicationName={selected?.businessName || ''}
+        onSuccess={async () => {
+          setTermSheetConfirmationOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
+
+      {/* Finalize Term Sheet Confirmation Dialog */}
+      <FinalizeTermSheetConfirmationDialog
+        isOpen={finalizeTermSheetConfirmationOpen}
+        onClose={() => setFinalizeTermSheetConfirmationOpen(false)}
+        applicationId={selected?.id || ''}
+        applicationName={selected?.businessName || ''}
+        onSuccess={async () => {
+          setFinalizeTermSheetConfirmationOpen(false)
+          await refreshSelectedApplication() // Refresh the selected application data
+          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+        }}
+      />
     </div>
   )
 }

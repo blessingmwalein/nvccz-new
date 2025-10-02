@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button"
 import { employeesApi, payrollRunsApi, payslipsApi } from "@/lib/api/payroll-api"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { setApiEmployees, setApiPayrollRuns } from "@/lib/store/slices/payrollSlice"
-import { Download, Loader2 } from "lucide-react"
+import { Download, Loader2, FileText } from "lucide-react"
+import { PayslipTemplate } from "@/components/payroll/payslip-template"
+import { generateAndDownloadPDF } from "@/lib/utils/pdf-generator"
+import { generateAndDownloadSimplePDF } from "@/lib/utils/simple-pdf-generator"
 
 export default function PayslipsPage() {
   const dispatch = useAppDispatch()
@@ -19,6 +22,7 @@ export default function PayslipsPage() {
   const [employeesLoading, setEmployeesLoading] = useState(false)
   const [runsLoading, setRunsLoading] = useState(false)
   const [payslip, setPayslip] = useState<any | null>(null)
+  const [generatingPDF, setGeneratingPDF] = useState(false)
   const payslipRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -55,6 +59,40 @@ export default function PayslipsPage() {
     const base = process.env.NEXT_PUBLIC_API_URL || 'https://nvccz-pi.vercel.app'
     const pdfUrl = payslip.pdfPath.startsWith('http') ? payslip.pdfPath : `${base}${payslip.pdfPath}`
     window.open(pdfUrl, '_blank')
+  }
+
+  const handleGeneratePDF = async () => {
+    if (!payslip) return
+    
+    try {
+      setGeneratingPDF(true)
+      const filename = `payslip-${payslip.employee.employeeNumber}-${payslip.payrollRun.payPeriod.replace(/\s+/g, '-')}`
+      
+      // Try the simple PDF generator first (more reliable)
+      await generateAndDownloadSimplePDF(payslip, filename, {
+        format: 'a4',
+        orientation: 'portrait'
+      })
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      
+      // If simple PDF fails, try the template-based PDF as fallback
+      if (payslipRef.current) {
+        try {
+          await generateAndDownloadPDF(payslipRef.current, filename, {
+            format: 'a4',
+            orientation: 'portrait'
+          })
+        } catch (fallbackError) {
+          console.error('Fallback PDF generation also failed:', fallbackError)
+          alert('Failed to generate PDF. Please try again or contact support.')
+        }
+      } else {
+        alert('Failed to generate PDF. Please try again or contact support.')
+      }
+    } finally {
+      setGeneratingPDF(false)
+    }
   }
 
   return (
@@ -126,38 +164,44 @@ export default function PayslipsPage() {
         </div>
 
         {payslip && (
-          <div className="rounded-2xl border-1 border-gray-200 p-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-normal">Payslip</CardTitle>
-              <Button onClick={handleDownloadPdf} className="rounded-full gradient-primary text-white" disabled={!payslip?.pdfPath}>
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div ref={payslipRef} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-500">Employee</p>
-                  <p className="text-lg text-gray-900">{payslip?.employee?.user?.firstName ?? apiEmployees.find(e => e.id === payslip?.employeeId)?.user.firstName} {payslip?.employee?.user?.lastName ?? apiEmployees.find(e => e.id === payslip?.employeeId)?.user.lastName} ({payslip?.employee?.employeeNumber ?? apiEmployees.find(e => e.id === payslip?.employeeId)?.employeeNumber})</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Pay Run</p>
-                  <p className="text-lg text-gray-900">{payslip?.payrollRun?.name ?? apiPayrollRuns.find(r => r.id === payslip?.payrollRunId)?.name} ({new Date((payslip?.payrollRun?.startDate ?? apiPayrollRuns.find(r => r.id === payslip?.payrollRunId)?.startDate) || '').toLocaleDateString()})</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Gross Pay</p>
-                  <p className="text-xl text-gray-900 font-normal">{payslip?.currency?.symbol ?? '$'}{parseFloat(String(payslip?.grossPay ?? payslip?.totals?.gross ?? 0)).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Total Deductions</p>
-                  <p className="text-xl text-red-600 font-normal">{payslip?.currency?.symbol ?? '$'}{parseFloat(String(payslip?.totalDeductions ?? 0)).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Net Pay</p>
-                  <p className="text-2xl text-green-600 font-normal">{payslip?.currency?.symbol ?? '$'}{parseFloat(String(payslip?.netPay ?? payslip?.totals?.netPay ?? 0)).toLocaleString()}</p>
-                </div>
+          <div className="space-y-6">
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Payslip Preview</h2>
+              <div className="flex gap-3">
+                <Button 
+                  onClick={handleGeneratePDF} 
+                  className="rounded-full gradient-primary text-white" 
+                  disabled={generatingPDF}
+                >
+                  {generatingPDF ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Generate PDF
+                    </>
+                  )}
+                </Button>
+                {payslip?.pdfPath && (
+                  <Button 
+                    onClick={handleDownloadPdf} 
+                    className="rounded-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Existing PDF
+                  </Button>
+                )}
               </div>
-            </CardContent>
+            </div>
+
+            {/* Payslip Template */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <PayslipTemplate payslip={payslip} ref={payslipRef} />
+            </div>
           </div>
         )}
       </div>
