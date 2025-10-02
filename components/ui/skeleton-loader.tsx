@@ -194,3 +194,258 @@ export function ApplicationsPipelineSkeleton() {
     </div>
   )
 }
+
+export function DueDiligenceSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Due Diligence Overview Skeleton */}
+      <Card className="border-l-4 border-l-amber-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-6 w-20" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Assessment Details Skeleton */}
+      <Card className="border-l-4 border-l-blue-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Final Comments Skeleton */}
+      <Card className="border-l-4 border-l-purple-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export function BoardReviewSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Board Review Overview Skeleton */}
+      <Card className="border-l-4 border-l-purple-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-6 w-20" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Review Details Skeleton */}
+      <Card className="border-l-4 border-l-blue-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Final Comments Skeleton */}
+      <Card className="border-l-4 border-l-green-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export function TermSheetSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Term Sheet Overview Skeleton */}
+      <Card className="border-l-4 border-l-indigo-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Investment Terms Skeleton */}
+      <Card className="border-l-4 border-l-blue-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-6 w-28" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Key Terms Skeleton */}
+      <Card className="border-l-4 border-l-amber-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Document Skeleton */}
+      <Card className="border-l-4 border-l-green-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-8 w-16" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
