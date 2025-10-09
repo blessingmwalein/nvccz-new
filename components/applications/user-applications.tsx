@@ -21,6 +21,8 @@ import { CompleteBoardReviewConfirmationDialog } from "./complete-board-review-c
 import { TermSheetModal } from "./term-sheet-modal"
 import { TermSheetConfirmationDialog } from "./term-sheet-confirmation-dialog"
 import { FinalizeTermSheetConfirmationDialog } from "./finalize-term-sheet-confirmation-dialog"
+import { FundDisbursementModal } from "./fund-disbursement-modal"
+import { CreateFundDisbursementModal } from "./create-fund-disbursement-modal"
 import { dueDiligenceApi } from "@/lib/api/due-diligence-api"
 import { boardReviewApi } from "@/lib/api/board-review-api"
 import { termSheetApi } from "@/lib/api/term-sheet-api"
@@ -42,6 +44,18 @@ type Application = {
   submittedAt: string | null
   updatedAt: string
   createdAt: string
+  portfolioCompanyId: string
+  fundId: string
+  portfolioCompany?: {
+    id: string
+    name: string
+    industry: string
+    status: string
+  }
+  investmentImplementation?: {
+    id: string
+    portfolioCompanyId: string
+  } | null
   documents: Array<{
     id: string
     documentType: string
@@ -121,6 +135,8 @@ export function UserApplications() {
   const [boardReviewConfirmationOpen, setBoardReviewConfirmationOpen] = useState(false)
   const [completeBoardReviewConfirmationOpen, setCompleteBoardReviewConfirmationOpen] = useState(false)
   const [termSheetModalOpen, setTermSheetModalOpen] = useState(false)
+  const [initiateFundDisbursementModalOpen, setInitiateFundDisbursementModalOpen] = useState(false)
+  const [createFundDisbursementModalOpen, setCreateFundDisbursementModalOpen] = useState(false)
   const [termSheetConfirmationOpen, setTermSheetConfirmationOpen] = useState(false)
   const [finalizeTermSheetConfirmationOpen, setFinalizeTermSheetConfirmationOpen] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -259,14 +275,15 @@ export function UserApplications() {
   }
 
   const handleInitiateFundDisbursement = async () => {
-    if (!selected) return
-    try {
-      // This would call the fund disbursement API
-      toast.success('Fund disbursement initiated successfully')
-      fetchApps() // Refresh applications
-    } catch (error: any) {
-      toast.error('Failed to initiate fund disbursement', { description: error.message })
-    }
+    setInitiateFundDisbursementModalOpen(true)
+  }
+
+  const handleUpdateFundDisbursement = () => {
+    setInitiateFundDisbursementModalOpen(true)
+  }
+
+  const handleCreateFundDisbursement = () => {
+    setCreateFundDisbursementModalOpen(true)
   }
 
   const stages = [
@@ -490,6 +507,7 @@ export function UserApplications() {
               onUpdateTermSheet={handleUpdateTermSheet}
               onFinalizeTermSheet={handleFinalizeTermSheet}
               onInitiateFundDisbursement={handleInitiateFundDisbursement}
+              onCreateFundDisbursement={handleCreateFundDisbursement}
               refreshTrigger={refreshTrigger}
             />
           )}
@@ -529,6 +547,34 @@ export function UserApplications() {
           setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
         }}
       />
+
+      {selected?.portfolioCompanyId && (
+        <FundDisbursementModal
+          isOpen={initiateFundDisbursementModalOpen}
+          onClose={() => setInitiateFundDisbursementModalOpen(false)}
+          applicationId={selected.id}
+          portfolioCompanyId={selected.portfolioCompanyId}
+          onSuccess={async () => {
+            setInitiateFundDisbursementModalOpen(false)
+            await refreshSelectedApplication() // Refresh the selected application data
+            setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          }}
+        />
+      )}
+
+      {selected?.investmentImplementation && (
+        <CreateFundDisbursementModal
+          isOpen={createFundDisbursementModalOpen}
+          onClose={() => setCreateFundDisbursementModalOpen(false)}
+          investmentImplementationId={selected.investmentImplementation.id}
+          companyName={selected.businessName}
+          onSuccess={async () => {
+            setCreateFundDisbursementModalOpen(false)
+            await refreshSelectedApplication() // Refresh the selected application data
+            setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          }}
+        />
+      )}
 
       {/* Due Diligence Confirmation Dialog */}
       <DueDiligenceConfirmationDialog
@@ -606,6 +652,8 @@ export function UserApplications() {
           setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
         }}
       />
+
+     
     </div>
   )
 }

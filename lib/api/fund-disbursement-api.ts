@@ -38,6 +38,14 @@ export interface FundDisbursementCreateRequest {
   notes?: string
 }
 
+export interface DisbursementCreateRequest {
+  investmentImplementationId: string
+  amount: number
+  disbursementDate: string
+  disbursementType: 'INITIAL' | 'MILESTONE' | 'FINAL'
+  notes?: string
+}
+
 export interface FundDisbursementResponse {
   success: boolean
   message: string
@@ -59,6 +67,16 @@ class FundDisbursementApiService {
   // Update fund disbursement status
   async updateStatus(applicationId: string, status: 'PROCESSING' | 'COMPLETED' | 'FAILED'): Promise<FundDisbursementResponse> {
     return apiClient.put<FundDisbursementResponse>(`/fund-disbursements/${applicationId}/status`, { status })
+  }
+
+  // Create disbursement for existing investment implementation
+  async createDisbursement(data: DisbursementCreateRequest): Promise<FundDisbursementResponse> {
+    return apiClient.post<FundDisbursementResponse>('/investment-implementations/disbursements', data)
+  }
+
+  // Approve disbursement
+  async approveDisbursement(disbursementId: string): Promise<FundDisbursementResponse> {
+    return apiClient.post<FundDisbursementResponse>(`/investment-implementations/disbursements/${disbursementId}/approve`)
   }
 }
 

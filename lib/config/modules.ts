@@ -27,7 +27,8 @@ export interface SubModuleConfig {
 export interface ModuleGroupConfig {
   id: string
   title: string
-  items: SubModuleConfig[]
+  path?: string
+  items?: SubModuleConfig[]
 }
 
 export interface ModuleConfig {
@@ -78,11 +79,9 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       {
         id: "funds",
         title: "Funds",
-        items: [
-          { id: "funds-dashboard", name: "Dashboard", path: "/portfolio/funds", icon: CiGrid41, description: "Funds dashboard" },
-          { id: "funds-investors", name: "Investors", path: "/portfolio/funds/investors", icon: CiViewTable, description: "Fund investors" },
-          { id: "funds-analytics", name: "Fund Analytics", path: "/portfolio/funds/analytics", icon: CiViewBoard, description: "Analytics" }
-        ]
+        path: "/portfolio/funds",
+        
+      
       },
       {
         id: "companies",
@@ -149,7 +148,13 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     color: "oklch(0.56 0.10 220)",
     path: "/procurement",
     subModules: [
-      { id: "procurement-dashboard", name: "Dashboard", path: "/procurement", icon: CiGrid41, description: "Procurement dashboard" }
+      { id: "procurement-dashboard", name: "Dashboard", path: "/procurement", icon: CiGrid41, description: "Procurement dashboard" },
+      { id: "purchase-requisitions", name: "Purchase Requisitions", path: "/procurement/requisitions", icon: CiFileOn, description: "Purchase requisitions management" },
+      { id: "purchase-orders", name: "Purchase Orders", path: "/procurement/purchase-orders", icon: CiShop, description: "Purchase orders management" },
+      { id: "procurement-invoices", name: "Invoices", path: "/procurement/invoices", icon: CiWallet, description: "Procurement invoices management" },
+      { id: "goods-received-notes", name: "Goods Received Notes", path: "/procurement/grn", icon: CiViewTimeline, description: "Goods received notes management" },
+      { id: "approval-configurations", name: "Approval Configurations", path: "/procurement/approval-configs", icon: CiSettings, description: "Approval workflow configurations" },
+      { id: "approval-requests", name: "My Approvals", path: "/procurement/approvals", icon: CiCircleCheck, description: "Pending approval requests" }
     ]
   }
 ]
@@ -164,7 +169,16 @@ export const getSubModuleByPath = (path: string): SubModuleConfig | undefined =>
     if (subModule) return subModule
     if (module.groups) {
       for (const group of module.groups) {
-        const item = group.items.find(sub => sub.path === path)
+        if (group.path && group.path === path) {
+          return {
+            id: group.id,
+            name: group.title,
+            path: group.path,
+            icon: CiViewList,
+            description: group.title
+          }
+        }
+        const item = group.items?.find(sub => sub.path === path)
         if (item) return item
       }
     }
@@ -176,6 +190,9 @@ export const getModuleByPath = (path: string): ModuleConfig | undefined => {
   return MODULE_CONFIG.find(module => 
     path === module.path || 
     module.subModules.some(sub => path.startsWith(sub.path)) ||
-    (module.groups ? module.groups.some(g => g.items.some(sub => path.startsWith(sub.path.split("?")[0]))) : false)
+    (module.groups ? module.groups.some(g => {
+      if (g.path && path.startsWith(g.path.split("?" )[0])) return true
+      return g.items ? g.items.some(sub => path.startsWith(sub.path.split("?" )[0])) : false
+    }) : false)
   )
 }

@@ -93,6 +93,10 @@ export interface Employee {
   accountNumber: string
   basicSalary: string
   currencyId: string
+  idNumber: string
+  nextOfKin: string
+  address: string
+  pictureUrl: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -226,6 +230,10 @@ export interface Employee {
   accountNumber: string
   basicSalary: string
   currencyId: string
+  idNumber: string
+  nextOfKin: string
+  address: string
+  pictureUrl: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -462,6 +470,10 @@ export const employeesApi = {
     accountNumber: string
     basicSalary: number
     currencyId: string
+    idNumber: string
+    nextOfKin: string
+    address: string
+    pictureUrl?: string | null
   }): Promise<ApiResponse<Employee>> => {
     return apiClient.post<ApiResponse<Employee>>('/payroll/employees', data)
   },
@@ -471,6 +483,10 @@ export const employeesApi = {
     branchCode?: string
     accountNumber?: string
     basicSalary?: number
+    idNumber?: string
+    nextOfKin?: string
+    address?: string
+    pictureUrl?: string | null
     isActive?: boolean
   }): Promise<ApiResponse<Employee>> => {
     return apiClient.put<ApiResponse<Employee>>(`/payroll/employees/${id}`, data)

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { CiHeart, CiShare2, CiChat1, CiClock1 } from "react-icons/ci";
 import { HiTrendingUp } from "react-icons/hi";
-import { postsApi, type Post } from "@/lib/api/posts-api";
+import { postsApi, type Post, type Reply } from "@/lib/api/posts-api";
 import { useAppSelector } from "@/lib/store";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ export function ArticlesFeed() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [likedArticles, setLikedArticles] = useState<Set<string>>(new Set());
   const [posts, setPosts] = useState<Post[]>([])
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({})
+  const [editingReply, setEditingReply] = useState<Record<string, string>>({})
+  const [submittingReply, setSubmittingReply] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
   const [isPostOpen, setIsPostOpen] = useState(false)
   const [editPost, setEditPost] = useState<Post | null>(null)
@@ -50,6 +54,132 @@ export function ArticlesFeed() {
     category: 'News',
     trending: false,
   }))
+
+  const groupRepliesByParent = (replies: Reply[]) => {
+    const childrenByParent: Record<string, Reply[]> = {}
+    for (const r of replies) {
+      const key = r.parentReplyId || 'root'
+      if (!childrenByParent[key]) childrenByParent[key] = []
+      childrenByParent[key].push(r)
+    }
+    return childrenByParent
+  }
+
+  const renderReply = (postId: string, r: Reply, childrenByParent: Record<string, Reply[]>, depth = 0) => {
+    const childList = childrenByParent[r.id] || []
+    const isExpanded = expandedThreads[r.id] ?? true
+    const isOwner = (user?.email?.toLowerCase?.() || "") && (r.author?.email?.toLowerCase?.() || "") && (user?.email?.toLowerCase?.() === r.author?.email?.toLowerCase?.())
+    return (
+      <div key={r.id} className="mt-3 pl-3 border-l border-gray-200">
+        <div className="flex gap-2 items-start">
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-xs">
+            {(r.author?.firstName?.[0] || 'U')}{(r.author?.lastName?.[0] || '')}
+          </div>
+          <div className="flex-1">
+            <div className="text-sm text-gray-900">{r.author?.firstName} {r.author?.lastName}</div>
+            {editingReply[r.id] !== undefined ? (
+              <div className="mt-1">
+                <textarea
+                  className="w-full border rounded p-2 text-sm"
+                  value={editingReply[r.id]}
+                  onChange={(e) => setEditingReply(prev => ({ ...prev, [r.id]: e.target.value }))}
+                />
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" onClick={async () => {
+                    const content = (editingReply[r.id] || '').trim()
+                    if (!content) return
+                    const res = await postsApi.updateReply(r.id, { content })
+                    if (res.success && res.data) {
+                      setPosts(prev => prev.map(p => p.id !== postId ? p : ({
+                        ...p,
+                        replies: p.replies.map(rr => rr.id === r.id ? res.data as any : rr)
+                      })))
+                      setEditingReply(prev => { const cp = { ...prev }; delete cp[r.id]; return cp })
+                      toast.success('Reply updated')
+                    } else {
+                      toast.error('Failed to update reply')
+                    }
+                  }}>Save</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingReply(prev => { const cp = { ...prev }; delete cp[r.id]; return cp })}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="prose max-w-none text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: r.content }} />
+            )}
+            <div className="flex gap-3 mt-2 text-xs text-gray-500">
+              <button className="hover:text-blue-600" onClick={() => setExpandedThreads(prev => ({ ...prev, [r.id]: !isExpanded }))}>{isExpanded ? 'Collapse' : 'Expand'}</button>
+              <button className="hover:text-blue-600" onClick={() => setReplyDrafts(prev => ({ ...prev, [r.id]: prev[r.id] || '' }))}>Reply</button>
+              {isOwner && (
+                <>
+                  <button className="hover:text-blue-600" onClick={() => setEditingReply(prev => ({ ...prev, [r.id]: r.content }))}>Edit</button>
+                  <button className="hover:text-red-600" onClick={async () => {
+                    const res = await postsApi.deleteReply(r.id)
+                    if (res.success) {
+                      setPosts(prev => prev.map(p => p.id !== postId ? p : ({ ...p, replies: p.replies.filter(rr => rr.id !== r.id) })))
+                      toast.success('Reply deleted')
+                    } else {
+                      toast.error('Failed to delete reply')
+                    }
+                  }}>Delete</button>
+                </>
+              )}
+            </div>
+
+            {/* nested reply composer for this reply */}
+            {replyDrafts[r.id] !== undefined && (
+                <div className="mt-2">
+                <input
+                  className="w-full border rounded p-2 text-sm"
+                  placeholder="Write a reply..."
+                  value={replyDrafts[r.id]}
+                  onChange={(e) => setReplyDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
+                />
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    className="rounded-full gradient-primary text-white disabled:opacity-60"
+                    disabled={!!submittingReply[r.id]}
+                    onClick={async () => {
+                    const content = (replyDrafts[r.id] || '').trim()
+                    if (!content) return
+                    setSubmittingReply(prev => ({ ...prev, [r.id]: true }))
+                    const res = await postsApi.createReplyOnReply(r.id, { content })
+                    if (res.success && res.data) {
+                      setPosts(prev => prev.map(p => p.id !== postId ? p : ({ ...p, replies: [...p.replies, res.data as any] })))
+                      setReplyDrafts(prev => { const cp = { ...prev }; delete cp[r.id]; return cp })
+                      toast.success('Reply added')
+                    } else {
+                      toast.error('Failed to add reply')
+                    }
+                    setSubmittingReply(prev => { const cp = { ...prev }; delete cp[r.id]; return cp })
+                  }}>
+                    {submittingReply[r.id] ? 'Replying…' : 'Reply'}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setReplyDrafts(prev => { const cp = { ...prev }; delete cp[r.id]; return cp })}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            {isExpanded && childList.length > 0 && (
+              <div className="mt-2">
+                {childList.map(child => renderReply(postId, child, childrenByParent, depth + 1))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderRepliesTree = (p: Post) => {
+    const childrenByParent = groupRepliesByParent(p.replies || [])
+    const roots = childrenByParent['root'] || []
+    return (
+      <div className="mt-3">
+        {roots.map(r => renderReply(p.id, r, childrenByParent))}
+      </div>
+    )
+  }
 
   const filterPills = [
     { id: "all", label: "All Articles", count: articles.length },
@@ -282,9 +412,56 @@ export function ArticlesFeed() {
                   <span className="text-sm">{formatNumber(article.shares)}</span>
                 </button>
               </div>
-              </div>
             </div>
+
+            {/* Post-level reply composer */}
+            <div className="mt-3">
+              {replyDrafts[posts[index].id] === undefined ? (
+                <button
+                  className="text-sm text-blue-600 hover:underline"
+                  onClick={() => setReplyDrafts(prev => ({ ...prev, [posts[index].id]: '' }))}
+                >
+                  Reply
+                </button>
+              ) : (
+                <div className="mt-2">
+                  <input
+                    className="w-full border rounded p-2 text-sm"
+                    placeholder="Write a reply..."
+                    value={replyDrafts[posts[index].id]}
+                    onChange={(e) => setReplyDrafts(prev => ({ ...prev, [posts[index].id]: e.target.value }))}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      className="rounded-full gradient-primary text-white disabled:opacity-60"
+                      disabled={!!submittingReply[posts[index].id]}
+                      onClick={async () => {
+                      const content = (replyDrafts[posts[index].id] || '').trim()
+                      if (!content) return
+                      setSubmittingReply(prev => ({ ...prev, [posts[index].id]: true }))
+                      const res = await postsApi.createReplyOnPost(posts[index].id, { content })
+                      if (res.success && res.data) {
+                        setPosts(prev => prev.map(p => p.id !== posts[index].id ? p : ({ ...p, replies: [...(p.replies || []), res.data as any] })))
+                        setReplyDrafts(prev => { const cp = { ...prev }; delete cp[posts[index].id]; return cp })
+                        toast.success('Reply added')
+                      } else {
+                        toast.error('Failed to add reply')
+                      }
+                      setSubmittingReply(prev => { const cp = { ...prev }; delete cp[posts[index].id]; return cp })
+                    }}>
+                      {submittingReply[posts[index].id] ? 'Replying…' : 'Reply'}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setReplyDrafts(prev => { const cp = { ...prev }; delete cp[posts[index].id]; return cp })}>Cancel</Button>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Replies tree */}
+            {renderRepliesTree(posts[index])}
+          </div>
+          </div>
           </motion.div>
         ))}
       </div>

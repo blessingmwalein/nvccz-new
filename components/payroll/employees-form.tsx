@@ -45,14 +45,22 @@ export function EmployeesForm({ isOpen, onClose, onSubmit, editingEmployee, load
       branchCode: editingEmployee.branchCode,
       accountNumber: editingEmployee.accountNumber,
       basicSalary: parseFloat(editingEmployee.basicSalary),
-      currencyId: editingEmployee.currencyId
+      currencyId: editingEmployee.currencyId,
+      idNumber: editingEmployee.idNumber,
+      nextOfKin: editingEmployee.nextOfKin,
+      address: editingEmployee.address,
+      pictureUrl: editingEmployee.pictureUrl
     } : {
       userId: '',
       bankName: '',
       branchCode: '',
       accountNumber: '',
       basicSalary: 0,
-      currencyId: ''
+      currencyId: '',
+      idNumber: '',
+      nextOfKin: '',
+      address: '',
+      pictureUrl: ''
     }
   })
 
@@ -203,6 +211,76 @@ export function EmployeesForm({ isOpen, onClose, onSubmit, editingEmployee, load
                   <p className="text-sm text-red-600">{errors.currencyId.message}</p>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-normal flex items-center gap-2">
+              <CiUser className="w-5 h-5" />
+              Personal Information
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-normal">ID Number</Label>
+                <div className="relative">
+                  <Input
+                    {...register('idNumber')}
+                    placeholder="e.g., 38-2024495Q38"
+                    className="rounded-full pl-10"
+                  />
+                  <CiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                </div>
+                {errors.idNumber && (
+                  <p className="text-sm text-red-600">{errors.idNumber.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-normal">Next of Kin</Label>
+                <div className="relative">
+                  <Input
+                    {...register('nextOfKin')}
+                    placeholder="e.g., Kundai"
+                    className="rounded-full pl-10"
+                  />
+                  <CiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                </div>
+                {errors.nextOfKin && (
+                  <p className="text-sm text-red-600">{errors.nextOfKin.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-normal">Address</Label>
+              <div className="relative">
+                <Input
+                  {...register('address')}
+                  placeholder="e.g., * Dan Judson Rd"
+                  className="rounded-full pl-10"
+                />
+                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
+              {errors.address && (
+                <p className="text-sm text-red-600">{errors.address.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-normal">Picture URL</Label>
+              <div className="relative">
+                <Input
+                  {...register('pictureUrl')}
+                  placeholder="e.g., http://example.com/picture.jpg"
+                  className="rounded-full pl-10"
+                />
+                <CiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
+              {errors.pictureUrl && (
+                <p className="text-sm text-red-600">{errors.pictureUrl.message}</p>
+              )}
             </div>
           </div>
 

@@ -19,38 +19,23 @@ import {
   Edit,
   Play,
   Building2,
-  Loader2
+  Loader2,
+  Banknote,
+  CheckCircle2,
+  AlertCircle,
+  Clock4,
+  RefreshCw
 } from "lucide-react"
 import { CiUser, CiDollar, CiFileOn, CiCalendar } from "react-icons/ci"
 import { dueDiligenceApi, DueDiligenceData } from "@/lib/api/due-diligence-api"
 import { boardReviewApi, BoardReviewData } from "@/lib/api/board-review-api"
 import { termSheetApi, TermSheetData } from "@/lib/api/term-sheet-api"
+import { fundDisbursementApi, FundDisbursementData } from "@/lib/api/fund-disbursement-api"
 import { DueDiligenceSkeleton, BoardReviewSkeleton, TermSheetSkeleton } from "@/components/ui/skeleton-loader"
+import { FundDisbursementForm } from "./fund-disbursement-form"
+import { FundDisbursementConfirmationDialog } from "./fund-disbursement-confirmation-dialog"
 
-interface Application {
-  id: string
-  applicantName: string
-  applicantEmail: string
-  applicantPhone: string
-  applicantAddress: string
-  businessName: string
-  businessDescription: string
-  industry: string
-  businessStage: string
-  foundingDate: string
-  requestedAmount: string
-  currentStage: string
-  submittedAt: string | null
-  updatedAt: string
-  createdAt: string
-  documents: Array<{
-    id: string
-    documentType: string
-    fileName: string
-    isRequired: boolean
-    isSubmitted: boolean
-  }>
-}
+import type { Application } from './applications-dashboard'
 
 interface ApplicationTimelineProps {
   application: Application
@@ -64,7 +49,9 @@ interface ApplicationTimelineProps {
   onUpdateTermSheet?: () => void
   onFinalizeTermSheet?: () => void
   onInitiateFundDisbursement?: () => void
+  onCreateFundDisbursement?: () => void
   refreshTrigger?: number // Add refresh trigger prop
+  onRefresh?: () => void // Add onRefresh callback
 }
 
 const stages = [
@@ -122,6 +109,7 @@ export function ApplicationTimeline({
   onUpdateTermSheet,
   onFinalizeTermSheet,
   onInitiateFundDisbursement,
+  onCreateFundDisbursement,
   refreshTrigger
 }: ApplicationTimelineProps) {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
@@ -134,6 +122,18 @@ export function ApplicationTimeline({
   const [termSheetData, setTermSheetData] = useState<TermSheetData | null>(null)
   const [termSheetLoading, setTermSheetLoading] = useState(false)
   const [termSheetError, setTermSheetError] = useState<string | null>(null)
+  const [fundDisbursementData, setFundDisbursementData] = useState<FundDisbursementData | null>(null)
+  const [fundDisbursementLoading, setFundDisbursementLoading] = useState(false)
+  const [fundDisbursementError, setFundDisbursementError] = useState<string | null>(null)
+  const [showFundDisbursementForm, setShowFundDisbursementForm] = useState(false)
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false)
+  const [pendingDisbursement, setPendingDisbursement] = useState<{
+    amount: number
+    disbursementDate: Date
+    paymentMethod: string
+    referenceNumber: string
+    notes: string
+  } | null>(null)
 
   useEffect(() => {
     let stageIndex = stages.findIndex(stage => stage.id === application.currentStage)
@@ -165,6 +165,14 @@ export function ApplicationTimeline({
   useEffect(() => {
     fetchTermSheetData()
   }, [application.id])
+
+  // Fetch fund disbursement data when component mounts or application changes
+  useEffect(() => {
+    if (application.currentStage === 'INVESTMENT_IMPLEMENTATION' || 
+        application.currentStage === 'FUND_DISBURSED') {
+      fetchFundDisbursementData()
+    }
+  }, [application.id, application.currentStage])
 
   // Refresh due diligence data when refreshTrigger changes
   useEffect(() => {
@@ -230,6 +238,75 @@ export function ApplicationTimeline({
     }
   }
 
+  const fetchFundDisbursementData = async () => {
+    setFundDisbursementLoading(true)
+    setFundDisbursementError(null)
+    try {
+      const response = await fundDisbursementApi.getByApplicationId(application.id)
+      setFundDisbursementData(response.data)
+    } catch (error: any) {
+      // If it's a 404 or similar "not found" error, don't treat it as an error
+      if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('No fund disbursement data')) {
+        setFundDisbursementData(null)
+        setFundDisbursementError(null)
+      } else {
+        setFundDisbursementError(error.message || 'Failed to load fund disbursement data')
+      }
+    } finally {
+      setFundDisbursementLoading(false)
+    }
+  }
+
+  const handleInitiateFundDisbursement = () => {
+    setShowFundDisbursementForm(true)
+  }
+
+  const handleSubmitFundDisbursement = async (data: {
+    amount: number
+    disbursementDate: Date
+    paymentMethod: string
+    referenceNumber: string
+    notes: string
+  }) => {
+    setPendingDisbursement(data)
+    setShowConfirmationDialog(true)
+  }
+
+  const handleConfirmFundDisbursement = async () => {
+    if (!pendingDisbursement) return
+    
+    try {
+      await fundDisbursementApi.create(application.id, {
+        amount: pendingDisbursement.amount,
+        disbursementDate: pendingDisbursement.disbursementDate.toISOString(),
+        bankDetails: {
+          accountName: application.applicantName,
+          accountNumber: 'N/A', // This would be fetched from the company's bank details
+          bankName: 'N/A',
+          branchCode: 'N/A'
+        },
+        notes: pendingDisbursement.notes || undefined
+      })
+      
+      // Refresh the application data
+      if (onInitiateFundDisbursement) {
+        onInitiateFundDisbursement()
+      }
+      
+      // Close the dialogs and reset state
+      setShowConfirmationDialog(false)
+      setShowFundDisbursementForm(false)
+      setPendingDisbursement(null)
+      
+      // Refresh the data
+      fetchFundDisbursementData()
+      
+    } catch (error) {
+      console.error('Error creating fund disbursement:', error)
+      // Handle error (show toast, etc.)
+    }
+  }
+
   const getStageStatus = (stageIndex: number) => {
     // Special handling for BOARD_APPROVED stage
     if (application.currentStage === "BOARD_APPROVED") {
@@ -249,6 +326,71 @@ export function ApplicationTimeline({
     if (stageIndex < currentStageIndex) return "completed"
     if (stageIndex === currentStageIndex) return "current"
     return "upcoming"
+  }
+
+  const renderFundDisbursementStatus = () => {
+    if (fundDisbursementLoading) {
+      return <div className="text-sm text-gray-500">Loading disbursement details...</div>
+    }
+
+    if (fundDisbursementError) {
+      return (
+        <div className="text-sm text-red-500">
+          Error loading disbursement details: {fundDisbursementError}
+        </div>
+      )
+    }
+
+    if (!fundDisbursementData) {
+      return null
+    }
+
+    const statusIcons = {
+      PENDING: <Clock4 className="w-4 h-4 text-amber-500" />,
+      PROCESSING: <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />,
+      COMPLETED: <CheckCircle2 className="w-4 h-4 text-green-500" />,
+      FAILED: <AlertCircle className="w-4 h-4 text-red-500" />
+    }
+
+    const statusText = {
+      PENDING: 'Pending',
+      PROCESSING: 'Processing',
+      COMPLETED: 'Completed',
+      FAILED: 'Failed'
+    }
+
+    return (
+      <div className="mt-2 p-3 bg-gray-50 rounded-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {statusIcons[fundDisbursementData.status]}
+            <span className="text-sm font-medium">
+              Status: {statusText[fundDisbursementData.status]}
+            </span>
+          </div>
+          <Badge variant="outline" className="ml-2">
+            ${parseFloat(fundDisbursementData.amount).toLocaleString()}
+          </Badge>
+        </div>
+        
+        {fundDisbursementData.transactionReference && (
+          <div className="mt-2 text-sm text-gray-600">
+            <p>Reference: {fundDisbursementData.transactionReference}</p>
+          </div>
+        )}
+        
+        {fundDisbursementData.notes && (
+          <div className="mt-2 text-sm text-gray-600">
+            <p className="font-medium">Notes:</p>
+            <p className="whitespace-pre-line">{fundDisbursementData.notes}</p>
+          </div>
+        )}
+        
+        <div className="mt-2 text-xs text-gray-500">
+          Last updated: {new Date(fundDisbursementData.updatedAt).toLocaleString()}
+        </div>
+      </div>
+    )
   }
 
   const getStageActions = (stageId: string) => {
@@ -370,14 +512,47 @@ export function ApplicationTimeline({
         )
       case "INVESTMENT_IMPLEMENTATION":
         return (
-          <div className="flex gap-2">
-            <Button
-              onClick={onInitiateFundDisbursement}
-              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Initiate Fund Disbursement
-            </Button>
+          <div className="space-y-4">
+            {/* Show different buttons based on whether investment implementation exists */}
+            {!application.investmentImplementation ? (
+              // No investment implementation yet - show initiate button
+              <div className="flex gap-2">
+                <Button
+                  onClick={onInitiateFundDisbursement}
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full"
+                >
+                  <DollarSign className="w-4 h-4 mr-2" />
+                  Initiate Fund Disbursement
+                </Button>
+              </div>
+            ) : (
+              // Investment implementation exists - show create disbursement button
+              <div className="flex gap-2">
+                <Button
+                  onClick={onCreateFundDisbursement}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+                >
+                  <Banknote className="w-4 h-4 mr-2" />
+                  Create Fund Disbursement
+                </Button>
+              </div>
+            )}
+            
+            {renderFundDisbursementStatus()}
+            
+            {fundDisbursementData && (
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchFundDisbursementData}
+                  className="text-xs"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Refresh Status
+                </Button>
+              </div>
+            )}
           </div>
         )
       default:
@@ -949,14 +1124,15 @@ export function ApplicationTimeline({
                 <div className="flex-1">
                   <p className="font-medium">{termSheetData.documentFileName}</p>
                   <p className="text-sm text-gray-500">
-                    {(termSheetData.documentSize / 1024 / 1024).toFixed(2)} MB
+                    {termSheetData.documentSize ? (termSheetData.documentSize / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}
                   </p>
                 </div>
                 <Button
-                  onClick={() => window.open(termSheetData.documentUrl, '_blank')}
+                  onClick={() => termSheetData.documentUrl && window.open(termSheetData.documentUrl, '_blank')}
                   variant="outline"
                   size="sm"
                   className="rounded-full"
+                  disabled={!termSheetData.documentUrl}
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   View
@@ -1096,7 +1272,48 @@ export function ApplicationTimeline({
 
       {/* Timeline Steps */}
       <div className="relative">
-        {stages.map((stage, index) => {
+        {/* Fund Disbursement Form Modal */}
+      {showFundDisbursementForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Initiate Fund Disbursement</h3>
+                <button 
+                  onClick={() => setShowFundDisbursementForm(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <FundDisbursementForm
+                applicationId={application.id}
+                portfolioCompanyId={application.portfolioCompanyId || ''}
+                fundId={application.fundId || ''}
+                onCancel={() => setShowFundDisbursementForm(false)}
+                onSubmit={handleSubmitFundDisbursement}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Dialog */}
+      <FundDisbursementConfirmationDialog
+        open={showConfirmationDialog}
+        onOpenChange={setShowConfirmationDialog}
+        onConfirm={handleConfirmFundDisbursement}
+        disbursementData={{
+          amount: pendingDisbursement?.amount || 0,
+          disbursementDate: pendingDisbursement?.disbursementDate || new Date(),
+          paymentMethod: pendingDisbursement?.paymentMethod || '',
+          referenceNumber: pendingDisbursement?.referenceNumber || ''
+        }}
+        loading={false}
+      />
+      
+      {stages.map((stage, index) => {
           const status = getStageStatus(index)
           const isCompleted = status === "completed"
           const isCurrent = status === "current"

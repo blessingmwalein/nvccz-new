@@ -113,25 +113,41 @@ export function PortfolioSidebar() {
                   </button>
                   {!collapsed && (
                     <div className="space-y-1 pl-5 border-l border-gray-200 ml-2">
-                      {group.items.map((item) => {
-                        const Icon = item.icon
-                        const active = isPathActive(item.path)
-                        return (
-                          <Button
-                            key={item.id}
-                            variant="ghost"
-                            className={cn(
-                              "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
-                              "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
-                              active && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
-                            )}
-                            onClick={() => handleItemClick(item.path)}
-                          >
-                            <Icon className="w-4 h-4" />
-                            <span className="text-[13px]">{item.name}</span>
-                          </Button>
-                        )
-                      })}
+                      {Array.isArray(group.items) && group.items.length > 0 ? (
+                        group.items.map((item) => {
+                          const Icon = item.icon
+                          const active = isPathActive(item.path)
+                          return (
+                            <Button
+                              key={item.id}
+                              variant="ghost"
+                              className={cn(
+                                "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
+                                "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
+                                active && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
+                              )}
+                              onClick={() => handleItemClick(item.path)}
+                            >
+                              <Icon className="w-4 h-4" />
+                              <span className="text-[13px]">{item.name}</span>
+                            </Button>
+                          )
+                        })
+                      ) : group.path ? (
+                        <Button
+                          key={group.id}
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
+                            "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
+                            isPathActive(group.path) && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
+                          )}
+                          onClick={() => handleItemClick(group.path!)}
+                        >
+                          <GroupIcon className="w-4 h-4" />
+                          <span className="text-[13px]">{group.title}</span>
+                        </Button>
+                      ) : null}
                     </div>
                   )}
                 </div>

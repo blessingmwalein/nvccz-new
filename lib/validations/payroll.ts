@@ -45,7 +45,11 @@ export const employeeFormSchema = yup.object({
   branchCode: yup.string().required("Branch code is required").min(2, "Branch code must be at least 2 characters"),
   accountNumber: yup.string().required("Account number is required").min(5, "Account number must be at least 5 characters"),
   basicSalary: yup.number().required("Basic salary is required").min(0, "Salary must be positive"),
-  currencyId: yup.string().required("Currency is required")
+  currencyId: yup.string().required("Currency is required"),
+  idNumber: yup.string().required("ID number is required").min(5, "ID number must be at least 5 characters"),
+  nextOfKin: yup.string().required("Next of kin is required").min(2, "Next of kin name must be at least 2 characters"),
+  address: yup.string().required("Address is required").min(5, "Address must be at least 5 characters"),
+  pictureUrl: yup.string().url("Picture URL must be a valid URL").nullable()
 })
 
 // Salary Structure validation schemas

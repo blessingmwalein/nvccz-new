@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAppSelector } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import type { IconType } from "react-icons"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -25,19 +26,35 @@ import { ApplicationTimeline } from "./application-timeline"
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, AreaChart, Area } from 'recharts'
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader"
 
-type Application = {
+export type Application = {
   id: string
   applicantName: string
   applicantEmail: string
+  applicantPhone: string
+  applicantAddress: string
   businessName: string
   businessDescription: string
   industry: string
   businessStage: string
+  foundingDate: string
   requestedAmount: string
   currentStage: string
   submittedAt: string | null
   updatedAt: string
   createdAt: string
+  portfolioCompanyId: string
+  fundId: string
+  investmentImplementation?: {
+    id: string
+    portfolioCompanyId: string
+  } | null
+  documents: Array<{
+    id: string
+    documentType: string
+    fileName: string
+    isRequired: boolean
+    isSubmitted: boolean
+  }>
 }
 
 export function ApplicationsDashboard() {
@@ -47,6 +64,7 @@ export function ApplicationsDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Fetch applications data
   useEffect(() => {
@@ -223,12 +241,49 @@ export function ApplicationsDashboard() {
     return { pipelineStats, chartData, keyMetrics, totalApplications, totalValue }
   }
 
-  const { pipelineStats, chartData, keyMetrics } = calculateStats()
+  const { pipelineStats, chartData, keyMetrics }: {
+    pipelineStats: Array<{
+      stage: string
+      count: number
+      value: string
+      percentage: number
+      icon: IconType
+      color: string
+      order: number
+    }>
+    chartData: Array<{
+      name: string
+      value: number
+      fill: string
+    }>
+    keyMetrics: Array<{
+      title: string
+      value: string
+      change: string
+      trend: string
+    }>
+  } = calculateStats()
 
   // Handle application click
   const handleApplicationClick = (application: Application) => {
     setSelectedApplication(application)
     setDrawerOpen(true)
+  }
+
+  // Handle view details (alias for handleApplicationClick)
+  const handleViewDetails = (application: Application) => {
+    handleApplicationClick(application);
+  }
+
+  // Handle refresh
+  const handleRefresh = () => {
+    setRefreshTrigger(prev => prev + 1)
+  }
+
+  // Handle fund disbursement actions
+  const handleInitiateFundDisbursement = () => {
+    // This will be handled by the ApplicationTimeline component
+    handleRefresh()
   }
 
   // Calculate real monthly data for the current year
@@ -389,7 +444,24 @@ export function ApplicationsDashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = 25 + innerRadius + (outerRadius - innerRadius);
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="#8884d8"
+                          textAnchor={x > cx ? 'start' : 'end'}
+                          dominantBaseline="central"
+                        >
+                          {`${chartData[index].name} ${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -507,9 +579,9 @@ export function ApplicationsDashboard() {
               onCreateTermSheet={() => {}}
               onUpdateTermSheet={() => {}}
               onFinalizeTermSheet={() => {}}
-              onInitiateFundDisbursement={() => {}}
-              onUpdateFundDisbursement={() => {}}
-              onCompleteFundDisbursement={() => {}}
+              onInitiateFundDisbursement={handleInitiateFundDisbursement}
+              refreshTrigger={refreshTrigger}
+              onRefresh={handleRefresh}
             />
           )}
         </SheetContent>

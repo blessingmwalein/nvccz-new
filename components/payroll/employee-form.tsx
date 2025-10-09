@@ -58,14 +58,22 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
       branchCode: editingEmployee.branchCode,
       accountNumber: editingEmployee.accountNumber,
       basicSalary: parseFloat(editingEmployee.basicSalary),
-      currencyId: editingEmployee.currencyId
+      currencyId: editingEmployee.currencyId,
+      idNumber: editingEmployee.idNumber,
+      nextOfKin: editingEmployee.nextOfKin,
+      address: editingEmployee.address,
+      pictureUrl: editingEmployee.pictureUrl
     } : {
       userId: '',
       bankName: '',
       branchCode: '',
       accountNumber: '',
       basicSalary: 0,
-      currencyId: ''
+      currencyId: '',
+      idNumber: '',
+      nextOfKin: '',
+      address: '',
+      pictureUrl: ''
     }
   })
 
@@ -78,7 +86,11 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
         branchCode: editingEmployee.branchCode,
         accountNumber: editingEmployee.accountNumber,
         basicSalary: parseFloat(editingEmployee.basicSalary),
-        currencyId: editingEmployee.currencyId
+        currencyId: editingEmployee.currencyId,
+        idNumber: editingEmployee.idNumber,
+        nextOfKin: editingEmployee.nextOfKin,
+        address: editingEmployee.address,
+        pictureUrl: editingEmployee.pictureUrl
       }
       reset(formData)
     } else {
@@ -88,7 +100,11 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
         branchCode: '',
         accountNumber: '',
         basicSalary: 0,
-        currencyId: ''
+        currencyId: '',
+        idNumber: '',
+        nextOfKin: '',
+        address: '',
+        pictureUrl: ''
       })
     }
   }, [editingEmployee, reset])
@@ -373,6 +389,99 @@ export function EmployeeForm({ isOpen, onClose, onSubmit, editingEmployee, loadi
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
                     {errors.currencyId.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Personal Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="idNumber">ID Number *</Label>
+                <Controller
+                  name="idNumber"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      placeholder="e.g., 38-2024495Q38"
+                      className="rounded-full"
+                    />
+                  )}
+                />
+                {errors.idNumber && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.idNumber.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nextOfKin">Next of Kin *</Label>
+                <Controller
+                  name="nextOfKin"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      placeholder="e.g., Kundai"
+                      className="rounded-full"
+                    />
+                  )}
+                />
+                {errors.nextOfKin && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.nextOfKin.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="address">Address *</Label>
+                <Controller
+                  name="address"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      placeholder="e.g., * Dan Judson Rd"
+                      className="rounded-full"
+                    />
+                  )}
+                />
+                {errors.address && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.address.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="pictureUrl">Picture URL</Label>
+                <Controller
+                  name="pictureUrl"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      placeholder="e.g., http://example.com/picture.jpg"
+                      className="rounded-full"
+                    />
+                  )}
+                />
+                {errors.pictureUrl && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.pictureUrl.message}
                   </p>
                 )}
               </div>

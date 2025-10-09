@@ -33,6 +33,22 @@ export const fundFormSchema = yup.object({
   strategy: yup.string().required("Investment strategy is required").min(20, "Strategy must be at least 20 characters"),
 })
 
+// API-backed Fund create schema (for /api/funds)
+export const fundCreateFormSchema = yup.object({
+  name: yup.string().required("Fund name is required").min(2, "Name must be at least 2 characters"),
+  description: yup.string().required("Description is required").min(10, "Description must be at least 10 characters"),
+  totalAmount: yup.number().required("Total amount is required").min(0, "Must be positive"),
+  minInvestment: yup.number().required("Minimum investment is required").min(0, "Must be positive"),
+  maxInvestment: yup
+    .number()
+    .required("Maximum investment is required")
+    .min(yup.ref('minInvestment'), "Max must be greater than or equal to min"),
+  focusIndustries: yup.array().of(yup.string().min(2)).min(1, "Select at least one industry"),
+  applicationStart: yup.string().required("Application start is required"),
+  applicationEnd: yup.string().required("Application end is required"),
+  status: yup.mixed<'OPEN' | 'CLOSED' | 'PAUSED'>().oneOf(['OPEN','CLOSED','PAUSED']).default('OPEN')
+})
+
 export const investorFormSchema = yup.object({
   name: yup.string().required("Investor name is required").min(2, "Name must be at least 2 characters"),
   organization: yup.string().required("Organization is required"),
@@ -54,5 +70,6 @@ export const profileFormSchema = yup.object({
 export type CompanyFormData = yup.InferType<typeof companyFormSchema>
 export type ApplicationFormData = yup.InferType<typeof applicationFormSchema>
 export type FundFormData = yup.InferType<typeof fundFormSchema>
+export type FundCreateFormData = yup.InferType<typeof fundCreateFormSchema>
 export type InvestorFormData = yup.InferType<typeof investorFormSchema>
 export type ProfileFormData = yup.InferType<typeof profileFormSchema>
