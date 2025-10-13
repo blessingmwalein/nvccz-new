@@ -32,7 +32,7 @@ export function AccountingSidebar() {
     <aside className="w-64 bg-white border-r border-border h-[calc(100vh-5rem)] overflow-y-auto sticky top-20 z-10">
       <div className="p-4 space-y-4">
         {/* Module Header */}
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-teal-100">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100">
           <div 
             className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: module.color }}
@@ -55,8 +55,8 @@ export function AccountingSidebar() {
                 variant="ghost"
                 className={cn(
                   "w-full justify-start gap-3 h-12 cursor-pointer rounded-full transition-all duration-200 text-gray-800",
-                  "hover:bg-gradient-to-r hover:from-teal-50 hover:to-teal-100 hover:rounded-full",
-                  active && "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg rounded-full",
+                  "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
+                  active && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
                 )}
                 onClick={() => handleItemClick(subModule.path)}
               >

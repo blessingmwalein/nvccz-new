@@ -54,6 +54,8 @@ export interface ProcurementDataTableProps<T> {
   exportable?: boolean
   onExport?: (data: T[]) => void
   emptyMessage?: string
+  showSearch?: boolean
+  showFilters?: boolean
 }
 
 export function ProcurementDataTable<T extends { id: string }>({
@@ -73,7 +75,9 @@ export function ProcurementDataTable<T extends { id: string }>({
   pageSize = 10,
   exportable = true,
   onExport,
-  emptyMessage = "No data available"
+  emptyMessage = "No data available",
+  showSearch = true,
+  showFilters = true
 }: ProcurementDataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterValue, setFilterValue] = useState("all")
@@ -243,34 +247,38 @@ export function ProcurementDataTable<T extends { id: string }>({
         </div>
 
         {/* Search and Filter Controls */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
-            <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder={searchPlaceholder}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {(showSearch || showFilters) && (
+          <div className="flex items-center gap-4">
+            {showSearch && (
+              <div className="relative flex-1">
+                <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder={searchPlaceholder}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            )}
+            
+            {showFilters && filterOptions.length > 0 && (
+              <Select value={filterValue} onValueChange={setFilterValue}>
+                <SelectTrigger className="w-48">
+                  <CiFilter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Filter by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {filterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          
-          {filterOptions.length > 0 && (
-            <Select value={filterValue} onValueChange={setFilterValue}>
-              <SelectTrigger className="w-48">
-                <CiFilter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter by..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {filterOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        )}
 
         {/* Bulk Actions */}
         {selectedRows.length > 0 && bulkActions.length > 0 && (

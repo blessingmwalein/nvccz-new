@@ -19,6 +19,7 @@ interface CreatePurchaseOrderModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  preSelectedRequisitionId?: string
 }
 
 interface POItem {
@@ -30,7 +31,7 @@ interface POItem {
   totalPrice: number
 }
 
-export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess }: CreatePurchaseOrderModalProps) {
+export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelectedRequisitionId }: CreatePurchaseOrderModalProps) {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [vendors, setVendors] = useState<Vendor[]>([])
@@ -59,6 +60,12 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess }: CreateP
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (preSelectedRequisitionId) {
+      setFormData(prev => ({ ...prev, requisitionId: preSelectedRequisitionId }))
+    }
+  }, [preSelectedRequisitionId])
+
   const loadInitialData = async () => {
     try {
       setLoadingData(true)
@@ -74,11 +81,49 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess }: CreateP
       if (requisitionsResponse.success && requisitionsResponse.data) {
         setRequisitions(requisitionsResponse.data.filter(r => r.status === 'APPROVED'))
       }
+
+      // If there's a pre-selected requisition, load its data
+      if (preSelectedRequisitionId) {
+        await loadRequisitionData(preSelectedRequisitionId)
+      }
     } catch (error) {
       console.error('Error loading initial data:', error)
       toast.error('Failed to load form data')
     } finally {
       setLoadingData(false)
+    }
+  }
+
+  const loadRequisitionData = async (requisitionId: string) => {
+    try {
+      const response = await procurementApi.getRequisitionById(requisitionId)
+      if (response.success && response.data) {
+        const requisition = response.data
+        
+        // Update form data with requisition details
+        setFormData(prev => ({
+          ...prev,
+          priority: requisition.priority,
+          notes: `Created from requisition: ${requisition.requisitionNumber}`
+        }))
+
+        // Populate items from requisition
+        const requisitionItems: POItem[] = requisition.items.map(item => ({
+          itemName: item.itemName,
+          description: item.description || '',
+          quantity: Number(item.quantity),
+          unit: item.unit,
+          unitPrice: Number(item.unitPrice),
+          totalPrice: Number(item.totalPrice || 0)
+        }))
+
+        if (requisitionItems.length > 0) {
+          setItems(requisitionItems)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading requisition data:', error)
+      toast.error('Failed to load requisition data')
     }
   }
 
@@ -184,7 +229,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess }: CreateP
                 <Select 
                   value={formData.requisitionId} 
                   onValueChange={(value) => handleInputChange("requisitionId", value)}
-                  disabled={loadingData}
+                  disabled={loadingData || !!preSelectedRequisitionId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={loadingData ? "Loading requisitions..." : "Select requisition (optional)"} />

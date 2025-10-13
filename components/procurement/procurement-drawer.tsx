@@ -13,6 +13,7 @@ interface ProcurementDrawerProps {
   children: ReactNode
   size?: "sm" | "md" | "lg" | "xl"
   showCloseButton?: boolean
+  headerActions?: ReactNode
 }
 
 export function ProcurementDrawer({
@@ -22,7 +23,8 @@ export function ProcurementDrawer({
   description,
   children,
   size = "lg",
-  showCloseButton = true
+  showCloseButton = false,
+  headerActions
 }: ProcurementDrawerProps) {
   const sizeClasses = {
     sm: "max-w-[50%]",
@@ -35,11 +37,11 @@ export function ProcurementDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
         side="right" 
-        className={`!${sizeClasses[size]} overflow-y-auto`}
+        className={`!${sizeClasses[size]} overflow-y-auto [&>button]:hidden`}
       >
         <SheetHeader className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1 flex-1">
               <SheetTitle className="text-xl font-semibold text-gray-900">
                 {title}
               </SheetTitle>
@@ -49,17 +51,20 @@ export function ProcurementDrawer({
                 </SheetDescription>
               )}
             </div>
-            {showCloseButton && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </Button>
-            )}
+            <div className="flex items-center gap-2 ml-4">
+              {headerActions}
+              {showCloseButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenChange(false)}
+                  className="h-8 w-8 p-0 rounded-full"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              )}
+            </div>
           </div>
         </SheetHeader>
         

@@ -1,9 +1,9 @@
-import { 
-  CiHome, 
-  CiShop, 
-  CiViewTimeline, 
-  CiFileOn, 
-  CiWallet, 
+import {
+  CiHome,
+  CiShop,
+  CiViewTimeline,
+  CiFileOn,
+  CiWallet,
   CiUser,
   CiSettings,
   CiDollar,
@@ -15,6 +15,23 @@ import {
   CiViewList,
   CiCircleCheck
 } from "react-icons/ci"
+import {
+  ShoppingCart,
+  Package,
+  Truck,
+  Receipt,
+  Calculator,
+  Building2,
+  Users,
+  Landmark,
+  BarChart3,
+  Settings,
+  TrendingUp,
+  DollarSign,
+  FileText
+} from "lucide-react"
+import { IconType } from "react-icons"
+import { IoReceiptOutline } from "react-icons/io5"
 
 export interface SubModuleConfig {
   id: string
@@ -63,7 +80,7 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [],
     // Grouped navigation per requirements
     groups: [
-     
+
       {
         id: "applications",
         title: "Applications",
@@ -80,8 +97,8 @@ export const MODULE_CONFIG: ModuleConfig[] = [
         id: "funds",
         title: "Funds",
         path: "/portfolio/funds",
-        
-      
+
+
       },
       {
         id: "companies",
@@ -111,17 +128,7 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       { id: "user-scorecards", name: "User Scorecards", path: "/performance/user-scorecards", icon: CiViewTable, description: "User performance scorecards" }
     ]
   },
-  {
-    id: "accounting",
-    name: "Accounting",
-    description: "Accounting and financial operations",
-    icon: CiDollar,
-    color: "oklch(0.62 0.10 170)",
-    path: "/accounting",
-    subModules: [
-      { id: "accounting-dashboard", name: "Dashboard", path: "/accounting", icon: CiGrid41, description: "Accounting dashboard" }
-    ]
-  },
+
   {
     id: "payroll",
     name: "Payroll",
@@ -156,6 +163,32 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       { id: "approval-configurations", name: "Approval Configurations", path: "/procurement/approval-configs", icon: CiSettings, description: "Approval workflow configurations" },
       { id: "approval-requests", name: "My Approvals", path: "/procurement/approvals", icon: CiCircleCheck, description: "Pending approval requests" }
     ]
+  },
+  {
+    id: "accounting",
+    name: "Accounting",
+    description: "Accounting and financial operations",
+    icon: CiDollar,
+    color: "oklch(0.62 0.10 170)",
+    path: "/accounting",
+    subModules: [
+      { id: "accounting-dashboard", name: "Dashboard", path: "/accounting", icon: CiGrid41, description: "Accounting dashboard" },
+      { id: "general-ledger", name: "General Ledger", path: "/accounting/general-ledger", icon: CiFileOn, description: "Chart of accounts and journal entries" },
+    
+      { id: "invoices", name: "Accounts Receivable", path: "/accounting/invoices", icon: CiUser, description: "Customer invoices and payments" },
+    
+      // { id: "accounts-receivable", name: "Accounts Receivable", path: "/accounting/debtors", icon: CiUser, description: "Customer invoices and payments" },
+      // { id: "accounts-payable", name: "Accounts Payable", path: "/accounting/creditors", icon: CiWallet, description: "Supplier bills and payments" },
+      { id: "bank-reconciliation", name: "Bank Reconciliation", path: "/accounting/bank-reconciliation", icon: CiViewTimeline, description: "Match bank statements" },
+      { id: "expenses", name: "Expenses", path: "/accounting/expenses", icon: IoReceiptOutline, description: "Expense Management" },
+
+      { id: "inventory-accounting", name: "Inventory", path: "/accounting/inventory", icon: CiShop, description: "Stock management and COGS" },
+
+      { id: "asset-management", name: "Asset Management", path: "/accounting/assets", icon: CiViewBoard, description: "Fixed assets and depreciation" },
+      { id: "financial-reports", name: "Financial Reports", path: "/accounting/reports", icon: CiViewTable, description: "Financial statements and analytics" },
+
+      { id: "accounting-settings", name: "Settings", path: "/accounting/settings", icon: CiSettings, description: "Chart of accounts and configuration" },
+    ]
   }
 ]
 
@@ -187,12 +220,12 @@ export const getSubModuleByPath = (path: string): SubModuleConfig | undefined =>
 }
 
 export const getModuleByPath = (path: string): ModuleConfig | undefined => {
-  return MODULE_CONFIG.find(module => 
-    path === module.path || 
+  return MODULE_CONFIG.find(module =>
+    path === module.path ||
     module.subModules.some(sub => path.startsWith(sub.path)) ||
     (module.groups ? module.groups.some(g => {
-      if (g.path && path.startsWith(g.path.split("?" )[0])) return true
-      return g.items ? g.items.some(sub => path.startsWith(sub.path.split("?" )[0])) : false
+      if (g.path && path.startsWith(g.path.split("?")[0])) return true
+      return g.items ? g.items.some(sub => path.startsWith(sub.path.split("?")[0])) : false
     }) : false)
   )
 }

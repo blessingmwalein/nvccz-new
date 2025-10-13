@@ -15,6 +15,8 @@ import procurementSlice from "./slices/procurementSlice"
 import currenciesSlice from "./slices/currenciesSlice"
 import usersSlice from "./slices/usersSlice"
 import taskSlice from "./slices/taskSlice"
+import accountingReducer from "./slices/accounting-slice"
+import invoicesReducer from "./slices/invoices-slice"
 
 export const store = configureStore({
   reducer: {
@@ -33,7 +35,15 @@ export const store = configureStore({
     currencies: currenciesSlice,
     users: usersSlice,
     tasks: taskSlice,
+    accounting: accountingReducer,
+    invoices: invoicesReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST", "persist/REHYDRATE"],
+      },
+    }),
 })
 
 export type RootState = ReturnType<typeof store.getState>

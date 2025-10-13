@@ -6,6 +6,9 @@ import { usePathname } from "next/navigation"
 import { SharedTopbar } from "./shared-topbar"
 import { AccountingSidebar } from "./accounting-sidebar"
 import { MODULE_CONFIG, getModuleByPath } from "@/lib/config/modules"
+import { useDispatch } from "react-redux"
+import { fetchCurrencies } from "@/lib/store/slices/accounting-slice"
+import type { AppDispatch } from "@/lib/store/store"
 
 interface AccountingLayoutProps {
   children: React.ReactNode
@@ -14,6 +17,7 @@ interface AccountingLayoutProps {
 export function AccountingLayout({ children }: AccountingLayoutProps) {
   const [currentModule, setCurrentModule] = useState("accounting")
   const pathname = usePathname()
+  const dispatch = useDispatch<AppDispatch>()
 
   useEffect(() => {
     const module = getModuleByPath(pathname)
@@ -21,6 +25,10 @@ export function AccountingLayout({ children }: AccountingLayoutProps) {
       setCurrentModule(module.id)
     }
   }, [pathname])
+
+  useEffect(() => {
+    dispatch(fetchCurrencies())
+  }, [dispatch])
 
   const handleModuleSelect = (module: string) => {
     console.log('AccountingLayout handleModuleSelect called with:', module)

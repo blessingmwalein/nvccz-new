@@ -22,7 +22,6 @@ import { Building, CheckCircle, Clock, AlertCircle, Truck } from "lucide-react"
 import { toast } from "sonner"
 import { CreatePurchaseOrderModal } from "./create-purchase-order-modal"
 import { ApprovalDialog } from "./approval-dialog"
-import { PurchaseOrderTimeline } from "./purchase-order-timeline"
 
 export function PurchaseOrders() {
   const dispatch = useAppDispatch()
@@ -232,31 +231,6 @@ export function PurchaseOrders() {
     // TODO: Implement export functionality
     toast.success(`Exporting ${data.length} purchase orders`)
   }
-  
-  const handleUpdateStatus = async (id: string, status: string) => {
-    try {
-      // TODO: Replace with actual API call
-      // const response = await procurementApi.updatePurchaseOrderStatus(id, status);
-      
-      // Simulate API call for now
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Update the local state
-      const updatedOrder = purchaseOrders.find(order => order.id === id);
-      if (updatedOrder) {
-        const newOrder = { ...updatedOrder, status };
-        dispatch(updatePurchaseOrder(newOrder));
-        
-        if (viewingOrder?.id === id) {
-          setViewingOrder(newOrder);
-        }
-        
-        toast.success(`Purchase order status updated to ${status.replace('_', ' ')}`);
-      }
-    } catch (error: any) {
-      toast.error("Failed to update purchase order status", { description: error.message });
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -296,16 +270,86 @@ export function PurchaseOrders() {
       >
         {viewingOrder && (
           <div className="space-y-6">
-            <PurchaseOrderTimeline 
-              purchaseOrder={{
-                ...viewingOrder,
-                orderNumber: viewingOrder.purchaseOrderNumber,
-                notes: viewingOrder.paymentTerms || ''
-              }}
-              onUpdateStatus={handleUpdateStatus}
-              refreshTrigger={Date.now()}
-            />
-            
+            {/* Order Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CiShop className="w-5 h-5" />
+                  Order Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">PO Number</label>
+                    <p className="text-lg font-semibold">{viewingOrder.purchaseOrderNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <div className="mt-1">
+                      <Badge className={getStatusColor(viewingOrder.status)}>
+                        {getStatusIcon(viewingOrder.status)}
+                        {viewingOrder.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Vendor</label>
+                    <p className="font-medium">{viewingOrder.vendor?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Priority</label>
+                    <div className="mt-1">
+                      <Badge className={getPriorityColor(viewingOrder.priority)}>
+                        {viewingOrder.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Total Amount</label>
+                    <p className="text-lg font-semibold text-green-600">
+                      ${parseFloat(viewingOrder.totalAmount).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Expected Delivery</label>
+                    <p className="font-medium">
+                      {new Date(viewingOrder.expectedDeliveryDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Items */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Items</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {viewingOrder.items?.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">{item.itemName}</h4>
+                        <p className="text-sm text-gray-600">{item.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          {item.quantity} {item.unit} × ${parseFloat(item.unitPrice.toString()).toFixed(2)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Total: ${(parseFloat(item.quantity.toString()) * parseFloat(item.unitPrice.toString())).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  )) || (
+                    <p className="text-gray-500 text-center py-4">No items found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Actions */}
             <div className="flex items-center gap-3 pt-4 border-t">
               <Button variant="outline" onClick={() => setIsDrawerOpen(false)}>
@@ -314,6 +358,17 @@ export function PurchaseOrders() {
               <Button className="gradient-primary text-white">
                 Edit Order
               </Button>
+              {viewingOrder?.status === 'DRAFT' && (
+                <Button 
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => {
+                    setSelectedOrderForApproval(viewingOrder)
+                    setIsApprovalDialogOpen(true)
+                  }}
+                >
+                  Send for Approval
+                </Button>
+              )}
             </div>
           </div>
         )}

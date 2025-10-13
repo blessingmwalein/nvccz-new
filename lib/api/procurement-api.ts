@@ -160,7 +160,7 @@ export interface PurchaseRequisition {
   description: string
   departmentId: string
   requestedById: string
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'CONVERTED_TO_PO'
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   justification: string
   approvedById?: string | null
@@ -188,7 +188,7 @@ export interface PurchaseRequisition {
     symbol: string
   } | null
   items: ProcurementItem[]
-  purchaseOrders?: any[]
+  purchaseOrders?: PurchaseOrder[]
 }
 
 export interface CreateRequisitionRequest {
@@ -259,6 +259,10 @@ class ProcurementApiService {
 
   async createPurchaseOrder(data: any): Promise<ProcurementResponse<PurchaseOrder>> {
     return apiClient.post<ProcurementResponse<PurchaseOrder>>('/procurement/purchase-orders', data)
+  }
+
+  async createPurchaseOrderFromRequisition(requisitionId: string): Promise<ProcurementResponse<PurchaseOrder>> {
+    return apiClient.post<ProcurementResponse<PurchaseOrder>>(`/procurement/requisitions/${requisitionId}/create-purchase-order`)
   }
 
   // Procurement Invoices

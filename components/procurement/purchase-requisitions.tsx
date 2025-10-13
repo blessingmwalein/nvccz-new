@@ -19,8 +19,9 @@ import {
 } from "@/lib/store/slices/procurementSlice"
 import { procurementApi, PurchaseRequisition } from "@/lib/api/procurement-api"
 import { CiFileOn, CiUser, CiDollar, CiCalendar } from "react-icons/ci"
-import { FileText, CheckCircle, Clock, AlertCircle, Send, XCircle, Eye, Edit } from "lucide-react"
+import { FileText, CheckCircle, Clock, AlertCircle, Send, XCircle, Eye, Edit, X, ShoppingCart } from "lucide-react"
 import { CreateRequisitionModal } from "./create-requisition-modal"
+import { CreatePurchaseOrderModal } from "./create-purchase-order-modal"
 import { RequisitionTimeline } from "./requisition-timeline"
 import { toast } from "sonner"
 
@@ -30,6 +31,9 @@ export function PurchaseRequisitions() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [viewingRequisition, setViewingRequisition] = useState<PurchaseRequisition | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isCreatePOModalOpen, setIsCreatePOModalOpen] = useState(false)
+  const [selectedRequisitionForPO, setSelectedRequisitionForPO] = useState<string | null>(null)
 
   useEffect(() => {
     loadRequisitions()
@@ -116,15 +120,8 @@ export function PurchaseRequisitions() {
   }
   
   const handleCreatePurchaseOrder = async (requisitionId: string) => {
-    try {
-      // Call API to create purchase order from requisition
-      await procurementApi.createPurchaseOrderFromRequisition(requisitionId)
-      toast.success('Purchase order created successfully')
-      await loadRequisitions()
-      setIsDrawerOpen(false)
-    } catch (error: any) {
-      toast.error('Failed to create purchase order', { description: error.message })
-    }
+    setSelectedRequisitionForPO(requisitionId)
+    setIsCreatePOModalOpen(true)
   }
 
   const getStatusIcon = (status: string) => {
@@ -132,6 +129,7 @@ export function PurchaseRequisitions() {
       case 'DRAFT': return <FileText className="w-4 h-4" />
       case 'PENDING_APPROVAL': return <Clock className="w-4 h-4" />
       case 'APPROVED': return <CheckCircle className="w-4 h-4" />
+      case 'CONVERTED_TO_PO': return <ShoppingCart className="w-4 h-4" />
       case 'REJECTED': return <XCircle className="w-4 h-4" />
       case 'CANCELLED': return <AlertCircle className="w-4 h-4" />
       default: return <Clock className="w-4 h-4" />
@@ -143,6 +141,7 @@ export function PurchaseRequisitions() {
       case 'DRAFT': return 'bg-gray-100 text-gray-800'
       case 'PENDING_APPROVAL': return 'bg-yellow-100 text-yellow-800'
       case 'APPROVED': return 'bg-green-100 text-green-800'
+      case 'CONVERTED_TO_PO': return 'bg-blue-100 text-blue-800'
       case 'REJECTED': return 'bg-red-100 text-red-800'
       case 'CANCELLED': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -150,7 +149,7 @@ export function PurchaseRequisitions() {
   }
 
   const getStatusProgress = (status: string) => {
-    const statusOrder = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'PURCHASE_ORDER_CREATED', 'DELIVERED']
+    const statusOrder = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'CONVERTED_TO_PO', 'DELIVERED']
     const currentIndex = statusOrder.indexOf(status)
     if (currentIndex === -1) return 0
     return Math.round((currentIndex / (statusOrder.length - 1)) * 100)
@@ -315,32 +314,36 @@ export function PurchaseRequisitions() {
         title={`Requisition: ${viewingRequisition?.requisitionNumber || ''}`}
         description="View requisition details and manage approval workflow"
         size="xl"
-      >
-        {viewingRequisition && (
-          <div className="space-y-6">
-            <RequisitionTimeline 
-              requisition={viewingRequisition}
-              onSubmitForApproval={(id) => handleSubmitForApproval(viewingRequisition)}
-              onApprove={(id) => handleApprove(viewingRequisition)}
-              onReject={(id, reason) => handleReject(viewingRequisition, reason)}
-              onCreatePurchaseOrder={handleCreatePurchaseOrder}
-              refreshTrigger={Date.now()}
-            />
-            
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsDrawerOpen(false)}>
-                Close
-              </Button>
+        headerActions={
+          <>
+            {viewingRequisition?.status === 'DRAFT' && (
               <Button 
                 variant="outline"
-                className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-0"
+                size="sm"
+                onClick={() => setIsEditModalOpen(true)}
+                className="h-8 px-3 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-0"
               >
-                <Edit className="w-4 h-4 mr-2" />
+                <Edit className="w-3 h-3 mr-1" />
                 Edit
               </Button>
-            </div>
-          </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDrawerOpen(false)}
+              className="h-8 w-8 p-0 rounded-full"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </>
+        }
+      >
+        {viewingRequisition && (
+          <RequisitionTimeline 
+            requisitionId={viewingRequisition.id}
+            onCreatePurchaseOrder={handleCreatePurchaseOrder}
+          />
         )}
       </ProcurementDrawer>
 
@@ -352,6 +355,37 @@ export function PurchaseRequisitions() {
           setIsCreateModalOpen(false)
           loadRequisitions()
         }}
+      />
+
+      {/* Edit Modal */}
+      {viewingRequisition && (
+        <CreateRequisitionModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={() => {
+            setIsEditModalOpen(false)
+            loadRequisitions()
+          }}
+          editMode={true}
+          requisitionId={viewingRequisition.id}
+        />
+      )}
+
+      {/* Create Purchase Order Modal */}
+      <CreatePurchaseOrderModal
+        isOpen={isCreatePOModalOpen}
+        onClose={() => {
+          setIsCreatePOModalOpen(false)
+          setSelectedRequisitionForPO(null)
+        }}
+        onSuccess={() => {
+          setIsCreatePOModalOpen(false)
+          setSelectedRequisitionForPO(null)
+          setIsDrawerOpen(false)
+          toast.success('Purchase order created successfully')
+          loadRequisitions()
+        }}
+        preSelectedRequisitionId={selectedRequisitionForPO || undefined}
       />
     </div>
   )

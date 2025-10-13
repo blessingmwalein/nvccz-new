@@ -1,0 +1,432 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSelector, useDispatch } from "react-redux"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { 
+  CalendarIcon, 
+  RefreshCw, 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign,
+  FileText,
+  AlertCircle,
+  Download,
+  Loader2
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { format, subDays } from "date-fns"
+import { toast } from "sonner"
+import type { RootState, AppDispatch } from "@/lib/store/store"
+import { fetchIncomeStatement } from "@/lib/store/slices/accounting-slice"
+import { exportIncomeStatementToPDF } from "@/lib/utils/export"
+
+export function IncomeStatementView() {
+  const dispatch = useDispatch<AppDispatch>()
+  const {
+    incomeStatement,
+    incomeStatementLoading,
+    incomeStatementError
+  } = useSelector((state: RootState) => state.accounting)
+
+  const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30))
+  const [endDate, setEndDate] = useState<Date>(new Date())
+  const [generatingPDF, setGeneratingPDF] = useState(false)
+
+  useEffect(() => {
+    loadIncomeStatement()
+  }, [startDate, endDate])
+
+  const loadIncomeStatement = async () => {
+    const startDateString = format(startDate, 'yyyy-MM-dd')
+    const endDateString = format(endDate, 'yyyy-MM-dd')
+    
+    try {
+      await dispatch(fetchIncomeStatement({ 
+        startDate: startDateString, 
+        endDate: endDateString 
+      }))
+    } catch (error: any) {
+      toast.error("Failed to load income statement", {
+        description: error.message
+      })
+    }
+  }
+
+  const handleExportPDF = async () => {
+    if (!incomeStatement) {
+      toast.error("No income statement data to export")
+      return
+    }
+    
+    try {
+      setGeneratingPDF(true)
+      await exportIncomeStatementToPDF(incomeStatement)
+      toast.success("Income statement PDF generated successfully")
+    } catch (error) {
+      console.error('PDF generation error:', error)
+      toast.error("Failed to generate income statement PDF")
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: incomeStatement?.currency.code || 'USD',
+      minimumFractionDigits: 2
+    }).format(Math.abs(amount))
+  }
+
+  if (incomeStatementError) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Income Statement</h3>
+          <p className="text-gray-600 mb-4">{incomeStatementError}</p>
+          <Button onClick={loadIncomeStatement}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Date Filters */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Income Statement</h2>
+          <p className="text-gray-600">
+            For the period {format(startDate, 'MMM d, yyyy')} to {format(endDate, 'MMM d, yyyy')}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">From:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="rounded-full">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(startDate, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={(date) => date && setStartDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">To:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="rounded-full">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(endDate, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={(date) => date && setEndDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          {/* Export PDF Button */}
+          <Button 
+            onClick={handleExportPDF}
+            variant="outline" 
+            className="rounded-full"
+            disabled={!incomeStatement || generatingPDF}
+          >
+            {generatingPDF ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4 mr-2" />
+                Export PDF
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={loadIncomeStatement} 
+            disabled={incomeStatementLoading}
+            className="rounded-full"
+          >
+            <RefreshCw className={cn(
+              "w-4 h-4 mr-2",
+              incomeStatementLoading && "animate-spin"
+            )} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Income Statement Report */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <FileText className="w-6 h-6 text-green-600" />
+              Profit & Loss Statement
+            </CardTitle>
+            <div className="flex items-center gap-3">
+              {incomeStatement && (
+                <Badge className={cn(
+                  "text-sm",
+                  incomeStatement.netIncome >= 0 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-red-100 text-red-800"
+                )}>
+                  {incomeStatement.netIncome >= 0 ? "Profitable" : "Loss"}
+                </Badge>
+              )}
+              
+              {/* Quick Export Button in Table Header */}
+              <Button 
+                size="sm"
+                variant="ghost"
+                onClick={handleExportPDF}
+                disabled={!incomeStatement || generatingPDF}
+                className="text-xs"
+              >
+                {generatingPDF ? (
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                ) : (
+                  <FileText className="w-3 h-3 mr-1" />
+                )}
+                PDF
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {incomeStatementLoading ? (
+            <IncomeStatementSkeleton />
+          ) : incomeStatement ? (
+            <div className="max-w-4xl mx-auto">
+              {/* Company Header */}
+              <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">Income Statement</h2>
+                <p className="text-gray-600">
+                  For the Period Ended {format(endDate, 'MMMM d, yyyy')}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Revenue Section */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-2">
+                    <h3 className="text-lg font-semibold text-gray-900 uppercase tracking-wide">
+                      Revenue
+                    </h3>
+                    <div className="text-right"></div>
+                  </div>
+                  
+                  <div className="ml-8 space-y-1">
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-700">Sales Revenue</span>
+                      <span className="font-mono text-right w-32">
+                        {formatCurrency(Math.abs(incomeStatement.revenue.total))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-700">Other Revenue</span>
+                      <span className="font-mono text-right w-32">
+                        -
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Total Revenue with underline */}
+                  <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
+                    <span className="text-gray-900">Total Revenue</span>
+                    <span className="font-mono text-right w-32 text-green-700">
+                      {formatCurrency(Math.abs(incomeStatement.revenue.total))}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Expenses Section */}
+                <div className="space-y-2 mt-8">
+                  <div className="flex justify-between items-center py-2">
+                    <h3 className="text-lg font-semibold text-gray-900 uppercase tracking-wide">
+                      Expenses
+                    </h3>
+                    <div className="text-right"></div>
+                  </div>
+                  
+                  <div className="ml-8 space-y-1">
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-700">Cost of Goods Sold</span>
+                      <span className="font-mono text-right w-32">
+                        {incomeStatement.expenses.total > 0 ? formatCurrency(incomeStatement.expenses.total / 2) : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-700">Operating Expenses</span>
+                      <span className="font-mono text-right w-32">
+                        {incomeStatement.expenses.total > 0 ? formatCurrency(incomeStatement.expenses.total / 2) : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-700">Administrative Expenses</span>
+                      <span className="font-mono text-right w-32">
+                        -
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-700">Depreciation</span>
+                      <span className="font-mono text-right w-32">
+                        -
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Total Expenses with underline */}
+                  <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
+                    <span className="text-gray-900">Total Expenses</span>
+                    <span className="font-mono text-right w-32 text-red-700">
+                      {formatCurrency(incomeStatement.expenses.total)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Net Income Section */}
+                <div className="mt-8 pt-4">
+                  <div className="flex justify-between py-3 border-t-2 border-b-4 border-gray-900 font-bold text-lg">
+                    <span className={cn(
+                      "text-gray-900 uppercase tracking-wide",
+                      incomeStatement.netIncome >= 0 ? "text-green-800" : "text-red-800"
+                    )}>
+                      Net {incomeStatement.netIncome >= 0 ? "Income" : "Loss"}
+                    </span>
+                    <span className={cn(
+                      "font-mono text-right w-32 text-xl",
+                      incomeStatement.netIncome >= 0 ? "text-green-700" : "text-red-700"
+                    )}>
+                      {incomeStatement.netIncome < 0 ? '(' : ''}
+                      {formatCurrency(Math.abs(incomeStatement.netIncome))}
+                      {incomeStatement.netIncome < 0 ? ')' : ''}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Summary Statistics */}
+                <div className="mt-8 pt-6 border-t border-gray-300">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <div className="text-sm text-green-600 font-medium">Revenue Accounts</div>
+                      <div className="text-2xl font-bold text-green-700">{incomeStatement.revenue.accountCount}</div>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-4">
+                      <div className="text-sm text-red-600 font-medium">Expense Accounts</div>
+                      <div className="text-2xl font-bold text-red-700">{incomeStatement.expenses.accountCount}</div>
+                    </div>
+                    <div className={cn(
+                      "rounded-lg p-4",
+                      incomeStatement.netIncome >= 0 ? "bg-green-50" : "bg-red-50"
+                    )}>
+                      <div className={cn(
+                        "text-sm font-medium",
+                        incomeStatement.netIncome >= 0 ? "text-green-600" : "text-red-600"
+                      )}>
+                        Profit Margin
+                      </div>
+                      <div className={cn(
+                        "text-2xl font-bold",
+                        incomeStatement.netIncome >= 0 ? "text-green-700" : "text-red-700"
+                      )}>
+                        {Math.abs(incomeStatement.revenue.total) > 0 
+                          ? `${((incomeStatement.netIncome / Math.abs(incomeStatement.revenue.total)) * 100).toFixed(1)}%`
+                          : '0%'
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Report Footer */}
+                <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-500">
+                  <p>Report generated on {format(new Date(incomeStatement.generatedAt), 'PPP p')}</p>
+                  <p>Currency: {incomeStatement.currency.name} ({incomeStatement.currency.code})</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Income Statement Data</h3>
+              <p className="text-gray-600">No data available for the selected period</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function IncomeStatementSkeleton() {
+  return (
+    <div className="animate-pulse space-y-6">
+      <div className="border rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="h-6 w-32 bg-gray-200 rounded"></div>
+          <div className="h-5 w-20 bg-gray-200 rounded-full"></div>
+        </div>
+        <div className="text-right">
+          <div className="h-8 w-32 bg-gray-300 rounded ml-auto"></div>
+          <div className="h-4 w-24 bg-gray-200 rounded ml-auto mt-2"></div>
+        </div>
+      </div>
+      
+      <div className="border rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="h-6 w-32 bg-gray-200 rounded"></div>
+          <div className="h-5 w-20 bg-gray-200 rounded-full"></div>
+        </div>
+        <div className="text-right">
+          <div className="h-8 w-32 bg-gray-300 rounded ml-auto"></div>
+          <div className="h-4 w-24 bg-gray-200 rounded ml-auto mt-2"></div>
+        </div>
+      </div>
+      
+      <div className="border-2 rounded-lg p-6">
+        <div className="flex justify-between items-center">
+          <div className="h-6 w-32 bg-gray-200 rounded"></div>
+          <div className="text-right">
+            <div className="h-10 w-40 bg-gray-300 rounded ml-auto"></div>
+            <div className="h-4 w-28 bg-gray-200 rounded ml-auto mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

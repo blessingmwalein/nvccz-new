@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { FileText, DollarSign, Plus, Trash2, Building2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
-import { procurementApi, CreateRequisitionRequest } from "@/lib/api/procurement-api"
+import { procurementApi, CreateRequisitionRequest, PurchaseRequisition } from "@/lib/api/procurement-api"
 import { departmentApiService, Department } from "@/lib/api/department-api"
 import { accountingApi, Currency } from "@/lib/api/accounting-api"
 
@@ -20,6 +20,8 @@ interface CreateRequisitionModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  editMode?: boolean
+  requisitionId?: string
 }
 
 interface RequisitionItem {
@@ -32,7 +34,7 @@ interface RequisitionItem {
 }
 
 
-export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateRequisitionModalProps) {
+export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = false, requisitionId }: CreateRequisitionModalProps) {
   const [loading, setLoading] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
   const [currencies, setCurrencies] = useState<Currency[]>([])
@@ -59,7 +61,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateReq
     if (isOpen) {
       loadInitialData()
     }
-  }, [isOpen])
+  }, [isOpen, editMode, requisitionId])
 
   const loadInitialData = async () => {
     try {
@@ -75,10 +77,36 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateReq
       const currResponse = await accountingApi.currencies.getAll()
       if (currResponse.success && currResponse.data) {
         setCurrencies(currResponse.data)
-        // Set default currency
-        const defaultCurrency = currResponse.data.find(c => c.isDefault) || currResponse.data[0]
-        if (defaultCurrency) {
-          setFormData(prev => ({ ...prev, currencyId: defaultCurrency.id }))
+        // Set default currency only in create mode
+        if (!editMode) {
+          const defaultCurrency = currResponse.data.find(c => c.isDefault) || currResponse.data[0]
+          if (defaultCurrency) {
+            setFormData(prev => ({ ...prev, currencyId: defaultCurrency.id }))
+          }
+        }
+      }
+
+      // Load existing requisition data in edit mode
+      if (editMode && requisitionId) {
+        const reqResponse = await procurementApi.getRequisitionById(requisitionId)
+        if (reqResponse.success && reqResponse.data) {
+          const req = reqResponse.data
+          setFormData({
+            title: req.title,
+            description: req.description,
+            departmentId: req.departmentId,
+            priority: req.priority,
+            justification: req.justification,
+            currencyId: req.currencyId,
+            items: req.items.map(item => ({
+              itemName: item.itemName,
+              description: item.description || '',
+              quantity: Number(item.quantity),
+              unitPrice: Number(item.unitPrice),
+              unit: item.unit,
+              preferredVendorId: item.preferredVendorId || ''
+            }))
+          })
         }
       }
     } catch (error) {
@@ -167,8 +195,13 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateReq
 
     try {
       setLoading(true)
-      await procurementApi.createRequisition(formData)
-      toast.success('Purchase requisition created successfully')
+      if (editMode && requisitionId) {
+        await procurementApi.updateRequisition(requisitionId, formData)
+        toast.success('Purchase requisition updated successfully')
+      } else {
+        await procurementApi.createRequisition(formData)
+        toast.success('Purchase requisition created successfully')
+      }
       onSuccess?.()
       onClose()
       
@@ -189,7 +222,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateReq
         }]
       })
     } catch (error: any) {
-      toast.error('Failed to create requisition', { description: error.message })
+      toast.error(`Failed to ${editMode ? 'update' : 'create'} requisition`, { description: error.message })
     } finally {
       setLoading(false)
     }
@@ -203,10 +236,10 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateReq
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-normal">
             <FileText className="w-5 h-5" />
-            Create Purchase Requisition
+            {editMode ? 'Edit Purchase Requisition' : 'Create Purchase Requisition'}
           </DialogTitle>
           <p className="text-gray-600">
-            Create a new purchase requisition for approval
+            {editMode ? 'Update the purchase requisition details' : 'Create a new purchase requisition for approval'}
           </p>
         </DialogHeader>
 
@@ -499,7 +532,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess }: CreateReq
             disabled={loading} 
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full"
           >
-            {loading ? 'Creating...' : 'Create Requisition'}
+            {loading ? (editMode ? 'Updating...' : 'Creating...') : (editMode ? 'Update Requisition' : 'Create Requisition')}
           </Button>
         </div>
       </DialogContent>
