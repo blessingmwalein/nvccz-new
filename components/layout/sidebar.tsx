@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -103,9 +103,24 @@ export function Sidebar({ currentModule, activeItem, onItemSelect }: SidebarProp
   const router = useRouter()
   const pathname = usePathname()
 
-  if (currentModule === "homepage") {
-    return null
-  }
+  // compute active item based on routeMapping: exact match or longest matching prefix
+  const activeItemIdComputed = useMemo(() => {
+    if (!pathname) return null
+    let bestId: string | null = null
+    let bestScore = -1
+    for (const [id, route] of Object.entries(routeMapping)) {
+      if (!route) continue
+      if (pathname === route) return id
+      if (route !== "/" && pathname.startsWith(route + "/")) {
+        const score = route.length
+        if (score > bestScore) {
+          bestScore = score
+          bestId = id
+        }
+      }
+    }
+    return bestId
+  }, [pathname])
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => (prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]))
@@ -121,10 +136,7 @@ export function Sidebar({ currentModule, activeItem, onItemSelect }: SidebarProp
     }
   }
 
-  const isItemActive = (itemId: string) => {
-    const route = routeMapping[itemId as keyof typeof routeMapping]
-    return pathname === route
-  }
+  const isItemActive = (itemId: string) => activeItemIdComputed === itemId
 
   const menuItems = moduleMenus[currentModule as keyof typeof moduleMenus] || []
   const showFundSwitcher = ["portfolio-management", "applications", "companies", "funds"].includes(currentModule)

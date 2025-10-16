@@ -386,6 +386,181 @@ export interface ChartData {
   }[]
 }
 
+// Inventory interfaces
+export interface InventoryItem {
+  id: string
+  itemName: string
+  skuNumber?: string | null
+  description?: string | null
+  costOfPurchase: string
+  quantityOnHand: string
+  reorderLevel?: string | null
+  unitOfMeasure?: string | null
+  supplierId?: string | null
+  inventoryAssetAccountId?: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  supplier?: {
+    id: string
+    name: string
+  } | null
+  inventoryAssetAccount?: {
+    id: string
+    accountNo: string
+    accountName: string
+  } | null
+  stockMovements?: StockMovement[]
+}
+
+export interface InventoryListResponse {
+  items: InventoryItem[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+export interface StockMovement {
+  id: string
+  itemId: string
+  movementType: 'IN' | 'OUT' | 'ADJUSTMENT'
+  quantity: string
+  unitCost?: string | null
+  totalCost?: string | null
+  reference?: string | null
+  description?: string | null
+  createdById?: string
+  createdAt?: string
+  createdBy?: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+}
+
+export interface CreateInventoryRequest {
+  itemName: string
+  skuNumber?: string
+  description?: string
+  costOfPurchase: number
+  quantityOnHand?: number
+  reorderLevel?: number
+  unitOfMeasure?: string
+  vendorId?: string
+  inventoryAssetAccountId?: string
+}
+
+export interface UpdateInventoryRequest {
+  itemName?: string
+  description?: string
+  costOfPurchase?: number
+  quantityOnHand?: number
+  reorderLevel?: number
+  unitOfMeasure?: string
+  vendorId?: string
+  inventoryAssetAccountId?: string
+}
+
+export interface CreateStockMovementRequest {
+  itemId: string
+  movementType: 'IN' | 'OUT' | 'ADJUSTMENT'
+  quantity: number
+  unitCost?: number
+  referenceNumber?: string
+  notes?: string
+}
+
+// Inventory valuation & reorder types
+export interface InventoryValuationItem {
+  itemId: string
+  itemName: string
+  quantity: number
+  unitCost: number
+  totalValue: number
+}
+
+export interface InventoryValuationResponse {
+  totalValue: number
+  itemCount: number
+  valuation: InventoryValuationItem[]
+}
+
+export interface ReorderAlertItem {
+  itemId: string
+  itemName: string
+  currentQuantity: number
+  reorderLevel: number
+}
+
+export interface CogsRequest {
+  itemId: string
+  quantity: number
+  method: 'FIFO' | 'LIFO' | 'AVERAGE'
+}
+
+export interface CogsResponse {
+  itemId: string
+  itemName: string
+  quantity: number
+  unitCost: number
+  totalCost: number
+}
+
+export interface StockAdjustmentRequest {
+  itemId: string
+  adjustmentQuantity: number
+  reason: string
+  notes?: string
+}
+
+export interface StockAdjustmentResponse {
+  id: string
+  itemId: string
+  adjustmentQuantity: string
+  reason: string
+  notes?: string
+  createdAt: string
+}
+
+// Exchange Rates types
+export interface ExchangeRate {
+  id: string
+  date: string // effective date ISO
+  fromCurrencyId: string
+  toCurrencyId: string
+  rate: string
+  isActive: boolean
+  notes?: string | null
+  createdById?: string
+  createdAt: string
+  fromCurrency?: AccountingCurrency
+  toCurrency?: AccountingCurrency
+  createdBy?: { id: string; firstName: string; lastName: string; email: string }
+}
+
+export interface CreateExchangeRateRequest {
+  fromCurrencyId: string
+  toCurrencyId: string
+  rate: number
+  effectiveDate: string
+  notes?: string
+}
+
+export interface UpdateExchangeRateRequest {
+  rate?: number
+  effectiveDate?: string
+  notes?: string
+  isActive?: boolean
+}
+
+export interface ExchangeRatesResponse {
+  exchangeRates: ExchangeRate[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 class AccountingApiService {
   // Currencies
   async getCurrencies(): Promise<AccountingResponse<AccountingCurrency[]>> {
@@ -807,6 +982,74 @@ class AccountingApiService {
 
   async deleteCreditNote(id: string): Promise<AccountingResponse<void>> {
     return apiClient.delete<AccountingResponse<void>>(`/accounting/credit-notes/${id}`)
+  }
+
+  // Inventory endpoints
+  async getInventoryItems(): Promise<AccountingResponse<InventoryListResponse>> {
+    return apiClient.get<AccountingResponse<InventoryListResponse>>('/accounting/inventory/items')
+  }
+
+  async getInventoryItem(id: string): Promise<AccountingResponse<InventoryItem>> {
+    return apiClient.get<AccountingResponse<InventoryItem>>(`/accounting/inventory/items/${id}`)
+  }
+
+  async createInventoryItem(data: CreateInventoryRequest): Promise<AccountingResponse<InventoryItem>> {
+    return apiClient.post<AccountingResponse<InventoryItem>>('/accounting/inventory/items', data)
+  }
+
+  async updateInventoryItem(id: string, data: UpdateInventoryRequest): Promise<AccountingResponse<InventoryItem>> {
+    return apiClient.put<AccountingResponse<InventoryItem>>(`/accounting/inventory/items/${id}`, data)
+  }
+
+  async deleteInventoryItem(id: string): Promise<AccountingResponse<void>> {
+    return apiClient.delete<AccountingResponse<void>>(`/accounting/inventory/items/${id}`)
+  }
+
+  async createStockMovement(data: CreateStockMovementRequest): Promise<AccountingResponse<StockMovement>> {
+    return apiClient.post<AccountingResponse<StockMovement>>('/accounting/inventory/movements', data)
+  }
+
+  async getStockMovements(itemId: string): Promise<AccountingResponse<{ movements: StockMovement[], total: number, page: number, totalPages: number }>> {
+    return apiClient.get<AccountingResponse<{ movements: StockMovement[], total: number, page: number, totalPages: number }>>(`/accounting/inventory/items/${itemId}/movements`)
+  }
+
+  // Inventory valuation/reorder/cogs/adjustments
+  async getInventoryValuation(): Promise<AccountingResponse<InventoryValuationResponse>> {
+    return apiClient.get<AccountingResponse<InventoryValuationResponse>>('/accounting/inventory/valuation')
+  }
+
+  async getReorderAlerts(): Promise<AccountingResponse<ReorderAlertItem[]>> {
+    return apiClient.get<AccountingResponse<ReorderAlertItem[]>>('/accounting/inventory/reorder-alerts')
+  }
+
+  async calculateCogs(data: CogsRequest): Promise<AccountingResponse<CogsResponse>> {
+    return apiClient.post<AccountingResponse<CogsResponse>>('/accounting/inventory/calculate-cogs', data)
+  }
+
+  async createStockAdjustment(data: StockAdjustmentRequest): Promise<AccountingResponse<StockAdjustmentResponse>> {
+    return apiClient.post<AccountingResponse<StockAdjustmentResponse>>('/accounting/inventory/adjustments', data)
+  }
+
+  // Exchange rates (multi-currency)
+  async getExchangeRates(params?: { page?: number; limit?: number }): Promise<AccountingResponse<ExchangeRatesResponse>> {
+    const query = params ? `?${new URLSearchParams(Object.entries(params).filter(([_, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString()}` : ''
+    return apiClient.get<AccountingResponse<ExchangeRatesResponse>>(`/accounting/multi-currency/exchange-rates${query}`)
+  }
+
+  async getExchangeRateById(id: string): Promise<AccountingResponse<ExchangeRate>> {
+    return apiClient.get<AccountingResponse<ExchangeRate>>(`/accounting/multi-currency/exchange-rates/${id}`)
+  }
+
+  async createExchangeRate(data: CreateExchangeRateRequest): Promise<AccountingResponse<ExchangeRate>> {
+    return apiClient.post<AccountingResponse<ExchangeRate>>('/accounting/multi-currency/exchange-rates', data)
+  }
+
+  async updateExchangeRate(id: string, data: UpdateExchangeRateRequest): Promise<AccountingResponse<ExchangeRate>> {
+    return apiClient.put<AccountingResponse<ExchangeRate>>(`/accounting/multi-currency/exchange-rates/${id}`, data)
+  }
+
+  async deleteExchangeRate(id: string): Promise<AccountingResponse<any>> {
+    return apiClient.delete<AccountingResponse<any>>(`/accounting/multi-currency/exchange-rates/${id}`)
   }
 }
 

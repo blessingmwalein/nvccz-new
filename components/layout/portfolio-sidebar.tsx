@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -27,6 +27,59 @@ export function PortfolioSidebar() {
 
   const module = getModuleById("portfolio-management")
 
+  const activeItemId = useMemo(() => {
+    if (!module || !pathname) return null
+    let bestId: string | null = null
+    let bestScore = -1
+
+    const check = (path: string | undefined, id: string) => {
+      if (!path) return
+      if (path.includes("?")) {
+        const full = pathname + (typeof window !== 'undefined' ? window.location.search : '')
+        if (full === path) {
+          bestId = id
+          bestScore = Infinity
+        }
+        return
+      }
+      const base = path.split("?")[0]
+      if (pathname === base) {
+        bestId = id
+        bestScore = Infinity
+        return
+      }
+      if (base !== "/" && pathname.startsWith(base + "/")) {
+        const score = base.length
+        if (score > bestScore) {
+          bestScore = score
+          bestId = id
+        }
+      }
+    }
+
+    if (module.groups && module.groups.length > 0) {
+      for (const g of module.groups) {
+        if (Array.isArray(g.items) && g.items.length > 0) {
+          for (const it of g.items) {
+            check(it.path, it.id)
+            if (bestScore === Infinity) return bestId
+          }
+        } else if (g.path) {
+          check(g.path, g.id)
+          if (bestScore === Infinity) return bestId
+        }
+      }
+    }
+
+    if (module.subModules) {
+      for (const s of module.subModules) {
+        check(s.path, s.id)
+        if (bestScore === Infinity) return bestId
+      }
+    }
+    return bestId
+  }, [module, pathname])
+
   // Initialize default: first group open, others collapsed
   useEffect(() => {
     if (module && module.groups && module.groups.length > 0 && Object.keys(collapsedGroups).length === 0) {
@@ -40,15 +93,6 @@ export function PortfolioSidebar() {
 
   const handleItemClick = (path: string) => {
     router.push(path)
-  }
-
-  const isPathActive = (path: string) => {
-    // Exact match including query string for items that include ?tab=...
-    if (path.includes("?")) {
-      return pathname + (typeof window !== 'undefined' ? window.location.search : '') === path
-    }
-    const base = path.split("?")[0]
-    return pathname === base || pathname.startsWith(base + "/")
   }
 
   const toggleGroup = (groupId: string) => {
@@ -116,7 +160,7 @@ export function PortfolioSidebar() {
                       {Array.isArray(group.items) && group.items.length > 0 ? (
                         group.items.map((item) => {
                           const Icon = item.icon
-                          const active = isPathActive(item.path)
+                          const active = activeItemId === item.id
                           return (
                             <Button
                               key={item.id}
@@ -140,7 +184,7 @@ export function PortfolioSidebar() {
                           className={cn(
                             "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
                             "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
-                            isPathActive(group.path) && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
+                            activeItemId === group.id && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
                           )}
                           onClick={() => handleItemClick(group.path!)}
                         >

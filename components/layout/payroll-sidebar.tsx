@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -21,14 +21,35 @@ export function PayrollSidebar() {
 
   const module = getModuleById("payroll")
 
+  // navigate to submodule path
   const handleItemClick = (path: string) => {
+    if (!path) return
     router.push(path)
   }
 
-  const isPathActive = (path: string) => {
-    const base = path.split("?")[0]
-    return pathname === base || pathname.startsWith(base + "/")
-  }
+  const activeSubModuleId = useMemo(() => {
+    if (!pathname || !module?.subModules) return null
+    let bestId: string | null = null
+    let bestScore = -1
+    for (const subModule of module.subModules) {
+      const path = subModule.path || ''
+      if (path.includes("?")) {
+        const full = pathname + (typeof window !== 'undefined' ? window.location.search : '')
+        if (full === path) return subModule.id
+        continue
+      }
+      const base = path.split("?")[0]
+      if (pathname === base) return subModule.id
+      if (base !== "/" && pathname.startsWith(base + "/")) {
+        const score = base.length
+        if (score > bestScore) {
+          bestScore = score
+          bestId = subModule.id
+        }
+      }
+    }
+    return bestId
+  }, [pathname, module])
 
   if (!module) {
     return null
@@ -54,7 +75,7 @@ export function PayrollSidebar() {
         <div className="space-y-1">
           {module.subModules.map((subModule) => {
             const Icon = subModule.icon
-            const active = isPathActive(subModule.path)
+            const active = activeSubModuleId === subModule.id
             return (
               <Button
                 key={subModule.id}

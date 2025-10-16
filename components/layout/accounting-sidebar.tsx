@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -19,10 +19,28 @@ export function AccountingSidebar() {
     router.push(path)
   }
 
-  const isPathActive = (path: string) => {
-    const base = path.split("?")[0]
-    return pathname === base || pathname.startsWith(base + "/")
-  }
+  // Determine single active subModule: prefer exact match, otherwise longest matching prefix
+  const activeSubModuleId = useMemo(() => {
+    if (!pathname || !module?.subModules) return null
+    let bestId: string | null = null
+    let bestScore = -1
+
+    for (const subModule of module.subModules) {
+      const base = subModule.path.split("?")[0]
+      if (pathname === base) {
+        // exact match — highest priority
+        return subModule.id
+      }
+      if (base !== "/" && pathname.startsWith(base + "/")) {
+        const score = base.length
+        if (score > bestScore) {
+          bestScore = score
+          bestId = subModule.id
+        }
+      }
+    }
+    return bestId
+  }, [pathname, module])
 
   if (!module) {
     return null
@@ -48,7 +66,7 @@ export function AccountingSidebar() {
         <div className="space-y-1">
           {module.subModules.map((subModule) => {
             const Icon = subModule.icon
-            const active = isPathActive(subModule.path)
+            const active = activeSubModuleId === subModule.id
             return (
               <Button
                 key={subModule.id}

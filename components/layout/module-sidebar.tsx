@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -26,6 +26,63 @@ export function ModuleSidebar({ currentModule, activeItem, onItemSelect }: Modul
 
   const module = getModuleById(currentModule)
 
+  // compute single active item id (exact match wins, otherwise longest prefix)
+  const activeItemId = useMemo(() => {
+    if (!module || !pathname) return null
+    let bestId: string | null = null
+    let bestScore = -1
+
+    const check = (path: string, id: string) => {
+      if (!path) return
+      if (path.includes("?")) {
+        const full = pathname + (typeof window !== 'undefined' ? window.location.search : '')
+        if (full === path) {
+          bestId = id
+          bestScore = Infinity
+        }
+        return
+      }
+      const base = path.split("?")[0]
+      if (pathname === base) {
+        bestId = id
+        bestScore = Infinity
+        return
+      }
+      if (base !== "/" && pathname.startsWith(base + "/")) {
+        const score = base.length
+        if (score > bestScore) {
+          bestScore = score
+          bestId = id
+        }
+      }
+    }
+
+    // groups first
+    if (module.groups && module.groups.length > 0) {
+      for (const g of module.groups) {
+        if (Array.isArray(g.items)) {
+          for (const it of g.items) {
+            check(it.path, it.id)
+            if (bestScore === Infinity) return bestId
+          }
+        } else if (g.path) {
+          check(g.path, g.id)
+          if (bestScore === Infinity) return bestId
+        }
+      }
+    }
+
+    // fallback to subModules
+    if (module.subModules) {
+      for (const s of module.subModules) {
+        check(s.path, s.id)
+        if (bestScore === Infinity) return bestId
+      }
+    }
+
+    return bestId
+  }, [module, pathname])
+
   // Initialize default: first group open, others collapsed
   useEffect(() => {
     if (module && module.groups && module.groups.length > 0 && Object.keys(collapsedGroups).length === 0) {
@@ -40,15 +97,6 @@ export function ModuleSidebar({ currentModule, activeItem, onItemSelect }: Modul
   const handleItemClick = (path: string, id: string) => {
     router.push(path)
     onItemSelect(id)
-  }
-
-  const isPathActive = (path: string) => {
-    // Exact match including query string for items that include ?tab=...
-    if (path.includes("?")) {
-      return pathname + (typeof window !== 'undefined' ? window.location.search : '') === path
-    }
-    const base = path.split("?")[0]
-    return pathname === base || pathname.startsWith(base + "/")
   }
 
   const toggleGroup = (groupId: string) => {
@@ -115,7 +163,7 @@ export function ModuleSidebar({ currentModule, activeItem, onItemSelect }: Modul
                     <div className="space-y-1 pl-5 border-l border-gray-200 ml-2">
                       {group.items.map((item) => {
                         const Icon = item.icon
-                        const active = isPathActive(item.path)
+                        const active = activeItemId === item.id
                         return (
                           <Button
                             key={item.id}
@@ -141,7 +189,7 @@ export function ModuleSidebar({ currentModule, activeItem, onItemSelect }: Modul
             <div className="space-y-1">
               {module.subModules.map((subModule) => {
                 const Icon = subModule.icon
-                const active = isPathActive(subModule.path)
+                const active = activeItemId === subModule.id
                 return (
                   <Button
                     key={subModule.id}

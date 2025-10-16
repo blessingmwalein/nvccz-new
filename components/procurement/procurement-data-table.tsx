@@ -56,6 +56,7 @@ export interface ProcurementDataTableProps<T> {
   emptyMessage?: string
   showSearch?: boolean
   showFilters?: boolean
+  showActions?: boolean
 }
 
 export function ProcurementDataTable<T extends { id: string }>({
@@ -78,6 +79,7 @@ export function ProcurementDataTable<T extends { id: string }>({
   emptyMessage = "No data available",
   showSearch = true,
   showFilters = true
+  , showActions = true
 }: ProcurementDataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterValue, setFilterValue] = useState("all")
@@ -337,7 +339,7 @@ export function ProcurementDataTable<T extends { id: string }>({
                         </div>
                       </TableHead>
                     ))}
-                    {(onEdit || onDelete || onView) && (
+                    {(showActions && (onEdit || onDelete || onView)) && (
                       <TableHead className="w-20">Actions</TableHead>
                     )}
                   </TableRow>
@@ -361,7 +363,7 @@ export function ProcurementDataTable<T extends { id: string }>({
                           }
                         </TableCell>
                       ))}
-                      {(onEdit || onDelete || onView) && (
+                      {(showActions && (onEdit || onDelete || onView)) && (
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

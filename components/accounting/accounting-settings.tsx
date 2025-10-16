@@ -11,6 +11,7 @@ import {
   Building, 
   Tag
 } from "lucide-react"
+import { ExchangeRatesManagement } from "./exchange-rates-management"
 import { cn } from "@/lib/utils"
 import { CurrenciesManagement } from "./currencies-management"
 import { ChartOfAccountsManagement } from "./chart-of-accounts-management"
@@ -77,15 +78,7 @@ export function AccountingSettings() {
       case "currencies":
         return <CurrenciesManagement />
       case "exchange-rates":
-        return (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Exchange Rates Management</h3>
-            <p className="text-gray-500">Coming soon...</p>
-          </div>
-        )
+        return <ExchangeRatesManagement />
       case "chart-of-accounts":
         return <ChartOfAccountsManagement />
       case "customers":

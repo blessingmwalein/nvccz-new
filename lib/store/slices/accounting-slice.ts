@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import { accountingApi, AccountingCurrency, ChartOfAccount, Customer, Vendor, ExpenseCategory, Expense, TrialBalanceData, TrialBalanceSummary, IncomeStatementData, Asset, CreditNote, CreateCreditNoteRequest } from '@/lib/api/accounting-api'
+import { accountingApi, AccountingCurrency, ChartOfAccount, Customer, Vendor, ExpenseCategory, Expense, TrialBalanceData, TrialBalanceSummary, IncomeStatementData, Asset, CreditNote, CreateCreditNoteRequest, InventoryItem, InventoryListResponse, CreateInventoryRequest, UpdateInventoryRequest, StockMovement, CreateStockMovementRequest, InventoryValuationResponse, ReorderAlertItem, CogsRequest, CogsResponse, StockAdjustmentRequest, StockAdjustmentResponse, ExchangeRate, CreateExchangeRateRequest, UpdateExchangeRateRequest } from '@/lib/api/accounting-api'
 
 // Async thunks for expenses
 export const fetchExpenses = createAsyncThunk(
@@ -289,6 +289,167 @@ export const fetchCustomers = createAsyncThunk(
   }
 )
 
+// Inventory thunks
+export const fetchInventoryItems = createAsyncThunk(
+  'accounting/fetchInventoryItems',
+  async () => {
+    const response = await accountingApi.getInventoryItems()
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fetch inventory items')
+    }
+    return response.data
+  }
+)
+
+export const fetchInventoryItem = createAsyncThunk(
+  'accounting/fetchInventoryItem',
+  async (id: string) => {
+    const response = await accountingApi.getInventoryItem(id)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fetch inventory item')
+    }
+    return response.data
+  }
+)
+
+export const createInventoryItem = createAsyncThunk(
+  'accounting/createInventoryItem',
+  async (data: CreateInventoryRequest) => {
+    const response = await accountingApi.createInventoryItem(data)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to create inventory item')
+    }
+    return response.data
+  }
+)
+
+export const updateInventoryItem = createAsyncThunk(
+  'accounting/updateInventoryItem',
+  async ({ id, data }: { id: string; data: UpdateInventoryRequest }) => {
+    const response = await accountingApi.updateInventoryItem(id, data)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update inventory item')
+    }
+    return response.data
+  }
+)
+
+export const postStockMovement = createAsyncThunk(
+  'accounting/postStockMovement',
+  async (data: CreateStockMovementRequest) => {
+    const response = await accountingApi.createStockMovement(data)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to record stock movement')
+    }
+    return response.data
+  }
+)
+
+export const fetchStockMovements = createAsyncThunk(
+  'accounting/fetchStockMovements',
+  async (itemId: string) => {
+    const response = await accountingApi.getStockMovements(itemId)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fetch stock movements')
+    }
+    return response.data
+  }
+)
+
+// Valuation & reorder thunks
+export const fetchInventoryValuation = createAsyncThunk(
+  'accounting/fetchInventoryValuation',
+  async () => {
+    const response = await accountingApi.getInventoryValuation()
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fetch inventory valuation')
+    }
+    return response.data
+  }
+)
+
+export const fetchReorderAlerts = createAsyncThunk(
+  'accounting/fetchReorderAlerts',
+  async () => {
+    const response = await accountingApi.getReorderAlerts()
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fetch reorder alerts')
+    }
+    return response.data
+  }
+)
+
+export const calculateCogs = createAsyncThunk(
+  'accounting/calculateCogs',
+  async (data: CogsRequest) => {
+    const response = await accountingApi.calculateCogs(data)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to calculate COGS')
+    }
+    return response.data
+  }
+)
+
+export const postInventoryAdjustment = createAsyncThunk(
+  'accounting/postInventoryAdjustment',
+  async (data: StockAdjustmentRequest) => {
+    const response = await accountingApi.createStockAdjustment(data)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to create stock adjustment')
+    }
+    return response.data
+  }
+)
+
+// New async thunks for exchange rates
+export const fetchExchangeRates = createAsyncThunk(
+  'accounting/fetchExchangeRates',
+  async (params?: { page?: number; limit?: number }) => {
+    const response = await accountingApi.getExchangeRates(params)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch exchange rates')
+    return response.data
+  }
+)
+
+export const createExchangeRate = createAsyncThunk(
+  'accounting/createExchangeRate',
+  async (data: CreateExchangeRateRequest, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.createExchangeRate(data)
+      if (!response.success) return rejectWithValue(response.error || 'Failed to create exchange rate')
+      return response.data
+    } catch (err: any) {
+      return rejectWithValue(err.message)
+    }
+  }
+)
+
+export const updateExchangeRate = createAsyncThunk(
+  'accounting/updateExchangeRate',
+  async ({ id, data }: { id: string; data: UpdateExchangeRateRequest }, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.updateExchangeRate(id, data)
+      if (!response.success) return rejectWithValue(response.error || 'Failed to update exchange rate')
+      return response.data
+    } catch (err: any) {
+      return rejectWithValue(err.message)
+    }
+  }
+)
+
+export const deleteExchangeRate = createAsyncThunk(
+  'accounting/deleteExchangeRate',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.deleteExchangeRate(id)
+      if (!response.success) return rejectWithValue(response.error || 'Failed to delete exchange rate')
+      return id
+    } catch (err: any) {
+      return rejectWithValue(err.message)
+    }
+  }
+)
+
 interface AccountingState {
   // Expenses
   expenses: Expense[]
@@ -358,6 +519,43 @@ interface AccountingState {
   selectedCreditNote: CreditNote | null
   selectedCreditNoteLoading: boolean
   selectedCreditNoteError: string | null
+
+  // Inventory
+  inventoryItems: InventoryItem[]
+  inventoryLoading: boolean
+  inventoryError: string | null
+  selectedInventoryItem: InventoryItem | null
+  selectedInventoryLoading: boolean
+  selectedInventoryError: string | null
+
+  // Stock movements for selected item
+  stockMovements: StockMovement[]
+  stockMovementsLoading: boolean
+  stockMovementsError: string | null
+
+  // Inventory valuation
+  inventoryValuation: InventoryValuationResponse | null
+  inventoryValuationLoading: boolean
+  inventoryValuationError: string | null
+
+  // Reorder alerts
+  reorderAlerts: ReorderAlertItem[]
+  reorderAlertsLoading: boolean
+  reorderAlertsError: string | null
+
+  // COGS calculation
+  cogsResult: CogsResponse | null
+  cogsLoading: boolean
+  cogsError: string | null
+
+  // Stock adjustment
+  adjustmentLoading: boolean
+  adjustmentError: string | null
+
+  // Exchange rates
+  exchangeRates: ExchangeRate[]
+  exchangeRatesLoading: boolean
+  exchangeRatesError: string | null
 }
 
 const initialState: AccountingState = {
@@ -426,6 +624,43 @@ const initialState: AccountingState = {
   selectedCreditNote: null,
   selectedCreditNoteLoading: false,
   selectedCreditNoteError: null,
+
+  // Inventory
+  inventoryItems: [],
+  inventoryLoading: false,
+  inventoryError: null,
+  selectedInventoryItem: null,
+  selectedInventoryLoading: false,
+  selectedInventoryError: null,
+
+  // Stock movements
+  stockMovements: [],
+  stockMovementsLoading: false,
+  stockMovementsError: null,
+
+  // Inventory valuation
+  inventoryValuation: null,
+  inventoryValuationLoading: false,
+  inventoryValuationError: null,
+
+  // Reorder alerts
+  reorderAlerts: [],
+  reorderAlertsLoading: false,
+  reorderAlertsError: null,
+
+  // COGS calculation
+  cogsResult: null,
+  cogsLoading: false,
+  cogsError: null,
+
+  // Stock adjustment
+  adjustmentLoading: false,
+  adjustmentError: null,
+
+  // Exchange rates
+  exchangeRates: [],
+  exchangeRatesLoading: false,
+  exchangeRatesError: null,
 }
 
 const accountingSlice = createSlice({
@@ -467,6 +702,9 @@ const accountingSlice = createSlice({
       state.salesChartError = null
       state.creditNotesChartError = null
       state.recentExpensesError = null
+    },
+    setSelectedInventoryItem: (state, action: PayloadAction<InventoryItem | null>) => {
+      state.selectedInventoryItem = action.payload
     }
   },
   extraReducers: (builder) => {
@@ -753,6 +991,201 @@ const accountingSlice = createSlice({
           state.selectedCreditNote = null
         }
       })
+
+      // Inventory
+      .addCase(fetchInventoryItems.pending, (state) => {
+        state.inventoryLoading = true
+        state.inventoryError = null
+      })
+      .addCase(fetchInventoryItems.fulfilled, (state, action) => {
+        state.inventoryLoading = false
+        state.inventoryItems = action.payload.items || []
+      })
+      .addCase(fetchInventoryItems.rejected, (state, action) => {
+        state.inventoryLoading = false
+        state.inventoryError = action.error.message || 'Failed to fetch inventory items'
+      })
+
+      .addCase(fetchInventoryItem.pending, (state) => {
+        state.selectedInventoryLoading = true
+        state.selectedInventoryError = null
+      })
+      .addCase(fetchInventoryItem.fulfilled, (state, action) => {
+        state.selectedInventoryLoading = false
+        state.selectedInventoryItem = action.payload
+      })
+      .addCase(fetchInventoryItem.rejected, (state, action) => {
+        state.selectedInventoryLoading = false
+        state.selectedInventoryError = action.error.message || 'Failed to fetch inventory item'
+      })
+
+      .addCase(createInventoryItem.pending, (state) => {
+        state.inventoryLoading = true
+        state.inventoryError = null
+      })
+      .addCase(createInventoryItem.fulfilled, (state, action) => {
+        state.inventoryLoading = false
+        state.inventoryItems.unshift(action.payload)
+      })
+      .addCase(createInventoryItem.rejected, (state, action) => {
+        state.inventoryLoading = false
+        state.inventoryError = action.error.message || 'Failed to create inventory item'
+      })
+
+      .addCase(updateInventoryItem.fulfilled, (state, action) => {
+        const idx = state.inventoryItems.findIndex(i => i.id === action.payload.id)
+        if (idx !== -1) state.inventoryItems[idx] = action.payload
+        if (state.selectedInventoryItem?.id === action.payload.id) state.selectedInventoryItem = action.payload
+      })
+
+      // Stock movements
+      .addCase(fetchStockMovements.pending, (state) => {
+        state.stockMovementsLoading = true
+        state.stockMovementsError = null
+      })
+      .addCase(fetchStockMovements.fulfilled, (state, action) => {
+        state.stockMovementsLoading = false
+        state.stockMovements = action.payload.movements || []
+      })
+      .addCase(fetchStockMovements.rejected, (state, action) => {
+        state.stockMovementsLoading = false
+        state.stockMovementsError = action.error.message || 'Failed to fetch stock movements'
+      })
+
+      .addCase(postStockMovement.pending, (state) => {
+        state.stockMovementsLoading = true
+      })
+      .addCase(postStockMovement.fulfilled, (state, action) => {
+        state.stockMovementsLoading = false
+        state.stockMovements.unshift(action.payload)
+        // update quantityOnHand in inventoryItems if present
+        const idx = state.inventoryItems.findIndex(i => i.id === action.payload.itemId)
+        if (idx !== -1) {
+          const current = parseFloat(state.inventoryItems[idx].quantityOnHand || '0')
+          const delta = parseFloat(action.payload.quantity || '0')
+          state.inventoryItems[idx].quantityOnHand = action.payload.movementType === 'IN'
+            ? String(current + delta)
+            : String(current - delta)
+        }
+      })
+      .addCase(postStockMovement.rejected, (state, action) => {
+        state.stockMovementsLoading = false
+        state.stockMovementsError = action.error.message || 'Failed to record stock movement'
+      })
+
+      // Inventory valuation
+      .addCase(fetchInventoryValuation.pending, (state) => {
+        state.inventoryValuationLoading = true
+        state.inventoryValuationError = null
+      })
+      .addCase(fetchInventoryValuation.fulfilled, (state, action) => {
+        state.inventoryValuationLoading = false
+        state.inventoryValuation = action.payload
+      })
+      .addCase(fetchInventoryValuation.rejected, (state, action) => {
+        state.inventoryValuationLoading = false
+        state.inventoryValuationError = action.error.message || 'Failed to fetch inventory valuation'
+      })
+
+      // Reorder alerts
+      .addCase(fetchReorderAlerts.pending, (state) => {
+        state.reorderAlertsLoading = true
+        state.reorderAlertsError = null
+      })
+      .addCase(fetchReorderAlerts.fulfilled, (state, action) => {
+        state.reorderAlertsLoading = false
+        state.reorderAlerts = action.payload || []
+      })
+      .addCase(fetchReorderAlerts.rejected, (state, action) => {
+        state.reorderAlertsLoading = false
+        state.reorderAlertsError = action.error.message || 'Failed to fetch reorder alerts'
+      })
+
+      // Calculate COGS
+      .addCase(calculateCogs.pending, (state) => {
+        state.cogsLoading = true
+        state.cogsError = null
+        state.cogsResult = null
+      })
+      .addCase(calculateCogs.fulfilled, (state, action) => {
+        state.cogsLoading = false
+        state.cogsResult = action.payload
+      })
+      .addCase(calculateCogs.rejected, (state, action) => {
+        state.cogsLoading = false
+        state.cogsError = action.error.message || 'Failed to calculate COGS'
+      })
+
+      // Stock adjustment
+      .addCase(postInventoryAdjustment.pending, (state) => {
+        state.adjustmentLoading = true
+        state.adjustmentError = null
+      })
+      .addCase(postInventoryAdjustment.fulfilled, (state, action) => {
+        state.adjustmentLoading = false
+        // optionally push adjustment into stockMovements if shape matches
+      })
+      .addCase(postInventoryAdjustment.rejected, (state, action) => {
+        state.adjustmentLoading = false
+        state.adjustmentError = action.error.message || 'Failed to post stock adjustment'
+      })
+
+      // Fetch exchange rates
+      .addCase(fetchExchangeRates.pending, (state) => {
+        state.exchangeRatesLoading = true
+        state.exchangeRatesError = null
+      })
+      .addCase(fetchExchangeRates.fulfilled, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRates = action.payload?.exchangeRates || []
+      })
+      .addCase(fetchExchangeRates.rejected, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRatesError = action.error.message || 'Failed to fetch exchange rates'
+      })
+
+      // Create exchange rate
+      .addCase(createExchangeRate.pending, (state) => {
+        state.exchangeRatesLoading = true
+        state.exchangeRatesError = null
+      })
+      .addCase(createExchangeRate.fulfilled, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRates.unshift(action.payload)
+      })
+      .addCase(createExchangeRate.rejected, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRatesError = action.payload as string || action.error.message || 'Failed to create exchange rate'
+      })
+
+      // Update exchange rate
+      .addCase(updateExchangeRate.pending, (state) => {
+        state.exchangeRatesLoading = true
+        state.exchangeRatesError = null
+      })
+      .addCase(updateExchangeRate.fulfilled, (state, action) => {
+        state.exchangeRatesLoading = false
+        const idx = state.exchangeRates.findIndex(e => e.id === action.payload.id)
+        if (idx !== -1) state.exchangeRates[idx] = action.payload
+      })
+      .addCase(updateExchangeRate.rejected, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRatesError = action.payload as string || action.error.message || 'Failed to update exchange rate'
+      })
+
+      // Delete exchange rate
+      .addCase(deleteExchangeRate.pending, (state) => {
+        state.exchangeRatesLoading = true
+        state.exchangeRatesError = null
+      })
+      .addCase(deleteExchangeRate.fulfilled, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRates = state.exchangeRates.filter(e => e.id !== action.payload)
+      })
+      .addCase(deleteExchangeRate.rejected, (state, action) => {
+        state.exchangeRatesLoading = false
+        state.exchangeRatesError = action.payload as string || action.error.message || 'Failed to delete exchange rate'
+      })
   }
 })
 
@@ -767,7 +1200,8 @@ export const {
   clearCreditNotesError,
   setSelectedCreditNote,
   clearSelectedCreditNote,
-  clearDashboardErrors
+  clearDashboardErrors,
+  setSelectedInventoryItem
 } = accountingSlice.actions
 
 export default accountingSlice.reducer
