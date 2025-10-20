@@ -1,0 +1,6 @@
+TransactionDate,Description,Amount,Reference
+2024-06-01,Office Supplies Purchase,-1500.0,REF001
+2024-06-02,Customer Payment,2500.0,REF002
+2024-06-03,Bank Charges,-50.0,REF003
+2024-06-04,Service Fee Payment,-750.0,REF004
+2024-06-05,Client Invoice Payment,3000.0,REF005

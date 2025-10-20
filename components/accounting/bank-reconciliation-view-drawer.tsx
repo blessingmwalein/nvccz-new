@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Download, CheckCircle, AlertTriangle, Clock, User, FileText, List, Search } from "lucide-react"
+import { Download, AlertTriangle, Clock, User, FileText, List, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
@@ -17,7 +17,6 @@ import { BankTransactionMatchesModal } from "./bank-transaction-matches-modal"
 const tabs = [
     { id: "info", label: "Info", icon: FileText },
     { id: "transactions", label: "Bank Transactions", icon: List },
-    { id: "matched", label: "Matched Transactions", icon: CheckCircle },
     { id: "unmatched", label: "Unmatched Transactions", icon: AlertTriangle }
 ]
 
@@ -80,35 +79,6 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
             key: 'amount',
             label: 'Amount',
             render: (value) => <span className="font-bold text-red-600">{value}</span>
-        },
-        {
-            key: 'transactionDate',
-            label: 'Date',
-            render: (value) => <span>{format(new Date(value), 'MMM dd, yyyy')}</span>
-        },
-        {
-            key: 'confidenceScore',
-            label: 'Confidence',
-            render: (value) => value ? `${value}%` : '—'
-        }
-    ]
-
-    // Columns for matched transactions
-    const matchedColumns: Column<any>[] = [
-        {
-            key: 'description',
-            label: 'Description',
-            render: (value, row) => (
-                <div>
-                    <span className="font-medium">{value}</span>
-                    <div className="text-xs text-gray-500">{row.reference}</div>
-                </div>
-            )
-        },
-        {
-            key: 'amount',
-            label: 'Amount',
-            render: (value) => <span className="font-bold text-green-600">{value}</span>
         },
         {
             key: 'transactionDate',
@@ -258,27 +228,8 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
                             showSearch={true}
                             showFilters={false}
                             emptyMessage="No transactions found."
+                            onView={handleTransactionClick}
                         />
-                    )}
-
-                    {activeTab === "matched" && (
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle>Matched Transactions</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <ProcurementDataTable
-                                    data={(reconciliation.bankTransactions || []).filter((t: any) => t.isMatched)}
-                                    columns={matchedColumns}
-                                    title="Matched Transactions"
-                                    loading={false}
-                                    showSearch={true}
-                                    showFilters={false}
-                                    emptyMessage="No matched transactions found."
-                                    onView={handleTransactionClick}
-                                />
-                            </CardContent>
-                        </Card>
                     )}
 
                     {activeTab === "unmatched" && (
@@ -305,6 +256,7 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
                     transaction={selectedTransaction}
                     matches={bankTransactionMatches}
                     loading={bankTransactionMatchesLoading}
+                    reconciliationId={reconciliation?.id || ""} // <-- Pass reconciliationId here
                 />
             </SheetContent>
         </Sheet>

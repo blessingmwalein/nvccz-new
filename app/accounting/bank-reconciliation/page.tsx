@@ -18,7 +18,9 @@ import {
   Search,
   Filter,
   ChevronDown,
-  CalendarIcon
+  CalendarIcon,
+  Loader2,
+  Upload as UploadIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -27,6 +29,7 @@ import type { RootState, AppDispatch } from "@/lib/store/store"
 import { fetchBankReconciliations, fetchBankReconciliationSummary, fetchBankReconciliationAuditTrail, uploadBankReconciliationFile } from "@/lib/store/slices/accounting-slice"
 import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
 import { BankReconciliationViewDrawer } from "@/components/accounting/bank-reconciliation-view-drawer"
+import { BankReconciliationUploadModal } from "@/components/accounting/bank-reconciliation-upload-modal"
 
 export default function BankReconciliationPage() {
   const dispatch = useDispatch<AppDispatch>()
@@ -71,11 +74,27 @@ export default function BankReconciliationPage() {
     accuracy: bankReconciliationSummary?.averageAccuracy ?? 0
   }
 
-  const handleUpload = () => {
-    if (uploadFile) {
-      dispatch(uploadBankReconciliationFile(uploadFile))
+  // Updated upload handler: keep modal open during upload, close only on success, show error on failure
+  const handleUpload = async () => {
+    if (!uploadFile) return
+    try {
+      await dispatch(uploadBankReconciliationFile(uploadFile)).unwrap()
+      toast.success("Bank statement uploaded successfully")
       setUploadModalOpen(false)
       setUploadFile(null)
+      // Optionally refresh data
+      dispatch(fetchBankReconciliations())
+      dispatch(fetchBankReconciliationSummary())
+    } catch (err: any) {
+      // Show error and keep modal open
+      const msg =
+        err?.message ||
+        err?.error ||
+        err?.response?.data?.message ||
+        "Failed to upload file"
+      toast.error(msg)
+      // Do NOT close modal or clear file on error
+      return
     }
   }
 
@@ -190,6 +209,16 @@ export default function BankReconciliationPage() {
           </div>
         </div>
 
+        {/* Upload Modal as overlay modal */}
+        <BankReconciliationUploadModal
+          open={uploadModalOpen}
+          onClose={() => setUploadModalOpen(false)}
+          onUpload={handleUpload}
+          uploadFile={uploadFile}
+          setUploadFile={setUploadFile}
+          loading={bankReconciliationUploadLoading}
+        />
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-6">
           <Card>
@@ -281,22 +310,6 @@ export default function BankReconciliationPage() {
                   </tbody>
                 </table>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* Upload Modal */}
-        {uploadModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
-              <h2 className="text-xl font-semibold mb-4">Upload Bank Statement</h2>
-              <input type="file" accept=".csv,.xls,.xlsx" onChange={e => setUploadFile(e.target.files?.[0] || null)} />
-              <div className="flex justify-end mt-4">
-                <Button variant="outline" onClick={() => setUploadModalOpen(false)}>Cancel</Button>
-                <Button className="ml-2" onClick={handleUpload} disabled={bankReconciliationUploadLoading || !uploadFile}>
-                  {bankReconciliationUploadLoading ? "Uploading..." : "Upload"}
-                </Button>
-              </div>
             </div>
           </div>
         )}
