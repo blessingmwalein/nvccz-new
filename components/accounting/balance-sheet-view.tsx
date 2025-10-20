@@ -1,0 +1,420 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSelector, useDispatch } from "react-redux"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { CalendarIcon, RefreshCw, FileText, Loader2, AlertCircle, Check } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { toast } from "sonner"
+import type { RootState, AppDispatch } from "@/lib/store/store"
+import { generateBalanceSheet } from "@/lib/store/slices/accounting-slice"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
+
+function formatMoney(v: number | string) {
+  return (
+    <span className="font-mono tabular-nums">
+      {Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+    </span>
+  )
+}
+
+function BalanceSheetSkeleton() {
+  return (
+    <div className="max-w-2xl mx-auto animate-pulse">
+      <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
+        <div className="h-6 w-48 bg-gray-200 rounded mx-auto mb-2"></div>
+        <div className="h-5 w-32 bg-gray-100 rounded mx-auto mb-2"></div>
+        <div className="h-4 w-40 bg-gray-100 rounded mx-auto"></div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Description</th>
+              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(12)].map((_, i) => (
+              <tr key={i}>
+                <td className={cn("py-1 pl-2", i % 4 === 0 && "pt-4 pb-1")}>
+                  <div className={cn("h-4 rounded", i % 4 === 0 ? "w-32 bg-gray-100" : "w-48 bg-gray-200")}></div>
+                </td>
+                <td className="py-1 pr-2 text-right">
+                  <div className="h-4 w-20 bg-gray-200 rounded ml-auto"></div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-6 text-center text-xs">
+          <div className="h-4 w-24 bg-gray-200 rounded mx-auto"></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function BalanceSheetView() {
+  const dispatch = useDispatch<AppDispatch>()
+  const { balanceSheet, balanceSheetLoading, balanceSheetError, currencies } = useSelector((s: RootState) => s.accounting)
+  // Default to USD if available, else first currency
+  const defaultCurrencyId = currencies.find(c => c.code === "USD")?.id || currencies[0]?.id || ""
+  const [asOfDate, setAsOfDate] = useState<Date>(new Date())
+  const [currencyId, setCurrencyId] = useState(defaultCurrencyId)
+  const [generatingPDF, setGeneratingPDF] = useState(false)
+
+  // Fetch on mount and when currency changes
+  useEffect(() => {
+    if (currencies.length && !currencyId) setCurrencyId(defaultCurrencyId)
+  }, [currencies])
+
+  useEffect(() => {
+    if (currencyId) {
+      // Fetch for current year end (Dec 31)
+      const year = new Date().getFullYear()
+      const defaultDate = new Date(year, 11, 31) // Dec 31
+      setAsOfDate(defaultDate)
+      dispatch(generateBalanceSheet({ asOfDate: format(defaultDate, "yyyy-MM-dd"), currencyId }) as any)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currencyId])
+
+  const handleGenerate = async () => {
+    if (asOfDate && currencyId) {
+      try {
+        await dispatch(generateBalanceSheet({ asOfDate: format(asOfDate, "yyyy-MM-dd"), currencyId }) as any)
+      } catch (error: any) {
+        toast.error("Failed to generate balance sheet", { description: error.message })
+      }
+    }
+  }
+
+  // Custom dropdown for currency selection
+  const currencyDropdown = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="rounded-full min-w-[90px] flex justify-between items-center"
+        >
+          {currencies.find(c => c.id === currencyId)?.code || "Select"}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="rounded-xl min-w-[120px]">
+        {currencies.map(c => (
+          <DropdownMenuItem
+            key={c.id}
+            onClick={() => setCurrencyId(c.id)}
+            className={cn(
+              "flex items-center justify-between rounded-full cursor-pointer",
+              c.id === currencyId && "bg-blue-100"
+            )}
+          >
+            <span>{c.code} <span className="text-xs text-gray-400 ml-1">{c.name}</span></span>
+            {c.id === currencyId && <Check className="w-4 h-4 text-blue-600 ml-2" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
+  // Export to PDF implementation
+  const handleExportPDF = async () => {
+    if (!balanceSheet) {
+      toast.error("No balance sheet data to export")
+      return
+    }
+    setGeneratingPDF(true)
+    try {
+      const doc = new jsPDF()
+      doc.setFontSize(16)
+      doc.text("Balance Sheet", 14, 18)
+      doc.setFontSize(11)
+      doc.text(`As of ${format(new Date(balanceSheet.asOfDate), "MMMM d, yyyy")}`, 14, 26)
+      // Use currency name
+      const currencyObj = currencies.find(c => c.code === balanceSheet.currency) || currencies.find(c => c.id === currencyId)
+      doc.text(`Currency: ${currencyObj?.name || balanceSheet.currency}`, 14, 32)
+
+      // Prepare rows for PDF
+      const rows: any[] = []
+      const pushSection = (label: string) => rows.push([{ content: label, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [240,240,240] } }])
+      const pushItem = (label: string, value: number | null) => rows.push([label, value !== null ? Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""])
+      const pushTotal = (label: string, value: number | null) => rows.push([{ content: label, styles: { fontStyle: 'bold' } }, { content: value !== null ? Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", styles: { fontStyle: 'bold' } }])
+
+      // Assets
+      pushSection("Assets")
+      const { currentAssets, fixedAssets, otherAssets, totalAssets } = balanceSheet.assets
+      if (currentAssets.accounts.length) {
+        pushSection("Current Assets")
+        currentAssets.accounts.forEach(a => pushItem(a.accountName, a.balance))
+        pushTotal("Total Current Assets", currentAssets.total)
+      }
+      if (fixedAssets.accounts.length) {
+        pushSection("Fixed Assets")
+        fixedAssets.accounts.forEach(a => pushItem(a.accountName, a.balance))
+        if (typeof fixedAssets.accumulatedDepreciation === "number") {
+          pushItem("Accumulated Depreciation", fixedAssets.accumulatedDepreciation)
+        }
+        pushTotal("Total Fixed Assets", fixedAssets.total)
+      }
+      if (otherAssets.accounts.length) {
+        pushSection("Other Assets")
+        otherAssets.accounts.forEach(a => pushItem(a.accountName, a.balance))
+        pushTotal("Total Other Assets", otherAssets.total)
+      }
+      pushTotal("Total Assets", totalAssets)
+
+      // Liabilities
+      pushSection("Liabilities")
+      const { currentLiabilities, longTermLiabilities, totalLiabilities } = balanceSheet.liabilities
+      if (currentLiabilities.accounts.length) {
+        pushSection("Current Liabilities")
+        currentLiabilities.accounts.forEach(a => pushItem(a.accountName, a.balance))
+        pushTotal("Total Current Liabilities", currentLiabilities.total)
+      }
+      if (longTermLiabilities.accounts.length) {
+        pushSection("Long-Term Liabilities")
+        longTermLiabilities.accounts.forEach(a => pushItem(a.accountName, a.balance))
+        pushTotal("Total Long-Term Liabilities", longTermLiabilities.total)
+      }
+      pushTotal("Total Liabilities", totalLiabilities)
+
+      // Equity
+      pushSection("Equity")
+      const { accounts, total, retainedEarnings } = balanceSheet.equity
+      accounts.forEach(a => pushItem(a.accountName, a.balance))
+      pushItem("Retained Earnings", retainedEarnings)
+      pushTotal("Total Equity", total)
+      pushTotal("Total Liabilities & Equity", balanceSheet.totalLiabilitiesAndEquity)
+
+      autoTable(doc, {
+        head: [["Description", "Amount"]],
+        body: rows,
+        startY: 38,
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [220, 220, 220] },
+        columnStyles: { 1: { halign: 'right' } }
+      })
+
+      doc.save(`BalanceSheet_${balanceSheet.asOfDate}.pdf`)
+      toast.success("Balance sheet PDF generated successfully")
+    } catch (err) {
+      toast.error("Failed to generate balance sheet PDF")
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
+  if (balanceSheetError) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Balance Sheet</h3>
+          <p className="text-gray-600 mb-4">{balanceSheetError}</p>
+          <Button onClick={handleGenerate}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Helper to flatten asset, liability, equity sections for vertical display
+  function verticalRows() {
+    if (!balanceSheet) return []
+    const rows: { label: string; value: number | null; type: "section" | "item" | "total" }[] = []
+    // Assets
+    const { currentAssets, fixedAssets, otherAssets, totalAssets } = balanceSheet.assets
+    if (currentAssets.accounts.length) {
+      rows.push({ label: "Current Assets", value: null, type: "section" })
+      currentAssets.accounts.forEach(a => rows.push({ label: a.accountName, value: a.balance, type: "item" }))
+      rows.push({ label: "Total Current Assets", value: currentAssets.total, type: "total" })
+    }
+    if (fixedAssets.accounts.length) {
+      rows.push({ label: "Fixed Assets", value: null, type: "section" })
+      fixedAssets.accounts.forEach(a => rows.push({ label: a.accountName, value: a.balance, type: "item" }))
+      if (typeof fixedAssets.accumulatedDepreciation === "number") {
+        rows.push({ label: "Accumulated Depreciation", value: fixedAssets.accumulatedDepreciation, type: "item" })
+      }
+      rows.push({ label: "Total Fixed Assets", value: fixedAssets.total, type: "total" })
+    }
+    if (otherAssets.accounts.length) {
+      rows.push({ label: "Other Assets", value: null, type: "section" })
+      otherAssets.accounts.forEach(a => rows.push({ label: a.accountName, value: a.balance, type: "item" }))
+      rows.push({ label: "Total Other Assets", value: otherAssets.total, type: "total" })
+    }
+    rows.push({ label: "Total Assets", value: totalAssets, type: "total" })
+    // Liabilities
+    const { currentLiabilities, longTermLiabilities, totalLiabilities } = balanceSheet.liabilities
+    if (currentLiabilities.accounts.length) {
+      rows.push({ label: "Current Liabilities", value: null, type: "section" })
+      currentLiabilities.accounts.forEach(a => rows.push({ label: a.accountName, value: a.balance, type: "item" }))
+      rows.push({ label: "Total Current Liabilities", value: currentLiabilities.total, type: "total" })
+    }
+    if (longTermLiabilities.accounts.length) {
+      rows.push({ label: "Long-Term Liabilities", value: null, type: "section" })
+      longTermLiabilities.accounts.forEach(a => rows.push({ label: a.accountName, value: a.balance, type: "item" }))
+      rows.push({ label: "Total Long-Term Liabilities", value: longTermLiabilities.total, type: "total" })
+    }
+    rows.push({ label: "Total Liabilities", value: totalLiabilities, type: "total" })
+    // Equity
+    const { accounts, total, retainedEarnings } = balanceSheet.equity
+    rows.push({ label: "Equity", value: null, type: "section" })
+    accounts.forEach(a => rows.push({ label: a.accountName, value: a.balance, type: "item" }))
+    rows.push({ label: "Retained Earnings", value: retainedEarnings, type: "item" })
+    rows.push({ label: "Total Equity", value: total, type: "total" })
+    // Final
+    rows.push({ label: "Total Liabilities & Equity", value: balanceSheet.totalLiabilitiesAndEquity, type: "total" })
+    return rows
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Date Filters */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Balance Sheet</h2>
+          <p className="text-gray-600">
+            As of {format(asOfDate, "MMM d, yyyy")}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">As of:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="rounded-full">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(asOfDate, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={asOfDate}
+                  onSelect={(date) => date && setAsOfDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          {/* Custom currency dropdown */}
+          <div>
+            {currencyDropdown}
+          </div>
+          <Button
+            onClick={handleGenerate}
+            disabled={balanceSheetLoading}
+            className="rounded-full"
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", balanceSheetLoading && "animate-spin")} />
+            Generate
+          </Button>
+          <Button
+            onClick={handleExportPDF}
+            variant="outline"
+            className="rounded-full"
+            disabled={generatingPDF}
+          >
+            {generatingPDF ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4 mr-2" />
+                Export PDF
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Balance Sheet Report */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <FileText className="w-6 h-6 text-blue-600" />
+            Balance Sheet
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {balanceSheetLoading ? (
+            <BalanceSheetSkeleton />
+          ) : balanceSheet ? (
+            <div className="max-w-2xl mx-auto">
+              {/* Company Header */}
+              <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">Balance Sheet</h2>
+                <p className="text-gray-600">
+                  As of {format(new Date(balanceSheet.asOfDate), "MMMM d, yyyy")}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Description</th>
+                      <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {verticalRows().map((row, idx) => (
+                      <tr key={idx}
+                        className={cn(
+                          row.type === "section" && "bg-gray-50",
+                          row.type === "total" && "border-t-2 border-gray-400 font-bold",
+                        )}
+                      >
+                        <td className={cn(
+                          "py-1 pl-2",
+                          row.type === "section" && "pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase",
+                          row.type === "total" && "pt-2"
+                        )}>
+                          {row.label}
+                        </td>
+                        <td className={cn(
+                          "py-1 pr-2 text-right",
+                          row.type === "total" && "text-blue-700 text-base",
+                          row.type === "section" && "text-xs"
+                        )}>
+                          {row.value !== null ? formatMoney(row.value) : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-6 text-center text-xs">
+                  {balanceSheet.isBalanced
+                    ? <span className="text-green-600">Balanced</span>
+                    : <span className="text-red-600">Not Balanced (Diff: {formatMoney(balanceSheet.difference)})</span>}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Balance Sheet Data</h3>
+              <p className="text-gray-600">No data available for the selected date</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

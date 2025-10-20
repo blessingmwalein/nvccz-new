@@ -13,6 +13,8 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { IncomeStatementView } from "./income-statement-view"
+import { BalanceSheetView } from "./balance-sheet-view"
+import { CashFlowView } from "./cash-flow-view"
 
 const tabs = [
   {
@@ -46,25 +48,9 @@ export function FinancialReports() {
       case "income-statement":
         return <IncomeStatementView />
       case "balance-sheet":
-        return (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
-              <BarChart3 className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Balance Sheet</h3>
-            <p className="text-gray-500">Coming soon...</p>
-          </div>
-        )
+        return <BalanceSheetView />
       case "cash-flow":
-        return (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center">
-              <DollarSign className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Cash Flow Statement</h3>
-            <p className="text-gray-500">Coming soon...</p>
-          </div>
-        )
+        return <CashFlowView />
       default:
         return <IncomeStatementView />
     }

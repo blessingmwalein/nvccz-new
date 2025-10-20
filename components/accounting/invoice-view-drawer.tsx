@@ -238,7 +238,7 @@ export function InvoiceViewDrawer({
                   </Button>
                 )}
 
-                {(invoice.status === 'SENT' || invoice.status === 'PAID') && (
+                {(invoice?.status === 'SENT' || invoice?.status === 'PAID') && (
                   <Button 
                     onClick={() => setIsCreateCreditNoteOpen(true)}
                     className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-full shadow-sm"

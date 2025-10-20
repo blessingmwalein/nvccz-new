@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import type { InventoryItem } from "@/lib/api/accounting-api"
+import type { InventoryItem, InventoryValuationResponse, ReorderAlertItem } from "@/lib/api/accounting-api"
 import { fetchInventoryItems, fetchInventoryItem, setSelectedInventoryItem, fetchVendors, fetchChartOfAccounts /* removed fetchInventoryValuation, fetchReorderAlerts */ } from "@/lib/store/slices/accounting-slice"
 import { ProcurementDataTable, Column } from "../procurement/procurement-data-table"
 import { InventoryViewDrawer } from "./inventory-view-drawer"
@@ -75,6 +75,9 @@ export function InventoryManagement() {
     dispatch(fetchInventoryItems())
     dispatch(fetchVendors())
     dispatch(fetchChartOfAccounts({ isActive: true }))
+    // Fetch valuation and reorder alerts on initial load
+    loadValuation()
+    loadReorderAlerts()
   }, [dispatch])
 
   useEffect(() => {

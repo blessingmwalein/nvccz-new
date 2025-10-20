@@ -1,5 +1,13 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import { accountingApi, AccountingCurrency, ChartOfAccount, Customer, Vendor, ExpenseCategory, Expense, TrialBalanceData, TrialBalanceSummary, IncomeStatementData, Asset, CreditNote, CreateCreditNoteRequest, InventoryItem, InventoryListResponse, CreateInventoryRequest, UpdateInventoryRequest, StockMovement, CreateStockMovementRequest, InventoryValuationResponse, ReorderAlertItem, CogsRequest, CogsResponse, StockAdjustmentRequest, StockAdjustmentResponse, ExchangeRate, CreateExchangeRateRequest, UpdateExchangeRateRequest } from '@/lib/api/accounting-api'
+import { accountingApi, AccountingCurrency, ChartOfAccount, Customer, Vendor, ExpenseCategory, Expense, TrialBalanceData, TrialBalanceSummary, IncomeStatementData, Asset, CreditNote, CreateCreditNoteRequest, InventoryItem, InventoryListResponse, CreateInventoryRequest, UpdateInventoryRequest, StockMovement, CreateStockMovementRequest, InventoryValuationResponse, ReorderAlertItem, CogsRequest, CogsResponse, StockAdjustmentRequest, StockAdjustmentResponse, ExchangeRate, CreateExchangeRateRequest, UpdateExchangeRateRequest, BalanceSheetResponse, CashFlowResponse } from '@/lib/api/accounting-api'
+import {
+  BankReconciliation,
+  BankTransaction,
+  BankReconciliationSummary,
+  BankReconciliationAuditTrail,
+  BankReconciliationUploadResponse,
+  ApproveMatchRequest
+} from '@/lib/api/accounting-api'
 
 // Async thunks for expenses
 export const fetchExpenses = createAsyncThunk(
@@ -450,6 +458,136 @@ export const deleteExchangeRate = createAsyncThunk(
   }
 )
 
+// Balance Sheet thunks
+export const generateBalanceSheet = createAsyncThunk(
+  'accounting/generateBalanceSheet',
+  async (data: { asOfDate: string; currencyId: string }) => {
+    const response = await accountingApi.generateBalanceSheet(data)
+    if (!response.success) throw new Error(response.error || 'Failed to generate balance sheet')
+    return response.data
+  }
+)
+export const fetchBalanceSheet = createAsyncThunk(
+  'accounting/fetchBalanceSheet',
+  async (params: { asOfDate: string; currencyId: string }) => {
+    const response = await accountingApi.getBalanceSheet(params.asOfDate, params.currencyId)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch balance sheet')
+    return response.data
+  }
+)
+
+// Cash Flow thunks
+export const generateCashFlow = createAsyncThunk(
+  'accounting/generateCashFlow',
+  async (data: { startDate: string; endDate: string; currencyId: string }) => {
+    const response = await accountingApi.generateCashFlow(data)
+    if (!response.success) throw new Error(response.error || 'Failed to generate cash flow statement')
+    return response.data
+  }
+)
+export const fetchCashFlow = createAsyncThunk(
+  'accounting/fetchCashFlow',
+  async (params: { startDate: string; endDate: string; currencyId: string }) => {
+    const response = await accountingApi.getCashFlow(params.startDate, params.endDate, params.currencyId)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch cash flow statement')
+    return response.data
+  }
+)
+
+// --- BANK RECONCILIATION THUNKS ---
+export const fetchBankReconciliations = createAsyncThunk(
+  'accounting/fetchBankReconciliations',
+  async () => {
+    const response = await accountingApi.getBankReconciliations()
+    if (!response.success) throw new Error(response.error || 'Failed to fetch bank reconciliations')
+    return response.data
+  }
+)
+export const fetchBankReconciliation = createAsyncThunk(
+  'accounting/fetchBankReconciliation',
+  async (id: string) => {
+    const response = await accountingApi.getBankReconciliation(id)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch bank reconciliation')
+    return response.data
+  }
+)
+export const deleteBankReconciliation = createAsyncThunk(
+  'accounting/deleteBankReconciliation',
+  async (id: string) => {
+    const response = await accountingApi.deleteBankReconciliation(id)
+    if (!response.success) throw new Error(response.error || 'Failed to delete bank reconciliation')
+    return id
+  }
+)
+export const fetchBankReconciliationSummary = createAsyncThunk(
+  'accounting/fetchBankReconciliationSummary',
+  async () => {
+    const response = await accountingApi.getBankReconciliationSummary()
+    if (!response.success) throw new Error(response.error || 'Failed to fetch summary')
+    return response.data
+  }
+)
+export const uploadBankReconciliationFile = createAsyncThunk(
+  'accounting/uploadBankReconciliationFile',
+  async (file: File, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.uploadBankReconciliationFile(file)
+      if (!response.success) return rejectWithValue(response.error || 'Failed to upload file')
+      return response.data
+    } catch (err: any) {
+      return rejectWithValue(err.message)
+    }
+  }
+)
+export const fetchBankReconciliationAuditTrail = createAsyncThunk(
+  'accounting/fetchBankReconciliationAuditTrail',
+  async (id: string) => {
+    const response = await accountingApi.getBankReconciliationAuditTrail(id)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch audit trail')
+    return response.data
+  }
+)
+export const fetchBankReconciliationUnmatched = createAsyncThunk(
+  'accounting/fetchBankReconciliationUnmatched',
+  async (id: string) => {
+    const response = await accountingApi.getBankReconciliationUnmatched(id)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch unmatched transactions')
+    return response.data
+  }
+)
+export const fetchBankTransactionMatches = createAsyncThunk(
+  'accounting/fetchBankTransactionMatches',
+  async (transactionId: string) => {
+    const response = await accountingApi.getBankTransactionMatches(transactionId)
+    if (!response.success) throw new Error(response.error || 'Failed to fetch matches')
+    return response.data
+  }
+)
+export const approveBankReconciliationMatch = createAsyncThunk(
+  'accounting/approveBankReconciliationMatch',
+  async (data: ApproveMatchRequest, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.approveBankReconciliationMatch(data)
+      if (!response.success) return rejectWithValue(response.error || 'Failed to approve match')
+      return data
+    } catch (err: any) {
+      return rejectWithValue(err.message)
+    }
+  }
+)
+export const rejectBankReconciliationResult = createAsyncThunk(
+  'accounting/rejectBankReconciliationResult',
+  async (resultId: string, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.rejectBankReconciliationResult(resultId)
+      if (!response.success) return rejectWithValue(response.error || 'Failed to reject result')
+      return resultId
+    } catch (err: any) {
+      return rejectWithValue(err.message)
+    }
+  }
+)
+
 interface AccountingState {
   // Expenses
   expenses: Expense[]
@@ -556,6 +694,37 @@ interface AccountingState {
   exchangeRates: ExchangeRate[]
   exchangeRatesLoading: boolean
   exchangeRatesError: string | null
+
+  // Balance Sheet
+  balanceSheet: BalanceSheetResponse | null
+  balanceSheetLoading: boolean
+  balanceSheetError: string | null
+  // Cash Flow
+  cashFlow: CashFlowResponse | null
+  cashFlowLoading: boolean
+  cashFlowError: string | null
+
+  // Bank Reconciliation
+  bankReconciliations: BankReconciliation[]
+  bankReconciliationLoading: boolean
+  bankReconciliationError: string | null
+  selectedBankReconciliation: BankReconciliation | null
+  selectedBankReconciliationLoading: boolean
+  selectedBankReconciliationError: string | null
+  bankReconciliationSummary: BankReconciliationSummary | null
+  bankReconciliationSummaryLoading: boolean
+  bankReconciliationSummaryError: string | null
+  bankReconciliationAuditTrail: BankReconciliationAuditTrail[]
+  bankReconciliationAuditTrailLoading: boolean
+  bankReconciliationAuditTrailError: string | null
+  bankReconciliationUploadLoading: boolean
+  bankReconciliationUploadError: string | null
+  bankReconciliationUnmatched: BankTransaction[]
+  bankReconciliationUnmatchedLoading: boolean
+  bankReconciliationUnmatchedError: string | null
+  bankTransactionMatches: any[]
+  bankTransactionMatchesLoading: boolean
+  bankTransactionMatchesError: string | null
 }
 
 const initialState: AccountingState = {
@@ -661,6 +830,37 @@ const initialState: AccountingState = {
   exchangeRates: [],
   exchangeRatesLoading: false,
   exchangeRatesError: null,
+
+  // Balance Sheet
+  balanceSheet: null,
+  balanceSheetLoading: false,
+  balanceSheetError: null,
+  // Cash Flow
+  cashFlow: null,
+  cashFlowLoading: false,
+  cashFlowError: null,
+
+  // Bank Reconciliation
+  bankReconciliations: [],
+  bankReconciliationLoading: false,
+  bankReconciliationError: null,
+  selectedBankReconciliation: null,
+  selectedBankReconciliationLoading: false,
+  selectedBankReconciliationError: null,
+  bankReconciliationSummary: null,
+  bankReconciliationSummaryLoading: false,
+  bankReconciliationSummaryError: null,
+  bankReconciliationAuditTrail: [],
+  bankReconciliationAuditTrailLoading: false,
+  bankReconciliationAuditTrailError: null,
+  bankReconciliationUploadLoading: false,
+  bankReconciliationUploadError: null,
+  bankReconciliationUnmatched: [],
+  bankReconciliationUnmatchedLoading: false,
+  bankReconciliationUnmatchedError: null,
+  bankTransactionMatches: [],
+  bankTransactionMatchesLoading: false,
+  bankTransactionMatchesError: null,
 }
 
 const accountingSlice = createSlice({
@@ -705,6 +905,24 @@ const accountingSlice = createSlice({
     },
     setSelectedInventoryItem: (state, action: PayloadAction<InventoryItem | null>) => {
       state.selectedInventoryItem = action.payload
+    },
+    setSelectedBankReconciliation: (state, action) => {
+      state.selectedBankReconciliation = action.payload
+    },
+    clearBankReconciliationError: (state) => {
+      state.bankReconciliationError = null
+    },
+    clearBankReconciliationUploadError: (state) => {
+      state.bankReconciliationUploadError = null
+    },
+    clearBankReconciliationAuditTrailError: (state) => {
+      state.bankReconciliationAuditTrailError = null
+    },
+    clearBankReconciliationUnmatchedError: (state) => {
+      state.bankReconciliationUnmatchedError = null
+    },
+    clearBankTransactionMatchesError: (state) => {
+      state.bankTransactionMatchesError = null
     }
   },
   extraReducers: (builder) => {
@@ -1186,6 +1404,156 @@ const accountingSlice = createSlice({
         state.exchangeRatesLoading = false
         state.exchangeRatesError = action.payload as string || action.error.message || 'Failed to delete exchange rate'
       })
+
+      // Balance Sheet
+      .addCase(generateBalanceSheet.pending, (state) => {
+        state.balanceSheetLoading = true
+        state.balanceSheetError = null
+      })
+      .addCase(generateBalanceSheet.fulfilled, (state, action) => {
+        state.balanceSheetLoading = false
+        state.balanceSheet = action.payload
+      })
+      .addCase(generateBalanceSheet.rejected, (state, action) => {
+        state.balanceSheetLoading = false
+        state.balanceSheetError = action.error.message || 'Failed to generate balance sheet'
+      })
+      .addCase(fetchBalanceSheet.pending, (state) => {
+        state.balanceSheetLoading = true
+        state.balanceSheetError = null
+      })
+      .addCase(fetchBalanceSheet.fulfilled, (state, action) => {
+        state.balanceSheetLoading = false
+        state.balanceSheet = action.payload
+      })
+      .addCase(fetchBalanceSheet.rejected, (state, action) => {
+        state.balanceSheetLoading = false
+        state.balanceSheetError = action.error.message || 'Failed to fetch balance sheet'
+      })
+
+    // Cash Flow
+    builder
+      .addCase(generateCashFlow.pending, (state) => {
+        state.cashFlowLoading = true
+        state.cashFlowError = null
+      })
+      .addCase(generateCashFlow.fulfilled, (state, action) => {
+        state.cashFlowLoading = false
+        state.cashFlow = action.payload
+      })
+      .addCase(generateCashFlow.rejected, (state, action) => {
+        state.cashFlowLoading = false
+        state.cashFlowError = action.error.message || 'Failed to generate cash flow statement'
+      })
+      .addCase(fetchCashFlow.pending, (state) => {
+        state.cashFlowLoading = true
+        state.cashFlowError = null
+      })
+      .addCase(fetchCashFlow.fulfilled, (state, action) => {
+        state.cashFlowLoading = false
+        state.cashFlow = action.payload
+      })
+      .addCase(fetchCashFlow.rejected, (state, action) => {
+        state.cashFlowLoading = false
+        state.cashFlowError = action.error.message || 'Failed to fetch cash flow statement'
+      })
+
+    // Bank Reconciliation
+    builder
+      .addCase(fetchBankReconciliations.pending, (state) => {
+        state.bankReconciliationLoading = true
+        state.bankReconciliationError = null
+      })
+      .addCase(fetchBankReconciliations.fulfilled, (state, action) => {
+        state.bankReconciliationLoading = false
+        state.bankReconciliations = action.payload.reconciliations || []
+      })
+      .addCase(fetchBankReconciliations.rejected, (state, action) => {
+        state.bankReconciliationLoading = false
+        state.bankReconciliationError = action.error.message || 'Failed to fetch bank reconciliations'
+      })
+      .addCase(fetchBankReconciliation.pending, (state) => {
+        state.selectedBankReconciliationLoading = true
+        state.selectedBankReconciliationError = null
+      })
+      .addCase(fetchBankReconciliation.fulfilled, (state, action) => {
+        state.selectedBankReconciliationLoading = false
+        state.selectedBankReconciliation = action.payload
+      })
+      .addCase(fetchBankReconciliation.rejected, (state, action) => {
+        state.selectedBankReconciliationLoading = false
+        state.selectedBankReconciliationError = action.error.message || 'Failed to fetch bank reconciliation'
+      })
+      .addCase(deleteBankReconciliation.fulfilled, (state, action) => {
+        state.bankReconciliations = state.bankReconciliations.filter(r => r.id !== action.payload)
+        if (state.selectedBankReconciliation?.id === action.payload) state.selectedBankReconciliation = null
+      })
+      .addCase(fetchBankReconciliationSummary.pending, (state) => {
+        state.bankReconciliationSummaryLoading = true
+        state.bankReconciliationSummaryError = null
+      })
+      .addCase(fetchBankReconciliationSummary.fulfilled, (state, action) => {
+        state.bankReconciliationSummaryLoading = false
+        state.bankReconciliationSummary = action.payload
+      })
+      .addCase(fetchBankReconciliationSummary.rejected, (state, action) => {
+        state.bankReconciliationSummaryLoading = false
+        state.bankReconciliationSummaryError = action.error.message || 'Failed to fetch summary'
+      })
+      .addCase(uploadBankReconciliationFile.pending, (state) => {
+        state.bankReconciliationUploadLoading = true
+        state.bankReconciliationUploadError = null
+      })
+      .addCase(uploadBankReconciliationFile.fulfilled, (state, action) => {
+        state.bankReconciliationUploadLoading = false
+        // Optionally add uploaded file to list
+      })
+      .addCase(uploadBankReconciliationFile.rejected, (state, action) => {
+        state.bankReconciliationUploadLoading = false
+        state.bankReconciliationUploadError = action.payload as string || action.error.message || 'Failed to upload file'
+      })
+      .addCase(fetchBankReconciliationAuditTrail.pending, (state) => {
+        state.bankReconciliationAuditTrailLoading = true
+        state.bankReconciliationAuditTrailError = null
+      })
+      .addCase(fetchBankReconciliationAuditTrail.fulfilled, (state, action) => {
+        state.bankReconciliationAuditTrailLoading = false
+        state.bankReconciliationAuditTrail = action.payload || []
+      })
+      .addCase(fetchBankReconciliationAuditTrail.rejected, (state, action) => {
+        state.bankReconciliationAuditTrailLoading = false
+        state.bankReconciliationAuditTrailError = action.error.message || 'Failed to fetch audit trail'
+      })
+      .addCase(fetchBankReconciliationUnmatched.pending, (state) => {
+        state.bankReconciliationUnmatchedLoading = true
+        state.bankReconciliationUnmatchedError = null
+      })
+      .addCase(fetchBankReconciliationUnmatched.fulfilled, (state, action) => {
+        state.bankReconciliationUnmatchedLoading = false
+        state.bankReconciliationUnmatched = action.payload || []
+      })
+      .addCase(fetchBankReconciliationUnmatched.rejected, (state, action) => {
+        state.bankReconciliationUnmatchedLoading = false
+        state.bankReconciliationUnmatchedError = action.error.message || 'Failed to fetch unmatched transactions'
+      })
+      .addCase(fetchBankTransactionMatches.pending, (state) => {
+        state.bankTransactionMatchesLoading = true
+        state.bankTransactionMatchesError = null
+      })
+      .addCase(fetchBankTransactionMatches.fulfilled, (state, action) => {
+        state.bankTransactionMatchesLoading = false
+        state.bankTransactionMatches = action.payload || []
+      })
+      .addCase(fetchBankTransactionMatches.rejected, (state, action) => {
+        state.bankTransactionMatchesLoading = false
+        state.bankTransactionMatchesError = action.error.message || 'Failed to fetch matches'
+      })
+      .addCase(approveBankReconciliationMatch.fulfilled, (state, action) => {
+        // Optionally update state to reflect approval
+      })
+      .addCase(rejectBankReconciliationResult.fulfilled, (state, action) => {
+        // Optionally update state to reflect rejection
+      })
   }
 })
 
@@ -1201,7 +1569,13 @@ export const {
   setSelectedCreditNote,
   clearSelectedCreditNote,
   clearDashboardErrors,
-  setSelectedInventoryItem
+  setSelectedInventoryItem,
+  setSelectedBankReconciliation,
+  clearBankReconciliationError,
+  clearBankReconciliationUploadError,
+  clearBankReconciliationAuditTrailError,
+  clearBankReconciliationUnmatchedError,
+  clearBankTransactionMatchesError
 } = accountingSlice.actions
 
 export default accountingSlice.reducer

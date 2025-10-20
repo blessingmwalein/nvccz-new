@@ -1,4 +1,7 @@
+import { Vendor } from '@/components/accounting/vendors-management'
 import { apiClient } from './api-client'
+import { AccountingResponse, ChartOfAccount, CreateChartOfAccountRequest } from './chart-of-accounts-api'
+import { ExpenseCategory } from '@/components/accounting/expense-categories-management'
 
 // Types matching accounting entities
 export interface AccountingCurrency {
@@ -561,6 +564,161 @@ export interface ExchangeRatesResponse {
   totalPages: number
 }
 
+// Balance Sheet types
+export interface BalanceSheetAccount {
+  accountNo: string
+  accountName: string
+  balance: number
+}
+export interface BalanceSheetSection {
+  accounts: BalanceSheetAccount[]
+  total: number
+  accumulatedDepreciation?: number
+}
+export interface BalanceSheetAssets {
+  currentAssets: BalanceSheetSection
+  fixedAssets: BalanceSheetSection
+  otherAssets: BalanceSheetSection
+  totalAssets: number
+}
+export interface BalanceSheetLiabilities {
+  currentLiabilities: BalanceSheetSection
+  longTermLiabilities: BalanceSheetSection
+  totalLiabilities: number
+}
+export interface BalanceSheetEquity {
+  accounts: BalanceSheetAccount[]
+  total: number
+  retainedEarnings: number
+}
+export interface BalanceSheetData {
+  asOfDate: string
+  currency: string
+  assets: BalanceSheetAssets
+  liabilities: BalanceSheetLiabilities
+  equity: BalanceSheetEquity
+  totalLiabilitiesAndEquity: number
+  isBalanced: boolean
+  difference: number
+}
+export interface BalanceSheetResponse {
+  asOfDate: string
+  currency: string
+  assets: BalanceSheetAssets
+  liabilities: BalanceSheetLiabilities
+  equity: BalanceSheetEquity
+  totalLiabilitiesAndEquity: number
+  isBalanced: boolean
+  difference: number
+}
+
+// Cash Flow types
+export interface CashFlowAccount {
+  accountId: string
+  accountNo: string
+  accountName: string
+  accountType: string
+  financialStatement: string
+  totalDebits: number
+  totalCredits: number
+  netAmount: number
+  cashFlowCategory: string
+}
+export interface CashFlowSection {
+  accounts: CashFlowAccount[]
+  total: number
+  description: string
+}
+export interface CashFlowData {
+  period: { startDate: string; endDate: string }
+  operatingActivities: CashFlowSection
+  investingActivities: CashFlowSection
+  financingActivities: CashFlowSection
+  netCashFlow: number
+  beginningCashBalance: number
+  endingCashBalance: number
+  currency: { id: string; code: string; name: string }
+  generatedAt: string
+}
+export interface CashFlowResponse extends CashFlowData {}
+
+// --- BANK RECONCILIATION TYPES ---
+export interface BankReconciliation {
+  id: string
+  fileName: string
+  fileUrl: string
+  status: 'PENDING' | 'COMPLETED' | 'FAILED'
+  totalTransactions: number
+  matchedCount: number
+  unmatchedCount: number
+  confidenceThreshold: number
+  overallAccuracy: number | null
+  notes: string | null
+  createdById: string
+  createdAt: string
+  updatedAt: string
+  createdBy: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  bankTransactions: BankTransaction[]
+  reconciliationResults: any[]
+}
+
+export interface BankTransaction {
+  id: string
+  description: string
+  amount: string
+  transactionDate: string
+  reference: string
+  isMatched: boolean
+  confidenceScore: number | null
+  matchedJournalEntryId: string | null
+  notes: string | null
+}
+
+export interface BankReconciliationSummary {
+  totalReconciliations: number
+  completedReconciliations: number
+  pendingReconciliations: number
+  failedReconciliations: number
+  totalTransactions: number
+  matchedTransactions: number
+  unmatchedTransactions: number
+  averageAccuracy: number | null
+}
+
+export interface BankReconciliationAuditTrail {
+  // Define as per API response
+  id: string
+  action: string
+  performedBy: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  timestamp: string
+  details: string
+}
+
+export interface BankReconciliationUploadResponse {
+  id: string
+  fileName: string
+  fileUrl: string
+  status: string
+  createdAt: string
+}
+
+export interface ApproveMatchRequest {
+  bankTransactionId: string
+  journalEntryId: string
+  reconciliationId: string
+}
+
+// --- BANK RECONCILIATION API ---
 class AccountingApiService {
   // Currencies
   async getCurrencies(): Promise<AccountingResponse<AccountingCurrency[]>> {
@@ -1050,6 +1208,58 @@ class AccountingApiService {
 
   async deleteExchangeRate(id: string): Promise<AccountingResponse<any>> {
     return apiClient.delete<AccountingResponse<any>>(`/accounting/multi-currency/exchange-rates/${id}`)
+  }
+
+  // Balance Sheet
+  async generateBalanceSheet(data: { asOfDate: string; currencyId: string }): Promise<AccountingResponse<BalanceSheetResponse>> {
+    return apiClient.post<AccountingResponse<BalanceSheetResponse>>('/accounting/balance-sheet/generate', data)
+  }
+  async getBalanceSheet(asOfDate: string, currencyId: string): Promise<AccountingResponse<BalanceSheetResponse>> {
+    return apiClient.get<AccountingResponse<BalanceSheetResponse>>(`/accounting/balance-sheet?asOfDate=${asOfDate}&currencyId=${currencyId}`)
+  }
+
+  // Cash Flow
+  async generateCashFlow(data: { startDate: string; endDate: string; currencyId: string }): Promise<AccountingResponse<CashFlowResponse>> {
+    return apiClient.post<AccountingResponse<CashFlowResponse>>('/accounting/cash-flow/generate', data)
+  }
+  async getCashFlow(startDate: string, endDate: string, currencyId: string): Promise<AccountingResponse<CashFlowResponse>> {
+    return apiClient.get<AccountingResponse<CashFlowResponse>>(`/accounting/cash-flow?startDate=${startDate}&endDate=${endDate}&currencyId=${currencyId}`)
+  }
+
+  // Bank Reconciliation CRUD
+  async getBankReconciliations(): Promise<AccountingResponse<{ reconciliations: BankReconciliation[], total: number }>> {
+    return apiClient.get<AccountingResponse<{ reconciliations: BankReconciliation[], total: number }>>('/accounting/bank-reconciliation')
+  }
+  async getBankReconciliation(id: string): Promise<AccountingResponse<BankReconciliation>> {
+    return apiClient.get<AccountingResponse<BankReconciliation>>(`/accounting/bank-reconciliation/${id}`)
+  }
+  async deleteBankReconciliation(id: string): Promise<AccountingResponse<void>> {
+    return apiClient.delete<AccountingResponse<void>>(`/accounting/bank-reconciliation/${id}`)
+  }
+  async getBankReconciliationSummary(): Promise<AccountingResponse<BankReconciliationSummary>> {
+    return apiClient.get<AccountingResponse<BankReconciliationSummary>>('/accounting/bank-reconciliation/summary')
+  }
+  async uploadBankReconciliationFile(file: File): Promise<AccountingResponse<BankReconciliationUploadResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post<AccountingResponse<BankReconciliationUploadResponse>>('/accounting/bank-reconciliation/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
+  async getBankReconciliationAuditTrail(id: string): Promise<AccountingResponse<BankReconciliationAuditTrail[]>> {
+    return apiClient.get<AccountingResponse<BankReconciliationAuditTrail[]>>(`/accounting/bank-reconciliation/${id}/audit-trail`)
+  }
+  async getBankReconciliationUnmatched(id: string): Promise<AccountingResponse<BankTransaction[]>> {
+    return apiClient.get<AccountingResponse<BankTransaction[]>>(`/accounting/bank-reconciliation/${id}/unmatched`)
+  }
+  async getBankTransactionMatches(transactionId: string): Promise<AccountingResponse<any[]>> {
+    return apiClient.get<AccountingResponse<any[]>>(`/accounting/bank-reconciliation/transactions/${transactionId}/matches`)
+  }
+  async approveBankReconciliationMatch(data: ApproveMatchRequest): Promise<AccountingResponse<void>> {
+    return apiClient.post<AccountingResponse<void>>('/accounting/bank-reconciliation/approve-match', data)
+  }
+  async rejectBankReconciliationResult(resultId: string): Promise<AccountingResponse<void>> {
+    return apiClient.post<AccountingResponse<void>>(`/accounting/bank-reconciliation/results/${resultId}/reject`, {})
   }
 }
 
