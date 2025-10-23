@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle, Clock, Calendar } from "lucide-react"
 import { toast } from "sonner"
 import { CreateExchangeRateModal, ViewExchangeRateModal } from "./exchange-rate-modals"
-import { fetchExchangeRates, createExchangeRate, updateExchangeRate, deleteExchangeRate } from "@/lib/store/slices/accounting-slice"
+import { fetchExchangeRates, createExchangeRate, updateExchangeRate, deleteExchangeRate } from "@/lib/store/slices/accountingSlice"
 import { accountingApi, ExchangeRate } from "@/lib/api/accounting-api"
 
 export function ExchangeRatesManagement() {

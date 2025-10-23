@@ -15,7 +15,7 @@ import { Receipt, Loader2, CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { createExpense, updateExpense } from "@/lib/store/slices/accounting-slice"
+import { createExpense, updateExpense } from "@/lib/store/slices/accountingSlice"
 import { AccountingCurrency, Vendor, ExpenseCategory, CreateExpenseRequest, Expense } from "@/lib/api/accounting-api"
 import type { AppDispatch } from "@/lib/store"
 

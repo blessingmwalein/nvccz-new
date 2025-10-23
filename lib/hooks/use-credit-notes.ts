@@ -13,7 +13,7 @@ import {
   setSelectedCreditNote,
   clearSelectedCreditNote,
   clearCreditNotesError
-} from '@/lib/store/slices/accounting-slice'
+} from '@/lib/store/slices/accountingSlice'
 
 export function useCreditNotes() {
   const dispatch = useDispatch<AppDispatch>()

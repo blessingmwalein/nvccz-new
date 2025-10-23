@@ -1,0 +1,340 @@
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { format } from "date-fns"
+import { Banknote, Package, User, Building, Calculator, Copy } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useToast } from "@/components/ui/use-toast"
+
+export function CashbookEntryViewDrawer({ isOpen, onClose, entry }) {
+	const { toast } = useToast()
+
+	const getRelevantTabs = () => {
+		const baseTabs = [
+			{ id: "overview", label: "Overview", icon: Package },
+		]
+		if (entry?.counterpartyType === "CUSTOMER") {
+			baseTabs.push({ id: "customer", label: "Customer Info", icon: User })
+		} else if (entry?.counterpartyType === "VENDOR" || entry?.counterpartyType === "SUPPLIER") {
+			baseTabs.push({ id: "vendor", label: "Vendor", icon: Building })
+		} else if (entry?.counterpartyType === "GL") {
+			baseTabs.push({ id: "gl-account", label: "GL Account", icon: Calculator })
+		}
+		return baseTabs
+	}
+
+	const relevantTabs = useMemo(() => getRelevantTabs(), [entry?.counterpartyType])
+	const [activeTab, setActiveTab] = useState("overview")
+
+	useEffect(() => {
+		setActiveTab(relevantTabs[0]?.id || "overview")
+	}, [relevantTabs])
+
+	if (!entry) return null
+
+	const copyToClipboard = (text: string) => {
+		navigator.clipboard.writeText(text)
+		toast({
+			title: "Success",
+			description: "Copied to clipboard",
+		})
+	}
+
+	const renderedTabs = relevantTabs.map((tab) => {
+		const Icon = tab.icon
+		const isActive = activeTab === tab.id
+
+		return (
+			<button
+				key={tab.id}
+				onClick={() => setActiveTab(tab.id)}
+				className={cn(
+					"flex items-center gap-2 px-4 py-2 text-sm transition-all",
+					isActive
+						? "text-blue-600 border-b-2 border-blue-600"
+						: "text-gray-600 border-b-2 border-transparent hover:text-gray-900"
+				)}
+			>
+				<Icon className="w-4 h-4" />
+				{tab.label}
+			</button>
+		)
+	})
+
+	return (
+		<Sheet open={isOpen} onOpenChange={onClose}>
+			<SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
+				<SheetHeader>
+					<SheetTitle className="flex items-center gap-3">
+						<Banknote className="w-6 h-6" />
+						{entry.type === "RECEIPT" ? "Receipt" : "Payment"} Details - {entry.bank?.name} ({entry.bank?.accountNumber}) - {entry.bank?.currency?.code}
+						<Badge
+							className={
+								entry.status === "POSTED"
+									? "bg-green-100 text-green-800"
+									: "bg-yellow-100 text-yellow-800"
+							}
+						>
+							{entry.status}
+						</Badge>
+					</SheetTitle>
+				</SheetHeader>
+
+				{/* Tab Navigation */}
+				<div className="mt-6">
+					<div className="flex space-x-1 border-b">
+						{renderedTabs}
+					</div>
+				</div>
+
+				{/* Tab Content */}
+				<div className="mt-6 space-y-6">
+					{activeTab === "overview" && (
+						<>
+							{/* Transaction Information */}
+							<Card className="shadow-sm">
+								<CardHeader>
+									<CardTitle>Transaction Information</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<div className="grid grid-cols-2 gap-6">
+										<div>
+											<h4 className="text-gray-900 font-medium">Reference</h4>
+											<div className="flex items-center gap-2">
+												<Badge className="font-mono">{entry.reference}</Badge>
+												<button onClick={() => copyToClipboard(entry.reference)} className="text-gray-500 hover:text-gray-700">
+													<Copy className="w-4 h-4" />
+												</button>
+											</div>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Date</h4>
+											<p>{format(new Date(entry.transactionDate || entry.date), "PPP")}</p>
+										</div>
+										<div className="col-span-2">
+											<h4 className="text-gray-900 font-medium">Description</h4>
+											<p>{entry.description}</p>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Financial Information */}
+							<Card className="shadow-sm">
+								<CardHeader>
+									<CardTitle>Financial Information</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<div className="grid grid-cols-2 gap-6">
+										<div>
+											<h4 className="text-gray-900 font-medium">Amount</h4>
+											<p
+												className={
+													entry.type === "RECEIPT"
+														? "text-green-600 font-bold text-xl"
+														: "text-red-600 font-bold text-xl"
+												}
+											>
+												{Number(entry.amount).toLocaleString()}
+											</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Type</h4>
+											<p>{entry.type}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Status</h4>
+											<p>{entry.status}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Reconciled</h4>
+											<p>{entry.isReconciled ? "Yes" : "No"}</p>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Additional Information */}
+							<Card className="shadow-sm">
+								<CardHeader>
+									<CardTitle>Additional Information</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<div className="grid grid-cols-2 gap-6">
+										<div>
+											<h4 className="text-gray-900 font-medium">Counterparty Type</h4>
+											<p>{entry.counterpartyType}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Created At</h4>
+											<p>{format(new Date(entry.createdAt || new Date()), "PPP")}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Updated At</h4>
+											<p>{entry.updatedAt ? format(new Date(entry.updatedAt), "PPP") : "N/A"}</p>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+						</>
+					)}
+
+					{activeTab === "customer" && (
+						<Card className="shadow-sm">
+							<CardHeader>
+								<CardTitle>Customer Information</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								{entry.counterpartyType === "CUSTOMER" && entry.customer ? (
+									<div className="grid grid-cols-2 gap-6">
+										<div>
+											<h4 className="text-gray-900 font-medium">Name</h4>
+											<p>{entry.customer.name}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Tax Number</h4>
+											<div className="flex items-center gap-2">
+												<Badge>{entry.customer.taxNumber}</Badge>
+												<button onClick={() => copyToClipboard(entry.customer.taxNumber)} className="text-gray-500 hover:text-gray-700">
+													<Copy className="w-4 h-4" />
+												</button>
+											</div>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Contact Person</h4>
+											<p>{entry.customer.contactPerson}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Email</h4>
+											<p>{entry.customer.email}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Phone</h4>
+											<p>{entry.customer.phone}</p>
+										</div>
+										<div className="col-span-2">
+											<h4 className="text-gray-900 font-medium">Address</h4>
+											<p>{entry.customer.address}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Payment Terms</h4>
+											<p>{entry.customer.paymentTerms}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Active</h4>
+											<p>{entry.customer.isActive ? "Yes" : "No"}</p>
+										</div>
+									</div>
+								) : (
+									<p>No customer information available.</p>
+								)}
+							</CardContent>
+						</Card>
+					)}
+
+					{activeTab === "vendor" && (
+						<Card className="shadow-sm">
+							<CardHeader>
+								<CardTitle>Vendor Information</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								{entry.counterpartyType === "VENDOR" && entry.vendor ? (
+									<div className="grid grid-cols-2 gap-6">
+										<div>
+											<h4 className="text-gray-900 font-medium">Name</h4>
+											<p>{entry.vendor.name}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Tax Number</h4>
+											<div className="flex items-center gap-2">
+												<Badge>{entry.vendor.taxNumber}</Badge>
+												<button onClick={() => copyToClipboard(entry.vendor.taxNumber)} className="text-gray-500 hover:text-gray-700">
+													<Copy className="w-4 h-4" />
+												</button>
+											</div>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Contact Person</h4>
+											<p>{entry.vendor.contactPerson}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Email</h4>
+											<p>{entry.vendor.email}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Phone</h4>
+											<p>{entry.vendor.phone}</p>
+										</div>
+										<div className="col-span-2">
+											<h4 className="text-gray-900 font-medium">Address</h4>
+											<p>{entry.vendor.address}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Payment Terms</h4>
+											<p>{entry.vendor.paymentTerms}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Active</h4>
+											<p>{entry.vendor.isActive ? "Yes" : "No"}</p>
+										</div>
+									</div>
+								) : (
+									<p>No vendor information available.</p>
+								)}
+							</CardContent>
+						</Card>
+					)}
+
+					{activeTab === "gl-account" && (
+						<Card className="shadow-sm">
+							<CardHeader>
+								<CardTitle>GL Account Information</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								{entry.glAccount ? (
+									<div className="grid grid-cols-2 gap-6">
+										<div>
+											<h4 className="text-gray-900 font-medium">Account No</h4>
+											<div className="flex items-center gap-2">
+												<Badge className="font-mono">{entry.glAccount.accountNo}</Badge>
+												<button onClick={() => copyToClipboard(entry.glAccount.accountNo)} className="text-gray-500 hover:text-gray-700">
+													<Copy className="w-4 h-4" />
+												</button>
+											</div>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Account Name</h4>
+											<p>{entry.glAccount.accountName}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Account Type</h4>
+											<p>{entry.glAccount.accountType}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Financial Statement</h4>
+											<p>{entry.glAccount.financialStatement}</p>
+										</div>
+										<div className="col-span-2">
+											<h4 className="text-gray-900 font-medium">Notes</h4>
+											<p>{entry.glAccount.notes}</p>
+										</div>
+										<div>
+											<h4 className="text-gray-900 font-medium">Active</h4>
+											<p>{entry.glAccount.isActive ? "Yes" : "No"}</p>
+										</div>
+									</div>
+								) : (
+									<p>No GL account information available.</p>
+								)}
+							</CardContent>
+						</Card>
+					)}
+				</div>
+			</SheetContent>
+		</Sheet>
+	)
+}

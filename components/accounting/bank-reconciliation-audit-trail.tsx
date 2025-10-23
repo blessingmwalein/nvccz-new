@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useDispatch, useSelector } from "react-redux"
-import { fetchBankReconciliationAuditTrail } from "@/lib/store/slices/accounting-slice"
+import { fetchBankReconciliationAuditTrail } from "@/lib/store/slices/accountingSlice"
 
 export function BankReconciliationAuditTrail() {
   const dispatch = useDispatch()

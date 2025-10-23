@@ -11,7 +11,7 @@ import { format } from "date-fns"
 import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
 import { toast } from "sonner"
 import { useSelector, useDispatch } from "react-redux"
-import { fetchBankTransactionMatches, clearBankTransactionMatchesError } from "@/lib/store/slices/accounting-slice"
+import { fetchBankTransactionMatches, clearBankTransactionMatchesError } from "@/lib/store/slices/accountingSlice"
 import { BankTransactionMatchesModal } from "./bank-transaction-matches-modal"
 
 const tabs = [

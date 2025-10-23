@@ -718,7 +718,164 @@ export interface ApproveMatchRequest {
   reconciliationId: string
 }
 
-// --- BANK RECONCILIATION API ---
+// --- CASHBOOK TYPES ---
+export interface CashbookBank {
+  id: string
+  name: string
+  accountNumber: string
+  currencyId: string
+  glAccountId: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  glAccount: {
+    id: string
+    accountNo: string
+    accountName: string
+    accountType: string
+    financialStatement: string
+    notes: string
+    parentId: string | null
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+  }
+  currency: {
+    id: string
+    code: string
+    name: string
+    symbol: string
+    isActive: boolean
+    isDefault: boolean
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+export interface CashbookEntry {
+  id: string
+  bankId: string
+  transactionDate: string
+  description: string
+  amount: string
+  type: 'RECEIPT' | 'PAYMENT'
+  reference: string
+  status: string
+  counterpartyType: 'CUSTOMER' | 'VENDOR' | 'GL' | 'SUPPLIER'
+  glAccountId: string | null
+  customerId: string | null
+  vendorId: string | null
+  journalEntryId: string | null
+  isReconciled: boolean
+  reconciledAt: string | null
+  reconciledById: string | null
+  createdById: string
+  createdAt: string
+  updatedAt: string
+  customer?: any
+  vendor?: any
+  glAccount?: any
+  bank?: any
+}
+
+export interface CashbookBankPosition {
+  bankId: string
+  balance: number
+  currencyId: string
+  lastTransactionDate?: string
+  openingBalance: number
+  closingBalance: number
+  totalReceipts: number
+  totalPayments: number
+  reconciledBalance: number
+  unreconciledBalance: number
+}
+
+// --- CASHBOOK REPORT TYPES ---
+export interface CashbookCashFlowEntry {
+  id: string
+  date: string
+  type: 'RECEIPT' | 'PAYMENT'
+  description: string
+  amount: number
+  reference: string
+  counterparty: string
+  bank: string
+}
+
+export interface CashbookCashFlowSummary {
+  totalReceipts: number
+  totalPayments: number
+  netCashFlow: number
+}
+
+export interface CashbookCashFlowReport {
+  period: {
+    startDate: string
+    endDate: string
+  }
+  summary: CashbookCashFlowSummary
+  entries: CashbookCashFlowEntry[]
+}
+
+export interface CashbookBalanceCheckBank {
+  id: string
+  name: string
+  accountNumber: string
+  currency: string
+}
+
+export interface CashbookBalanceCheckCashbook {
+  totalReceipts: number
+  totalPayments: number
+  netBalance: number
+  entryCount: number
+  reconciledCount: number
+  unreconciledCount: number
+}
+
+export interface CashbookBalanceCheckReconciliation {
+  totalReceipts: number
+  totalPayments: number
+  netBalance: number
+  reconciliationCount: number
+  matchedTransactions: number
+  unmatchedTransactions: number
+}
+
+export interface CashbookBalanceCheckDifferences {
+  receiptDifference: number
+  paymentDifference: number
+  netDifference: number
+  isBalanced: boolean
+}
+
+export interface CashbookBalanceCheckStatus {
+  isBalanced: boolean
+  hasUnreconciledEntries: boolean
+  hasUnmatchedTransactions: boolean
+  needsAttention: boolean
+}
+
+export interface CashbookBalanceCheckSummary {
+  message: string
+  recommendations: string[]
+}
+
+export interface CashbookBalanceCheckReport {
+  bank: CashbookBalanceCheckBank
+  period: {
+    startDate: string
+    endDate: string
+  }
+  cashbook: CashbookBalanceCheckCashbook
+  bankReconciliation: CashbookBalanceCheckReconciliation
+  differences: CashbookBalanceCheckDifferences
+  status: CashbookBalanceCheckStatus
+  summary: CashbookBalanceCheckSummary
+}
+
+// --- ACCOUNTING API ---
 class AccountingApiService {
   // Currencies
   async getCurrencies(): Promise<AccountingResponse<AccountingCurrency[]>> {
@@ -1261,6 +1418,57 @@ class AccountingApiService {
   async rejectBankReconciliationResult(resultId: string): Promise<AccountingResponse<void>> {
     return apiClient.post<AccountingResponse<void>>(`/accounting/bank-reconciliation/results/${resultId}/reject`, {})
   }
+
+  // Cashbook Banks
+  async getCashbookBanks(): Promise<AccountingResponse<CashbookBank[]>> {
+    return apiClient.get<AccountingResponse<CashbookBank[]>>('/cashbook/banks')
+  }
+
+  // Cashbook Entries
+  async getCashbookEntries(params: {
+    bankId: string
+    type?: 'RECEIPT' | 'PAYMENT'
+    status?: string
+    startDate?: string
+    endDate?: string
+  }): Promise<AccountingResponse<CashbookEntry[]>> {
+    const { bankId, ...query } = params
+    const queryString = Object.keys(query).length
+      ? '?' + new URLSearchParams(
+          Object.entries(query)
+            .filter(([_, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : ''
+    return apiClient.get<AccountingResponse<CashbookEntry[]>>(`/cashbook/${bankId}/entries${queryString}`)
+  }
+
+  // Create Receipt
+  async createCashbookReceipt(data: any): Promise<AccountingResponse<any>> {
+    return apiClient.post<AccountingResponse<any>>('/cashbook/receipts', data)
+  }
+
+  // Create Payment
+  async createCashbookPayment(data: any): Promise<AccountingResponse<any>> {
+    return apiClient.post<AccountingResponse<any>>('/cashbook/payments', data)
+  }
+
+  // Cashbook Bank Position
+  async getCashbookBankPosition(bankId: string): Promise<AccountingResponse<CashbookBankPosition>> {
+    return apiClient.get<AccountingResponse<CashbookBankPosition>>(`/cashbook/${bankId}/position`)
+  }
+
+  // Cashbook Reports
+  async getCashbookCashFlowReport(params: { bankId: string; startDate: string; endDate: string }): Promise<AccountingResponse<CashbookCashFlowReport>> {
+    const queryString = `?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()}`
+    return apiClient.get<AccountingResponse<CashbookCashFlowReport>>(`/cashbook/reports/cashflow${queryString}`)
+  }
+
+  async getCashbookBalanceCheck(params: { bankId: string; startDate: string; endDate: string }): Promise<AccountingResponse<CashbookBalanceCheckReport>> {
+    const queryString = `?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()}`
+    return apiClient.get<AccountingResponse<CashbookBalanceCheckReport>>(`/cashbook/balance-check${queryString}`)
+  }
+
 }
 
 export const accountingApi = new AccountingApiService()

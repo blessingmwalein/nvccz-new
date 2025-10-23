@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useDispatch, useSelector } from "react-redux"
-import { fetchBankReconciliations, fetchBankReconciliationSummary } from "@/lib/store/slices/accounting-slice"
+import { fetchBankReconciliations, fetchBankReconciliationSummary } from "@/lib/store/slices/accountingSlice"
 // ...import DataTable, Drawer, etc...
 
 export function BankReconciliationRecords() {

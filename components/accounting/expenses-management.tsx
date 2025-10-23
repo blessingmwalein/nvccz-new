@@ -46,7 +46,7 @@ import {
   fetchExpenseCategories,
   setSelectedExpense,
   deleteExpense
-} from "@/lib/store/slices/accounting-slice"
+} from "@/lib/store/slices/accountingSlice"
 import type { RootState, AppDispatch } from "@/lib/store"
 import { Expense } from "@/lib/api/accounting-api"
 

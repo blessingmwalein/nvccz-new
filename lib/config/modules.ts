@@ -13,7 +13,8 @@ import {
   CiViewTable,
   CiViewColumn,
   CiViewList,
-  CiCircleCheck
+  CiCircleCheck,
+  CiMoneyCheck1
 } from "react-icons/ci"
 import {
   ShoppingCart,
@@ -174,6 +175,7 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [
       { id: "accounting-dashboard", name: "Dashboard", path: "/accounting", icon: CiGrid41, description: "Accounting dashboard" },
       { id: "general-ledger", name: "General Ledger", path: "/accounting/general-ledger", icon: CiFileOn, description: "Chart of accounts and journal entries" },
+      { id: "cash-book", name: "Cash Book", path: "/accounting/cash-book", icon: CiMoneyCheck1, description: "Cash book management" },
     
       { id: "invoices", name: "Accounts Receivable", path: "/accounting/invoices", icon: CiUser, description: "Customer invoices and payments" },
     

@@ -38,7 +38,7 @@ import { DisposeAssetModal } from "./dispose-asset-modal"
 import { RevalueAssetModal } from "./revalue-asset-modal"
 import { ConfirmationDialog } from "../ui/confirmation-drawer"
 import type { AppDispatch } from "@/lib/store/store"
-import { postDepreciation } from "@/lib/store/slices/accounting-slice"
+import { postDepreciation } from "@/lib/store/slices/accountingSlice"
 
 interface AssetViewDrawerProps {
   isOpen: boolean

@@ -33,7 +33,7 @@ export function DatePicker({
         <Button
           variant="outline"
           className={cn(
-            "w-full h-12 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 justify-between text-left font-normal",
+            "w-full h-10 rounded-full border-gray-300 focus:border-blue-500 focus:ring-blue-500 justify-between text-left font-normal",
             !value && "text-muted-foreground",
             className
           )}

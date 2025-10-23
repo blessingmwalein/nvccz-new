@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useDispatch } from "react-redux"
-import { postStockMovement } from "@/lib/store/slices/accounting-slice"
+import { postStockMovement } from "@/lib/store/slices/accountingSlice"
 import type { AppDispatch } from "@/lib/store/store"
 
 interface StockMovementModalProps {

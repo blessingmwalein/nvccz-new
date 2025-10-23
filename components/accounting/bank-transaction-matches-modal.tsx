@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { useDispatch } from "react-redux"
-import { approveBankReconciliationMatch } from "@/lib/store/slices/accounting-slice"
+import { approveBankReconciliationMatch } from "@/lib/store/slices/accountingSlice"
 import { ConfirmationDialog } from "../ui/confirmation-drawer"
 import { CheckCircle } from "lucide-react"
 import { toast } from "sonner"

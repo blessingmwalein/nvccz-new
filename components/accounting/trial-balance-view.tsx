@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { fetchTrialBalance, fetchTrialBalanceSummary } from "@/lib/store/slices/accounting-slice"
+import { fetchTrialBalance, fetchTrialBalanceSummary } from "@/lib/store/slices/accountingSlice"
 import { exportTrialBalanceToCSV, exportTrialBalanceToPDF } from "@/lib/utils/export"
 
 export function TrialBalanceView() {
@@ -152,7 +152,7 @@ export function TrialBalanceView() {
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Trial Balance</h2>
           <p className="text-gray-600">
-            As of {format(selectedDate, 'MMMM d, yyyy')}
+            As of {format(selectedDate, 'MMMM d, yyyy')} - Currency: USD
           </p>
         </div>
         <div className="flex items-center gap-3">

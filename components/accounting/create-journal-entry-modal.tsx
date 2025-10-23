@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { useSelector, useDispatch } from "react-redux"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { fetchCurrencies, fetchChartOfAccounts } from "@/lib/store/slices/accounting-slice"
+import { fetchCurrencies, fetchChartOfAccounts } from "@/lib/store/slices/accountingSlice"
 import { accountingApi } from "@/lib/api/accounting-api"
 
 interface JournalLine {

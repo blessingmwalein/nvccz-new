@@ -36,7 +36,7 @@ import { ProcurementDataTable, Column } from "../procurement/procurement-data-ta
 import { CreditNoteViewDrawer } from "./credit-note-view-drawer"
 import { CreateCreditNoteModal } from "./create-credit-note-modal"
 import { accountingApi, CreditNote } from "@/lib/api/accounting-api"
-import { fetchCreditNotes } from "@/lib/store/slices/accounting-slice"
+import { fetchCreditNotes } from "@/lib/store/slices/accountingSlice"
 import type { RootState, AppDispatch } from "@/lib/store/store"
 import { useCreditNotes } from "@/lib/hooks/use-credit-notes"
 

@@ -42,7 +42,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { useDispatch, useSelector } from "react-redux"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { postJournalEntry, voidJournalEntry } from "@/lib/store/slices/accounting-slice"
+import { postJournalEntry, voidJournalEntry } from "@/lib/store/slices/accountingSlice"
 
 interface JournalEntry {
   id: string

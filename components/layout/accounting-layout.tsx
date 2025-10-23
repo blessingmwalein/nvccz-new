@@ -7,7 +7,7 @@ import { SharedTopbar } from "./shared-topbar"
 import { AccountingSidebar } from "./accounting-sidebar"
 import { MODULE_CONFIG, getModuleByPath } from "@/lib/config/modules"
 import { useDispatch } from "react-redux"
-import { fetchCurrencies } from "@/lib/store/slices/accounting-slice"
+import { fetchCurrencies } from "@/lib/store/slices/accountingSlice"
 import type { AppDispatch } from "@/lib/store/store"
 
 interface AccountingLayoutProps {

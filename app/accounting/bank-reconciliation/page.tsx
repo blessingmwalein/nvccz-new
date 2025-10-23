@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { fetchBankReconciliations, fetchBankReconciliationSummary, fetchBankReconciliationAuditTrail, uploadBankReconciliationFile } from "@/lib/store/slices/accounting-slice"
+import { fetchBankReconciliations, fetchBankReconciliationSummary, fetchBankReconciliationAuditTrail, uploadBankReconciliationFile } from "@/lib/store/slices/accountingSlice"
 import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
 import { BankReconciliationViewDrawer } from "@/components/accounting/bank-reconciliation-view-drawer"
 import { BankReconciliationUploadModal } from "@/components/accounting/bank-reconciliation-upload-modal"
@@ -281,9 +281,8 @@ export default function BankReconciliationPage() {
           />
         )}
 
-        {activeTab === 'audit' && (
+        {/* {activeTab === 'audit' && (
           <div className="px-6">
-            {/* Table of audit trail events */}
             <div className="bg-white rounded shadow p-4">
               <h2 className="text-lg font-semibold mb-2">Audit Trail</h2>
               {bankReconciliationAuditTrailLoading ? (
@@ -295,16 +294,39 @@ export default function BankReconciliationPage() {
                       <th className="text-left py-2">Action</th>
                       <th className="text-left py-2">User</th>
                       <th className="text-left py-2">Timestamp</th>
-                      <th className="text-left py-2">Details</th>
+                      <th className="text-left py-2">Matched</th>
+                      <th className="text-left py-2">Unmatched</th>
+                      <th className="text-left py-2">Total Txns</th>
+                      <th className="text-left py-2">Confidence</th>
                     </tr>
                   </thead>
                   <tbody>
                     {bankReconciliationAuditTrail.map(audit => (
                       <tr key={audit.id} className="border-b">
                         <td className="py-2">{audit.action}</td>
-                        <td className="py-2">{audit.performedBy.firstName} {audit.performedBy.lastName}</td>
-                        <td className="py-2">{format(new Date(audit.timestamp), 'MMM dd, yyyy HH:mm')}</td>
-                        <td className="py-2">{audit.details}</td>
+                        <td className="py-2">
+                          {audit.createdBy
+                            ? `${audit.createdBy.firstName ?? ""} ${audit.createdBy.lastName ?? ""}`
+                            : <span className="text-gray-400 italic">Unknown</span>
+                          }
+                        </td>
+                        <td className="py-2">
+                          {audit.createdAt && !isNaN(Date.parse(audit.createdAt))
+                            ? format(new Date(audit.createdAt), 'MMM dd, yyyy HH:mm')
+                            : <span className="text-gray-400 italic">Invalid date</span>
+                        </td>
+                        <td className="py-2">
+                          {audit.details?.matchedCount ?? "—"}
+                        </td>
+                        <td className="py-2">
+                          {audit.details?.unmatchedCount ?? "—"}
+                        </td>
+                        <td className="py-2">
+                          {audit.details?.totalTransactions ?? "—"}
+                        </td>
+                        <td className="py-2">
+                          {audit.details?.confidenceThreshold != null ? `${audit.details.confidenceThreshold}%` : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -312,7 +334,7 @@ export default function BankReconciliationPage() {
               )}
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Drawer for viewing reconciliation record */}
         <BankReconciliationViewDrawer

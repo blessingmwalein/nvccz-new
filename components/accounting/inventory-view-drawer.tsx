@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { calculateCogs, postInventoryAdjustment, fetchStockMovements, postStockMovement, fetchInventoryItem } from "@/lib/store/slices/accounting-slice"
+import { calculateCogs, postInventoryAdjustment, fetchStockMovements, postStockMovement, fetchInventoryItem } from "@/lib/store/slices/accountingSlice"
 import type { RootState, AppDispatch } from "@/lib/store/store"
 import { StockMovementModal } from "./stock-movement-modal"
 import type { StockMovement, InventoryItem } from "@/lib/api/accounting-api"

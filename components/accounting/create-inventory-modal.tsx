@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { createInventoryItem, updateInventoryItem } from "@/lib/store/slices/accounting-slice"
+import { createInventoryItem, updateInventoryItem } from "@/lib/store/slices/accountingSlice"
 import type { InventoryItem } from "@/lib/api/accounting-api"
 import * as yup from "yup"
 
