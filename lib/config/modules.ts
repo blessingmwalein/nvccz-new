@@ -233,13 +233,13 @@ export const MODULE_CONFIG: ModuleConfig[] = [
         icon: IoPeopleOutline,
         description: "Events you are invited to attend",
       },
-      {
-        id: "event-analytics",
-        name: "Analytics",
-        path: "/events/analytics",
-        icon: IoStatsChartOutline,
-        description: "Event KPIs, RSVP rates, and performance insights",
-      },
+      // {
+      //   id: "event-analytics",
+      //   name: "Analytics",
+      //   path: "/events/analytics",
+      //   icon: IoStatsChartOutline,
+      //   description: "Event KPIs, RSVP rates, and performance insights",
+      // },
       // venues
       {
         id: "event-venues",

@@ -1,7 +1,7 @@
 "use client"
 
 import { useAppSelector } from "@/lib/store"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CiTrendingUp, CiDollar, CiStar, CiUser } from "react-icons/ci"
 import {
   BarChart,
@@ -74,135 +74,159 @@ export function AnalyticsPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <CiTrendingUp size={24} className="text-primary" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Avg RSVP Rate</div>
-              <div className="text-2xl font-semibold">{avgRSVPRate.toFixed(1)}%</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <CiUser size={24} className="text-green-600" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total Guests</div>
-              <div className="text-2xl font-semibold">{totalGuests}</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-              <CiDollar size={24} className="text-blue-600" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total Budget</div>
-              <div className="text-2xl font-semibold">${totalBudget.toLocaleString()}</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-              <CiStar size={24} className="text-purple-600" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Avg Cost/Event</div>
-              <div className="text-2xl font-semibold">
-                ${avgCostPerEvent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <CiTrendingUp size={24} className="text-primary" />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Avg RSVP Rate</div>
+                <div className="text-2xl font-semibold">{avgRSVPRate.toFixed(1)}%</div>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                <CiUser size={24} className="text-green-600" />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Total Guests</div>
+                <div className="text-2xl font-semibold">{totalGuests}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                <CiDollar size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Total Budget</div>
+                <div className="text-2xl font-semibold">${totalBudget.toLocaleString()}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                <CiStar size={24} className="text-purple-600" />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Avg Cost/Event</div>
+                <div className="text-2xl font-semibold">
+                  ${avgCostPerEvent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* RSVP Rate Chart */}
-        <Card className="p-6">
-          <h3 className="font-semibold mb-4">RSVP Rate by Event</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={rsvpTrendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="rsvpRate" fill="hsl(var(--primary))" name="RSVP Rate %" />
-            </BarChart>
-          </ResponsiveContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>RSVP Rate by Event</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={rsvpTrendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="rsvpRate" fill="hsl(var(--primary))" name="RSVP Rate %" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
         </Card>
 
         {/* Budget by Category */}
-        <Card className="p-6">
-          <h3 className="font-semibold mb-4">Budget by Category</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={budgetCategoryData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {budgetCategoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>Budget by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={budgetCategoryData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {budgetCategoryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
         </Card>
 
         {/* Guest Count Trend */}
-        <Card className="p-6">
-          <h3 className="font-semibold mb-4">Guest Count by Event</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={rsvpTrendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="guests" stroke="hsl(var(--primary))" name="Guests" />
-            </LineChart>
-          </ResponsiveContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>Guest Count by Event</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={rsvpTrendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="guests" stroke="hsl(var(--primary))" name="Guests" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
         </Card>
 
         {/* Status Distribution */}
-        <Card className="p-6">
-          <h3 className="font-semibold mb-4">Event Status Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, value }) => `${name}: ${value}`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>Event Status Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
         </Card>
       </div>
     </div>
