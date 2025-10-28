@@ -11,8 +11,7 @@ export function PerformanceSidebar() {
   const module = getModuleById("performance-management")
 
   const isPathActive = (path: string) => {
-    const base = path.split("?")[0]
-    return pathname === base || pathname.startsWith(base + "/")
+    return pathname === path
   }
 
   if (!module) {

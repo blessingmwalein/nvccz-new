@@ -4,14 +4,14 @@ import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Banknote, Eye, TrendingUp, TrendingDown, Scale, Building2, AlertTriangle, FileText, BarChart3, CheckCircle } from "lucide-react"
+import { Plus, Banknote, Eye, TrendingUp, TrendingDown, Scale, Building2, AlertTriangle, FileText, BarChart3, CheckCircle, BookOpen } from "lucide-react"
 import { format, startOfWeek, endOfWeek } from "date-fns"
 import { cn } from "@/lib/utils"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { 
-  fetchCashbookBanks, 
-  fetchCashbookEntries, 
-  setSelectedCashbookBank, 
+import {
+  fetchCashbookBanks,
+  fetchCashbookEntries,
+  setSelectedCashbookBank,
   fetchCashbookBankPosition,
   fetchCashbookCashFlowReport,
   fetchCashbookBalanceCheck
@@ -30,6 +30,13 @@ import {
 import { DatePicker } from "@/components/ui/date-picker" // Assuming shadcn DatePicker is available
 import { CashbookDataTable } from "@/components/accounting/CashbookDataTable"
 import { Card, CardContent } from "@/components/ui/card"
+import { ProcessCashbookModal } from "@/components/accounting/process-cashbook"
+import { cashbookApi } from "@/lib/api/cashbook-api"
+import { Skeleton } from "@/components/ui/skeleton"  // Add import for skeleton
+import { CreateCashbookTransferModal } from "@/components/accounting/create-cashbook-transfer-modal"  // Add import for new modal
+import { ProcurementDataTable } from "@/components/procurement/procurement-data-table"
+import { CashbookBatchViewDrawer } from "@/components/accounting/cashbook-batch-view-drawer"
+import { CashbookTransferViewDrawer } from "@/components/accounting/cashbook-transfer-view-drawer"  // Add import for new drawer
 
 function getWeekRange() {
   const now = new Date()
@@ -39,24 +46,25 @@ function getWeekRange() {
   }
 }
 
+
 // Add formatCurrency helper function
 const formatCurrency = (amount: number, currencyCode: string = 'USD') => {
-  if (isNaN(amount) || amount === null || amount === undefined) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(0)
-  }
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(amount)
 }
 
 // Define tabs
 const mainTabs = [
-  { id: 'entries', label: 'Entries', icon: FileText, gradient: 'from-blue-500 to-blue-600' },
-  { id: 'cashflow', label: 'Cash Flow', icon: BarChart3, gradient: 'from-green-500 to-green-600' },
-  { id: 'balancecheck', label: 'Balance Check', icon: CheckCircle, gradient: 'from-purple-500 to-purple-600' },
+  { id: 'single', label: 'Single Entries', icon: FileText, gradient: 'from-blue-500 to-blue-600' },
+  { id: 'batch', label: 'Batch', icon: BarChart3, gradient: 'from-green-500 to-green-600' },
+  { id: 'transfers', label: 'Cashbook Transfers', icon: TrendingUp, gradient: 'from-purple-500 to-purple-600' },  // Add new tab
 ]
 
 export default function CashbookPage() {
   const dispatch = useDispatch<AppDispatch>()
-  const [activeTab, setActiveTab] = useState<'entries' | 'cashflow' | 'balancecheck'>('entries')
+  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'transfers'>('single')  // Update type
+  const [isProcessCashbookOpen, setIsProcessCashbookOpen] = useState(false)
+  const [singleSubTab, setSingleSubTab] = useState<'receipts' | 'payments'>('receipts')
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)  // Add state for transfer modal
 
   // Select correct state for banks and entries
   const cashbookBanks = useSelector((state: RootState) => state.accounting.cashbookBanks)
@@ -75,6 +83,18 @@ export default function CashbookPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
+  const [batches, setBatches] = useState<any[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
+  const [selectedBatch, setSelectedBatch] = useState(null)
+  const [isBatchDrawerOpen, setIsBatchDrawerOpen] = useState(false)
+  const [transfers, setTransfers] = useState<any[]>([])  // Add state for transfers data
+  const [transfersLoading, setTransfersLoading] = useState(false)  // Add loading state
+  const [transferFilters, setTransferFilters] = useState(() => {  // Add filters for transfers
+    const { startDate, endDate } = getWeekRange()
+    return { fromBankId: "", toBankId: "", dateFrom: startDate, dateTo: endDate, page: 1, limit: 50 }
+  })
+  const [selectedTransfer, setSelectedTransfer] = useState(null)  // Add state for selected transfer
+  const [isTransferDrawerOpen, setIsTransferDrawerOpen] = useState(false)  // Add state for transfer drawer
 
   // Separate date states for each tab
   const [entriesStartDate, setEntriesStartDate] = useState<Date | undefined>(new Date(getWeekRange().startDate))
@@ -83,14 +103,6 @@ export default function CashbookPage() {
   const [cashflowEndDate, setCashflowEndDate] = useState<Date | undefined>(new Date(getWeekRange().endDate))
   const [balancecheckStartDate, setBalancecheckStartDate] = useState<Date | undefined>(new Date(getWeekRange().startDate))
   const [balancecheckEndDate, setBalancecheckEndDate] = useState<Date | undefined>(new Date(getWeekRange().endDate))
-
-  // Remove shared startDate, endDate, and filters state
-  // const [startDate, setStartDate] = useState<Date | undefined>(new Date(getWeekRange().startDate))
-  // const [endDate, setEndDate] = useState<Date | undefined>(new Date(getWeekRange().endDate))
-  // const [filters, setFilters] = useState(() => {
-  //   const { startDate, endDate } = getWeekRange()
-  //   return { type: "", status: "", startDate, endDate }
-  // })
 
   // Keep filters for entries tab (includes type and status)
   const [filters, setFilters] = useState(() => {
@@ -112,28 +124,42 @@ export default function CashbookPage() {
   }, [dispatch])
 
   useEffect(() => {
-    if (selectedCashbookBank) {
-      if (activeTab === 'entries') {
-        dispatch(fetchCashbookEntries({
-          bankId: selectedCashbookBank.id,
-          ...filters,
-        }))
-        dispatch(fetchCashbookBankPosition(selectedCashbookBank.id))
-      } else if (activeTab === 'cashflow') {
-        dispatch(fetchCashbookCashFlowReport({
-          bankId: selectedCashbookBank.id,
-          startDate: cashflowStartDate ? format(cashflowStartDate, "yyyy-MM-dd") : "",
-          endDate: cashflowEndDate ? format(cashflowEndDate, "yyyy-MM-dd") : "",
-        }))
-      } else if (activeTab === 'balancecheck') {
-        dispatch(fetchCashbookBalanceCheck({
-          bankId: selectedCashbookBank.id,
-          startDate: balancecheckStartDate ? format(balancecheckStartDate, "yyyy-MM-dd") : "",
-          endDate: balancecheckEndDate ? format(balancecheckEndDate, "yyyy-MM-dd") : "",
-        }))
+    if (activeTab === 'single') {
+      dispatch(fetchCashbookEntries({
+        ...filters,
+      }))
+    } else if (activeTab === 'batch') {
+      const fetchBatches = async () => {
+        setBatchesLoading(true)
+        try {
+          const res = await cashbookApi.getCashbookBatches()
+          if (res.success) {
+            setBatches(res.data?.batches)
+          }
+        } catch (error) {
+          console.error("Failed to fetch batches", error)
+        } finally {
+          setBatchesLoading(false)
+        }
       }
+      fetchBatches()
+    } else if (activeTab === 'transfers') {
+      const fetchTransfers = async () => {
+        setTransfersLoading(true)
+        try {
+          const res = await cashbookApi.getCashbookTransfers(transferFilters)
+          if (res.success) {
+            setTransfers(res.data?.transfers || res.message || [])
+          }
+        } catch (error) {
+          console.error("Failed to fetch transfers", error)
+        } finally {
+          setTransfersLoading(false)
+        }
+      }
+      fetchTransfers()
     }
-  }, [dispatch, selectedCashbookBank, activeTab, filters, cashflowStartDate, cashflowEndDate, balancecheckStartDate, balancecheckEndDate])
+  }, [dispatch, activeTab, filters, transferFilters])
 
   // Function to export table to CSV (simple Excel-like export)
   const exportToCSV = (data: any[], filename: string) => {
@@ -176,6 +202,119 @@ export default function CashbookPage() {
 
   const entriesWithBalance = calculateBalance(cashbookEntries)
 
+  const filteredEntries = entriesWithBalance.filter(entry => {
+    if (singleSubTab === 'receipts') return entry.type === 'RECEIPT'
+    if (singleSubTab === 'payments') return entry.type === 'PAYMENT'
+    return true
+  })
+
+  const batchColumns = [
+    {
+      key: "name",
+      label: "Name",
+      sortable: true,
+    },
+    {
+      key: "description",
+      label: "Description",
+      sortable: true,
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (value: string) => (
+        <Badge variant={value === 'POSTED' ? 'default' : 'secondary'}>
+          {value}
+        </Badge>
+      ),
+    },
+    {
+      key: "totalAmount",
+      label: "Total Amount",
+      render: (value: number) => formatCurrency(value),
+      sortable: true,
+    },
+    {
+      key: "createdAt",
+      label: "Created At",
+      render: (value: string) => format(new Date(value), "yyyy-MM-dd"),
+      sortable: true,
+    },
+  ]
+
+  const transferColumns = [
+    {
+      key: "transferDate",
+      label: "Transfer Date",
+      render: (value: string) => format(new Date(value), "yyyy-MM-dd"),
+      sortable: true,
+    },
+    {
+      key: "fromBank",
+      label: "From Bank",
+      render: (value: any) => value?.name || "N/A",
+      sortable: true,
+    },
+    {
+      key: "toBank",
+      label: "To Bank",
+      render: (value: any) => value?.name || "N/A",
+      sortable: true,
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      render: (value: number) => formatCurrency(value),
+      sortable: true,
+    },
+    {
+      key: "description",
+      label: "Description",
+      sortable: true,
+    },
+    {
+      key: "reference",
+      label: "Reference",
+      sortable: true,
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (value: string) => (
+        <Badge variant={value === 'COMPLETED' ? 'default' : 'secondary'}>
+          {value}
+        </Badge>
+      ),
+    },
+  ]
+
+  const batchFilterOptions = [
+    { key: "status", label: "Status", options: ["PENDING", "POSTED", "DRAFT"] },
+  ]
+
+  const transferFilterOptions = [
+    { key: "fromBankId", label: "From Bank", options: cashbookBanks.map(b => ({ value: b.id, label: b.name })) },
+    { key: "toBankId", label: "To Bank", options: cashbookBanks.map(b => ({ value: b.id, label: b.name })) },
+  ]
+
+  const handleViewBatch = (batch: any) => {
+    setSelectedBatch(batch)
+    setIsBatchDrawerOpen(true)
+  }
+
+  const handleViewTransfer = (transfer: any) => {
+    setSelectedTransfer(transfer)
+    setIsTransferDrawerOpen(true)
+  }
+
+  const handleBatchUpdate = (updatedBatch: any) => {
+    setBatches(prev => prev.map(b => b.id === updatedBatch.id ? updatedBatch : b))
+  }
+
+  const handleTransferUpdate = (updatedTransfer: any) => {
+    setTransfers(prev => prev.map(t => t.id === updatedTransfer.id ? updatedTransfer : t))
+  }
+
   return (
     <AccountingLayout>
       <div className="space-y-6 p-6">
@@ -183,41 +322,16 @@ export default function CashbookPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-normal">Cashbook Management</h1>
-            <p className="text-muted-foreground">Manage receipts and payments for your bank accounts</p>
+            <p className="text-muted-foreground">Manage receipts and payments for your cashbook</p>
           </div>
           <div className="flex gap-3 items-center">
-            {/* Bank selector with extended label when selected */}
-            <div className="relative w-80">
-              <Select
-                value={selectedCashbookBank?.name ?? ""}
-                onValueChange={bankName => {
-                  const bank = cashbookBanks.find(b => b.name === bankName)
-                  if (bank) dispatch(setSelectedCashbookBank(bank))
-                }}
-              >
-                <SelectTrigger className="w-full rounded-full truncate">
-                  <SelectValue placeholder="Select bank account..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl max-h-64 overflow-y-auto">
-                  {cashbookBanks.length > 0 ? (
-                    cashbookBanks.map((bank: any) => (
-                      <SelectItem key={bank.id} value={bank.name}>
-                        <div className="flex items-center gap-2">
-                          <Banknote className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <div className="font-semibold truncate">{bank.name}</div>
-                            <div className="text-xs text-gray-500">{bank.accountNumber}</div>
-                          </div>
-                          <Badge className="ml-auto">{bank.currency.code}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="px-4 py-2 text-gray-400">No banks found</div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+            <Button
+              onClick={() => setIsProcessCashbookOpen(true)}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full hover:from-blue-700 hover:to-blue-800"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              Process Cashbook
+            </Button>
           </div>
         </div>
 
@@ -230,7 +344,7 @@ export default function CashbookPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'entries'|'cashflow'|'balancecheck')}
+                  onClick={() => setActiveTab(tab.id as 'single' | 'batch' | 'transfers')}
                   className={cn(
                     "flex items-center gap-3 px-6 py-4 text-lg font-medium rounded-t-lg border-b-2 transition-all duration-200",
                     isActive ? "text-blue-600 border-blue-600" : "text-gray-600 border-transparent hover:text-gray-900"
@@ -247,88 +361,33 @@ export default function CashbookPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'entries' && (
+        {activeTab === 'single' && (
           <>
-            {/* Bank Position Stats Cards */}
-            {selectedCashbookBank && cashbookBankPosition && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 gradient-primary">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-white">
-                          {formatCurrency(cashbookBankPosition.openingBalance, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-white/80 text-sm">Opening Balance</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 bg-white">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
-                        <TrendingUp className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-gray-900">
-                          {formatCurrency(cashbookBankPosition.totalReceipts, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-gray-600 text-sm">Total Receipts</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 gradient-primary">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                        <TrendingDown className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-white">
-                          {formatCurrency(cashbookBankPosition.totalPayments, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-white/80 text-sm">Total Payments</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 bg-white">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
-                        <Scale className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-gray-900">
-                          {formatCurrency(cashbookBankPosition.closingBalance, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-gray-600 text-sm">Closing Balance</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 gradient-primary">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                        <AlertTriangle className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-white">
-                          {cashbookBankPosition.unreconciledCount}
-                        </div>
-                        <div className="text-white/80 text-sm">Unreconciled</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            {/* Sub-tabs for Receipts and Payments */}
+            <div className="flex border-b bg-muted/30">
+              <button
+                onClick={() => setSingleSubTab("receipts")}
+                className={cn(
+                  "flex-1 py-3 text-center font-semibold transition-all duration-200",
+                  singleSubTab === "receipts"
+                    ? "bg-blue-50 text-blue-900 border-b-2 border-blue-500 shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
+                )}
+              >
+                Receipts
+              </button>
+              <button
+                onClick={() => setSingleSubTab("payments")}
+                className={cn(
+                  "flex-1 py-3 text-center font-semibold transition-all duration-200",
+                  singleSubTab === "payments"
+                    ? "bg-amber-50 text-amber-900 border-b-2 border-amber-500 shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
+                )}
+              >
+                Payments
+              </button>
+            </div>
 
             {/* Filters */}
             <div className="flex gap-4 items-center mt-2">
@@ -376,234 +435,110 @@ export default function CashbookPage() {
             </div>
 
             {/* Cashbook Table */}
-            {selectedCashbookBank ? (
-              <CashbookDataTable
-                entries={entriesWithBalance}
-                loading={cashbookEntriesLoading}
-                onAddReceipt={() => setIsReceiptModalOpen(true)}
-                onAddPayment={() => setIsPaymentModalOpen(true)}
-                onViewEntry={(entry) => {
-                  setSelectedEntry(entry)
-                  setIsViewDrawerOpen(true)
-                }}
-                onExport={() => exportToCSV(entriesWithBalance, 'cashbook-entries.csv')}
-              />
-            ) : (
-              <div className="">
-                <CardContent className="p-8 text-center">
-                  <Banknote className="w-16 h-16 mx-auto mb-4 text-blue-500" />
-                  <h3 className="text-2xl font-bold text-gray-700 mb-2">Select a Bank Account</h3>
-                  <p className="text-gray-500">Choose a bank account to view and manage your cashbook entries.</p>
-                </CardContent>
-              </div>
-            )}
+            <CashbookDataTable
+              entries={filteredEntries}
+              loading={cashbookEntriesLoading}
+              onAddReceipt={() => setIsReceiptModalOpen(true)}
+              onAddPayment={() => setIsPaymentModalOpen(true)}
+              onViewEntry={(entry) => {
+                setSelectedEntry(entry)
+                setIsViewDrawerOpen(true)
+              }}
+              onExport={() => exportToCSV(filteredEntries, 'cashbook-entries.csv')}
+            />
           </>
         )}
 
-        {activeTab === 'cashflow' && (
+        {activeTab === 'batch' && (
           <>
-            {/* Cash Flow Summary Stats Cards */}
-            {selectedCashbookBank && cashbookCashFlowReport && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 bg-white">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
-                        <TrendingUp className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-gray-900">
-                          {formatCurrency(cashbookCashFlowReport.summary.totalReceipts, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-gray-600 text-sm">Total Receipts</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 gradient-primary">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                        <TrendingDown className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-white">
-                          {formatCurrency(cashbookCashFlowReport.summary.totalPayments, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-white/80 text-sm">Total Payments</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border border-gray-200 hover:border-gray-300 transition-all duration-300 bg-white">
-                  <CardContent className="p-4 h-[48px] flex items-center">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
-                        <Scale className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-2xl font-normal text-gray-900">
-                          {formatCurrency(cashbookCashFlowReport.summary.netCashFlow, selectedCashbookBank.currency.code)}
-                        </div>
-                        <div className="text-gray-600 text-sm">Net Cash Flow</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            {/* Batch Table */}
+            <ProcurementDataTable
+              data={batches}
+              columns={batchColumns}
+              title="Batch Entries"
+              searchPlaceholder="Search batches..."
+              filterOptions={batchFilterOptions}
+              onView={handleViewBatch}
+              loading={batchesLoading}
+              onExport={() => exportToCSV(batches, 'batches.csv')}
+              emptyMessage="No batches found."
+            />
+          </>
+        )}
 
+        {activeTab === 'transfers' && (
+          <>
             {/* Filters */}
-            <div className="flex gap-4 items-center mt-2">
-              {/* Date range pickers */}
-              <div className="flex items-center gap-2">
-                <DatePicker
-                  value={cashflowStartDate}
-                  onChange={setCashflowStartDate}
-                  className="rounded-full"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <DatePicker
-                  value={cashflowEndDate}
-                  onChange={setCashflowEndDate}
-                  className="rounded-full"
-                />
-              </div>
+            <div className="flex gap-4 items-center mt-2 flex-wrap">
+              <Select
+                value={transferFilters.fromBankId || ""}
+                onValueChange={fromBankId => setTransferFilters(f => ({ ...f, fromBankId }))}
+              >
+                <SelectTrigger className="w-48 rounded-full truncate">
+                  <SelectValue placeholder="From Bank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cashbookBanksLoading ? (
+                    <Skeleton className="h-4 w-full" />
+                  ) : (
+                    cashbookBanks.map((bank) => (
+                      <SelectItem key={bank.id} value={bank.id}>
+                        {bank.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <Select
+                value={transferFilters.toBankId || ""}
+                onValueChange={toBankId => setTransferFilters(f => ({ ...f, toBankId }))}
+              >
+                <SelectTrigger className="w-48 rounded-full truncate">
+                  <SelectValue placeholder="To Bank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cashbookBanksLoading ? (
+                    <Skeleton className="h-4 w-full" />
+                  ) : (
+                    cashbookBanks.map((bank) => (
+                      <SelectItem key={bank.id} value={bank.id}>
+                        {bank.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <DatePicker
+                value={transferFilters.dateFrom ? new Date(transferFilters.dateFrom) : undefined}
+                onChange={(date) => setTransferFilters(f => ({ ...f, dateFrom: date ? format(date, "yyyy-MM-dd") : "" }))}
+                className="w-48 rounded-full"
+              />
+              <DatePicker
+                value={transferFilters.dateTo ? new Date(transferFilters.dateTo) : undefined}
+                onChange={(date) => setTransferFilters(f => ({ ...f, dateTo: date ? format(date, "yyyy-MM-dd") : "" }))}
+                className="w-48 rounded-full"
+              />
+              <Button
+                onClick={() => setIsTransferModalOpen(true)}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-full"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Transfer
+              </Button>
             </div>
 
-            {/* Cash Flow Table (Read-Only) */}
-            {selectedCashbookBank ? (
-              <CashbookDataTable
-                entries={calculateBalance(cashbookCashFlowReport?.entries || [])}
-                loading={cashbookCashFlowReportLoading}
-                onViewEntry={(entry) => {
-                  setSelectedEntry(entry)
-                  setIsViewDrawerOpen(true)
-                }}
-                onExport={() => exportToCSV(cashbookCashFlowReport?.entries || [], 'cashbook-cashflow.csv')}
-                readOnly={true}
-              />
-            ) : (
-              <div >
-                <CardContent className="p-8 text-center">
-                  <BarChart3 className="w-16 h-16 mx-auto mb-4 text-green-500" />
-                  <h3 className="text-2xl font-bold text-gray-700 mb-2">Select a Bank Account</h3>
-                  <p className="text-gray-500">Choose a bank account to view your cash flow report.</p>
-                </CardContent>
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === 'balancecheck' && (
-          <>
-            {/* Balance Check Report Layout */}
-            {selectedCashbookBank && cashbookBalanceCheckReport && (
-              <div className="space-y-8">
-                {/* Report Header */}
-                <div className="border-b-2 border-gray-300 pb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">Balance Check Report</h2>
-                  <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                    <div>
-                      <strong>Bank:</strong> {cashbookBalanceCheckReport.bank.name} ({cashbookBalanceCheckReport.bank.accountNumber})
-                    </div>
-                    <div>
-                      <strong>Currency:</strong> {cashbookBalanceCheckReport.bank.currency}
-                    </div>
-                    <div>
-                      <strong>Period:</strong> {format(new Date(cashbookBalanceCheckReport.period.startDate), "yyyy-MM-dd")} to {format(new Date(cashbookBalanceCheckReport.period.endDate), "yyyy-MM-dd")}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Comparison Table */}
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-4 py-2 text-left font-semibold">Metric</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right font-semibold">Cashbook</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right font-semibold">Bank Reconciliation</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right font-semibold">Difference</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-gray-300 px-4 py-2 font-medium">Total Receipts</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(cashbookBalanceCheckReport.cashbook.totalReceipts)}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(cashbookBalanceCheckReport.bankReconciliation.totalReceipts)}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right font-semibold text-red-600">{formatCurrency(cashbookBalanceCheckReport.differences.receiptDifference)}</td>
-                      </tr>
-                      <tr className="bg-gray-50">
-                        <td className="border border-gray-300 px-4 py-2 font-medium">Total Payments</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(cashbookBalanceCheckReport.cashbook.totalPayments)}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(cashbookBalanceCheckReport.bankReconciliation.totalPayments)}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right font-semibold text-red-600">{formatCurrency(cashbookBalanceCheckReport.differences.paymentDifference)}</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-gray-300 px-4 py-2 font-medium">Net Balance</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(cashbookBalanceCheckReport.cashbook.netBalance)}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(cashbookBalanceCheckReport.bankReconciliation.netBalance)}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right font-semibold text-red-600">{formatCurrency(cashbookBalanceCheckReport.differences.netDifference)}</td>
-                      </tr>
-                      <tr className="bg-gray-50">
-                        <td className="border border-gray-300 px-4 py-2 font-medium">Entry/Reconciliation Count</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{cashbookBalanceCheckReport.cashbook.entryCount}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{cashbookBalanceCheckReport.bankReconciliation.reconciliationCount}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">-</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-gray-300 px-4 py-2 font-medium">Unreconciled/Unmatched</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{cashbookBalanceCheckReport.cashbook.unreconciledCount}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">{cashbookBalanceCheckReport.bankReconciliation.unmatchedTransactions}</td>
-                        <td className="border border-gray-300 px-4 py-2 text-right">-</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Overall Status */}
-                <div className="border-t-2 border-gray-300 pt-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Overall Status</h3>
-                  <div className="flex items-center gap-4">
-                    <Badge variant={cashbookBalanceCheckReport.differences.isBalanced ? "default" : "destructive"} className="text-sm px-3 py-1">
-                      {cashbookBalanceCheckReport.differences.isBalanced ? "Balanced" : "Not Balanced"}
-                    </Badge>
-                    <span className="text-sm text-gray-600">
-                      {cashbookBalanceCheckReport.status.hasUnreconciledEntries && "Unreconciled entries present. "}
-                      {cashbookBalanceCheckReport.status.hasUnmatchedTransactions && "Unmatched transactions found. "}
-                      {cashbookBalanceCheckReport.status.needsAttention && "Attention required."}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Recommendations */}
-                <div className="border-t-2 border-gray-300 pt-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Recommendations</h3>
-                  <p className="text-sm text-gray-700 mb-2">{cashbookBalanceCheckReport.summary.message}</p>
-                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                    {cashbookBalanceCheckReport.summary.recommendations.map((rec, index) => (
-                      <li key={index}>{rec}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {(!selectedCashbookBank || cashbookBalanceCheckReportLoading) && (
-              <Card className="max-w-md mx-auto border border-gray-200 shadow-lg">
-                <CardContent className="p-8 text-center">
-                  <CheckCircle className="w-16 h-16 mx-auto mb-4 text-purple-500" />
-                  <h3 className="text-2xl font-bold text-gray-700 mb-2">
-                    {cashbookBalanceCheckReportLoading ? "Loading Balance Check Report..." : "Select a Bank Account"}
-                  </h3>
-                  <p className="text-gray-500">
-                    {cashbookBalanceCheckReportLoading ? "Please wait while we prepare your report." : "Choose a bank account to view your balance check."}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Transfers Table */}
+            <ProcurementDataTable
+              data={transfers}
+              columns={transferColumns}
+              title="Cashbook Transfers"
+              searchPlaceholder="Search transfers..."
+              filterOptions={transferFilterOptions}
+              onView={handleViewTransfer}
+              loading={transfersLoading}
+              onExport={() => exportToCSV(transfers, 'transfers.csv')}
+              emptyMessage="No transfers found."
+            />
           </>
         )}
 
@@ -614,12 +549,9 @@ export default function CashbookPage() {
           bank={selectedCashbookBank}
           onSuccess={() => {
             setIsReceiptModalOpen(false)
-            if (selectedCashbookBank) {
-              dispatch(fetchCashbookEntries({
-                bankId: selectedCashbookBank.id,
-                ...filters,
-              }))
-            }
+            dispatch(fetchCashbookEntries({
+              ...filters,
+            }))
           }}
         />
         <CreateCashbookPaymentModal
@@ -628,12 +560,9 @@ export default function CashbookPage() {
           bank={selectedCashbookBank}
           onSuccess={() => {
             setIsPaymentModalOpen(false)
-            if (selectedCashbookBank) {
-              dispatch(fetchCashbookEntries({
-                bankId: selectedCashbookBank.id,
-                ...filters,
-              }))
-            }
+            dispatch(fetchCashbookEntries({
+              ...filters,
+            }))
           }}
         />
 
@@ -645,6 +574,61 @@ export default function CashbookPage() {
             setSelectedEntry(null)
           }}
           entry={selectedEntry}
+        />
+
+        <ProcessCashbookModal
+          isOpen={isProcessCashbookOpen}
+          onClose={() => setIsProcessCashbookOpen(false)}
+          banks={cashbookBanks}
+          selectedBank={selectedCashbookBank}
+          onBankChange={(bank) => dispatch(setSelectedCashbookBank(bank))}
+        />
+
+        {/* Batch View Drawer */}
+        <CashbookBatchViewDrawer
+          isOpen={isBatchDrawerOpen}
+          onClose={() => {
+            setIsBatchDrawerOpen(false)
+            setSelectedBatch(null)
+          }}
+          batch={selectedBatch}
+          onBatchUpdate={handleBatchUpdate}
+        />
+
+        {/* Transfer Modal */}
+        <CreateCashbookTransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          banks={cashbookBanks}
+          onSuccess={() => {
+            setIsTransferModalOpen(false)
+            // Refetch transfers
+            const fetchTransfers = async () => {
+              setTransfersLoading(true)
+              try {
+                const res = await cashbookApi.getCashbookTransfers(transferFilters)
+                if (res.success) {
+                  setTransfers(res.data?.transfers || res.message || [])
+                }
+              } catch (error) {
+                console.error("Failed to fetch transfers", error)
+              } finally {
+                setTransfersLoading(false)
+              }
+            }
+            fetchTransfers()
+          }}
+        />
+
+        {/* Transfer Drawer */}
+        <CashbookTransferViewDrawer
+          isOpen={isTransferDrawerOpen}
+          onClose={() => {
+            setIsTransferDrawerOpen(false)
+            setSelectedTransfer(null)
+          }}
+          transfer={selectedTransfer}
+          onTransferUpdate={handleTransferUpdate}
         />
       </div>
     </AccountingLayout>

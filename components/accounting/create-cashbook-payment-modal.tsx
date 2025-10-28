@@ -47,6 +47,9 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
   const [customerOpen, setCustomerOpen] = useState(false)
   const [vendorOpen, setVendorOpen] = useState(false)
   const [glOpen, setGlOpen] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState("")
+  const [vendorSearch, setVendorSearch] = useState("")
+  const [glSearch, setGlSearch] = useState("")
 
   useEffect(() => {
     if (isOpen) {
@@ -55,6 +58,42 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
       dispatch(fetchChartOfAccounts())
     }
   }, [isOpen, dispatch])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null
+      const isTyping =
+        !!active &&
+        (active.tagName === "INPUT" ||
+          active.tagName === "TEXTAREA" ||
+          active.isContentEditable)
+
+      if (isTyping) return
+
+      // Esc -> close modal
+      if (e.key === "Escape") {
+        e.preventDefault()
+        onClose()
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [isOpen, onClose])
+
+  const filteredCustomers = useMemo(() => {
+    return customers?.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())) || []
+  }, [customers, customerSearch])
+
+  const filteredVendors = useMemo(() => {
+    return vendors?.filter(v => v.name.toLowerCase().includes(vendorSearch.toLowerCase())) || []
+  }, [vendors, vendorSearch])
+
+  const filteredChartOfAccounts = useMemo(() => {
+    return chartOfAccounts?.filter(a => a.accountName.toLowerCase().includes(glSearch.toLowerCase())) || []
+  }, [chartOfAccounts, glSearch])
 
   const handleSubmit = async (e: any) => {
     e.preventDefault()
@@ -154,7 +193,6 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
                 <SelectItem value="CUSTOMER">Customer</SelectItem>
                 <SelectItem value="VENDOR">Vendor</SelectItem>
                 <SelectItem value="GL">GL Account</SelectItem>
-                <SelectItem value="SUPPLIER">Supplier</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -177,14 +215,14 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0">
                   <Command>
-                    <CommandInput placeholder="Search customers..." className="h-9" />
+                    <CommandInput placeholder="Search customers..." className="h-9" onValueChange={setCustomerSearch} />
                     <CommandList>
                       <CommandEmpty>No customers found.</CommandEmpty>
                       <CommandGroup>
                         {customersLoading ? (
                           <CommandItem disabled>Loading customers...</CommandItem>
                         ) : (
-                          customers?.map(c => (
+                          filteredCustomers.map(c => (
                             <CommandItem
                               key={c.id}
                               value={c.id}
@@ -210,9 +248,9 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
               </Popover>
             </div>
           )}
-          {(formData.counterpartyType === "VENDOR" || formData.counterpartyType === "SUPPLIER") && (
+          {(formData.counterpartyType === "VENDOR") && (
             <div>
-              <Label>{formData.counterpartyType === "SUPPLIER" ? "Supplier" : "Vendor"}</Label>
+              <Label>Vendor</Label>
               <Popover open={vendorOpen} onOpenChange={setVendorOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -223,20 +261,20 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
                   >
                     {formData.vendorId
                       ? vendors?.find(v => v.id === formData.vendorId)?.name
-                      : `Select ${formData.counterpartyType.toLowerCase()}...`}
+                      : `Select vendor...`}
                     <ChevronsUpDown className="opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0">
                   <Command>
-                    <CommandInput placeholder="Search vendors..." className="h-9" />
+                    <CommandInput placeholder="Search vendors..." className="h-9" onValueChange={setVendorSearch} />
                     <CommandList>
                       <CommandEmpty>No vendors found.</CommandEmpty>
                       <CommandGroup>
                         {vendorsLoading ? (
                           <CommandItem disabled>Loading vendors...</CommandItem>
                         ) : (
-                          vendors?.map(v => (
+                          filteredVendors.map(v => (
                             <CommandItem
                               key={v.id}
                               value={v.id}
@@ -281,14 +319,14 @@ export function CreateCashbookPaymentModal({ isOpen, onClose, bank, onSuccess })
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0">
                   <Command>
-                    <CommandInput placeholder="Search GL accounts..." className="h-9" />
+                    <CommandInput placeholder="Search GL accounts..." className="h-9" onValueChange={setGlSearch} />
                     <CommandList>
                       <CommandEmpty>No GL accounts found.</CommandEmpty>
                       <CommandGroup>
                         {chartOfAccountsLoading ? (
                           <CommandItem disabled>Loading GL accounts...</CommandItem>
                         ) : (
-                          chartOfAccounts?.map(a => (
+                          filteredChartOfAccounts.map(a => (
                             <CommandItem
                               key={a.id}
                               value={a.id}

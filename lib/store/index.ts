@@ -18,6 +18,10 @@ import taskSlice from "./slices/taskSlice"
 import accountingReducer from "./slices/accountingSlice"
 import invoicesReducer from "./slices/invoices-slice"
 import accountingReducer2 from "./slices/accountingSlice"
+import eventsReducer from './slices/eventsSlice';
+import eventWizardReducer from './slices/eventWizardSlice'
+import analyticsReducer from './slices/analyticsSlice'
+import testPerfomanceReducer from './slices/testPerfomanceSlice'
 
 export const store = configureStore({
   reducer: {
@@ -26,7 +30,7 @@ export const store = configureStore({
     application: applicationSlice,
     companies: companiesSlice,
     funds: fundsSlice,
-    account: accountSlice, 
+    account: accountSlice,
     ui: uiSlice,
     auth: authSlice,
     financialData: financialDataSlice,
@@ -36,8 +40,12 @@ export const store = configureStore({
     currencies: currenciesSlice,
     users: usersSlice,
     tasks: taskSlice,
-    accounting: accountingReducer, 
+    accounting: accountingReducer,
     invoices: invoicesReducer,
+    events: eventsReducer,
+    eventWizard: eventWizardReducer,
+    analytics: analyticsReducer,
+    testPerfomance:testPerfomanceReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

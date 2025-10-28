@@ -14,7 +14,10 @@ import {
   CiViewColumn,
   CiViewList,
   CiCircleCheck,
-  CiMoneyCheck1
+  CiMoneyCheck1,
+  CiCirclePlus,
+  CiGift,
+  CiMapPin
 } from "react-icons/ci"
 import {
   ShoppingCart,
@@ -32,7 +35,7 @@ import {
   FileText
 } from "lucide-react"
 import { IconType } from "react-icons"
-import { IoReceiptOutline } from "react-icons/io5"
+import { IoPeopleOutline, IoReceiptOutline, IoStatsChartOutline } from "react-icons/io5"
 
 export interface SubModuleConfig {
   id: string
@@ -121,9 +124,11 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     path: "/performance",
     subModules: [
       { id: "performance-dashboard", name: "Performance Dashboard", path: "/performance", icon: CiGrid41, description: "Overview and metrics" },
-      { id: "kpi-management", name: "KPI Management", path: "/performance/kpis", icon: CiViewTimeline, description: "KPIs" },
       { id: "departments-management", name: "Departments", path: "/performance/departments", icon: CiUser, description: "Department management" },
-      { id: "goals-management", name: "Goals Management", path: "/performance/goals", icon: CiCircleCheck, description: "Goals" },
+      { id: "kpi-management", name: "KPI Management", path: "/performance/kpis", icon: CiViewTimeline, description: "KPIs" },
+      {
+        id: "goals-management", name: "Goals Management", path: "/performance/goals", icon: CiCircleCheck, description: "Goals"
+      },
       { id: "tasks-management", name: "Tasks Management", path: "/performance/tasks", icon: CiViewList, description: "Tasks" },
       { id: "department-scorecards", name: "Department Scorecards", path: "/performance/department-scorecards", icon: CiViewBoard, description: "Department performance scorecards" },
       { id: "user-scorecards", name: "User Scorecards", path: "/performance/user-scorecards", icon: CiViewTable, description: "User performance scorecards" }
@@ -175,10 +180,17 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [
       { id: "accounting-dashboard", name: "Dashboard", path: "/accounting", icon: CiGrid41, description: "Accounting dashboard" },
       { id: "general-ledger", name: "General Ledger", path: "/accounting/general-ledger", icon: CiFileOn, description: "Chart of accounts and journal entries" },
-      { id: "cash-book", name: "Cash Book", path: "/accounting/cash-book", icon: CiMoneyCheck1, description: "Cash book management" },
-    
+      { 
+        id: "cash-book", 
+        name: "Cash Book", 
+        path: "/accounting/cash-book", 
+        icon: CiMoneyCheck1, 
+        description: "Cash book management" ,
+        
+      },
+
       { id: "invoices", name: "Accounts Receivable", path: "/accounting/invoices", icon: CiUser, description: "Customer invoices and payments" },
-    
+
       // { id: "accounts-receivable", name: "Accounts Receivable", path: "/accounting/debtors", icon: CiUser, description: "Customer invoices and payments" },
       // { id: "accounts-payable", name: "Accounts Payable", path: "/accounting/creditors", icon: CiWallet, description: "Supplier bills and payments" },
       { id: "bank-reconciliation", name: "Bank Reconciliation", path: "/accounting/bank-reconciliation", icon: CiViewTimeline, description: "Match bank statements" },
@@ -191,6 +203,59 @@ export const MODULE_CONFIG: ModuleConfig[] = [
 
       { id: "accounting-settings", name: "Settings", path: "/accounting/settings", icon: CiSettings, description: "Chart of accounts and configuration" },
     ]
+  },
+  {
+    id: "events-management",
+    name: "Events",
+    description: "Manage investor relations and fundraising events",
+    icon: CiCalendar,
+    color: "oklch(0.68 0.12 240)", // a subtle blue tone for events
+    path: "/events",
+    subModules: [
+      {
+        id: "events-dashboard",
+        name: "Dashboard",
+        path: "/events",
+        icon: CiGrid41,
+        description: "Upcoming events and KPIs overview",
+      },
+      {
+        id: "my-events",
+        name: "My Events",
+        path: "/events/my-events",
+        icon: CiGift,
+        description: "Events you are hosting or managing",
+      },
+      {
+        id: "my-invitations",
+        name: "My Invitations",
+        path: "/events/invitations",
+        icon: IoPeopleOutline,
+        description: "Events you are invited to attend",
+      },
+      {
+        id: "event-analytics",
+        name: "Analytics",
+        path: "/events/analytics",
+        icon: IoStatsChartOutline,
+        description: "Event KPIs, RSVP rates, and performance insights",
+      },
+      // venues
+      {
+        id: "event-venues",
+        name: "Venues",
+        path: "/events/venues",
+        icon: CiMapPin,
+        description: "Manage event venues and locations",
+      },
+      {
+        id: "event-settings",
+        name: "Settings",
+        path: "/events/settings",
+        icon: CiViewList,
+        description: "Access control and event module configuration",
+      },
+    ],
   }
 ]
 

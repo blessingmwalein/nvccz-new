@@ -1,11 +1,12 @@
 import { PerformanceLayout } from "@/components/layout/performance-layout"
-import { UserScorecards } from "@/components/performance/user-scorecards"
+import { UserScorecardsPage } from "@/components/performance/user-scorecard-page"
+// import { UserScorecardsPage } from "@/components/performance/user-scorecards-page"
 
-export default function UserScorecardsPage() {
+export default function UserScorecardsRoute() {
   return (
     <PerformanceLayout>
       <div className="p-6">
-        <UserScorecards />
+        <UserScorecardsPage />
       </div>
     </PerformanceLayout>
   )

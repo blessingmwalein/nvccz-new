@@ -25,6 +25,7 @@ import type { RootState, AppDispatch } from "@/lib/store/store"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { accountingApi } from "@/lib/api/accounting-api"  // Add import for accounting API
 
 interface FinancialChartPoint {
   month: string
@@ -96,11 +97,32 @@ export function AccountingDashboard() {
     loadDashboardData
   } = useAccountingDashboard()
 
+  const [filteredInvoicesTotal, setFilteredInvoicesTotal] = useState(0)
+  const [filteredInvoicesCount, setFilteredInvoicesCount] = useState(0)
+
   useEffect(() => {
     dispatch(fetchCurrencies())
     // Load all data without filters
     loadDashboardData('', '')
   }, [dispatch, loadDashboardData])
+
+  useEffect(() => {
+    const fetchFilteredInvoices = async () => {
+      try {
+        // Assuming accountingApi has a method to fetch invoices with status filter
+        const res = await accountingApi.getInvoices({ status: 'ACTIVE' })  // Adjust API call to exclude void
+        if (res.success) {
+          const activeInvoices = res.data.filter(invoice => invoice.status !== 'VOID')
+          const total = activeInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0)
+          setFilteredInvoicesTotal(total)
+          setFilteredInvoicesCount(activeInvoices.length)
+        }
+      } catch (error) {
+        console.error("Failed to fetch filtered invoices", error)
+      }
+    }
+    fetchFilteredInvoices()
+  }, [])
 
   if (loading && !dashboardStats) {
     return <AccountingDashboardSkeleton />
@@ -109,8 +131,8 @@ export function AccountingDashboard() {
   const accountingMetrics = [
     {
       title: "Sales Invoices",
-      value: dashboardStats?.invoices.count || 0,
-      amount: `$${(dashboardStats?.invoices.totalAmount || 0).toLocaleString()}`,
+      value: filteredInvoicesCount || dashboardStats?.invoices.count || 0,
+      amount: `$${filteredInvoicesTotal.toLocaleString()}`,
       change: `${(dashboardStats?.invoices.change || 0).toFixed(1)}% from last month`,
       trend: (dashboardStats?.invoices.change || 0) >= 0 ? "up" : "down",
       icon: FileText

@@ -13,6 +13,7 @@ import {
   CashbookCashFlowReport,
   CashbookBalanceCheckReport
 } from '@/lib/api/accounting-api'
+import { cashbookApi } from '@/lib/api/cashbook-api'
 
 // Async thunks for expenses
 export const fetchExpenses = createAsyncThunk(
@@ -597,7 +598,7 @@ export const rejectBankReconciliationResult = createAsyncThunk(
 export const fetchCashbookBanks = createAsyncThunk(
   'accounting/fetchCashbookBanks',
   async () => {
-    const response = await accountingApi.getCashbookBanks()
+    const response = await cashbookApi.getCashbookBanks()
     if (!response.success) throw new Error(response.error || 'Failed to fetch banks')
     return response.data
   }
@@ -606,7 +607,7 @@ export const fetchCashbookBanks = createAsyncThunk(
 export const fetchCashbookEntries = createAsyncThunk(
   'accounting/fetchCashbookEntries',
   async (params: { bankId: string }) => {
-    const response = await accountingApi.getCashbookEntries(params)
+    const response = await cashbookApi.getCashbookEntries(params)
     if (!response.success) throw new Error(response.error || 'Failed to fetch entries')
     return response.data
   }
@@ -615,7 +616,7 @@ export const fetchCashbookEntries = createAsyncThunk(
 export const fetchCashbookBankPosition = createAsyncThunk(
   'accounting/fetchCashbookBankPosition',
   async (bankId: string) => {
-    const response = await accountingApi.getCashbookBankPosition(bankId)
+    const response = await cashbookApi.getCashbookBankPosition(bankId)
     if (!response.success) throw new Error(response.error || 'Failed to fetch bank position')
     return response.data
   }
@@ -626,7 +627,7 @@ export const createCashbookReceipt = createAsyncThunk(
   'accounting/createCashbookReceipt',
   async (data: any, { rejectWithValue }) => {
     try {
-      const response = await accountingApi.createCashbookReceipt(data)
+      const response = await cashbookApi.createCashbookReceipt(data)
       if (!response.success) return rejectWithValue(response.error || 'Failed to create cashbook receipt')
       return response.data
     } catch (err: any) {
@@ -639,7 +640,7 @@ export const createCashbookReceipt = createAsyncThunk(
 export const fetchCashbookCashFlowReport = createAsyncThunk(
   'accounting/fetchCashbookCashFlowReport',
   async (params: { bankId: string; startDate: string; endDate: string }) => {
-    const response = await accountingApi.getCashbookCashFlowReport(params)
+    const response = await cashbookApi.getCashbookCashFlowReport(params)
     if (!response.success) {
       throw new Error(response.error || 'Failed to fetch cash flow report')
     }
@@ -650,7 +651,7 @@ export const fetchCashbookCashFlowReport = createAsyncThunk(
 export const fetchCashbookBalanceCheck = createAsyncThunk(
   'accounting/fetchCashbookBalanceCheck',
   async (params: { bankId: string; startDate: string; endDate: string }) => {
-    const response = await accountingApi.getCashbookBalanceCheck(params)
+    const response = await cashbookApi.getCashbookBalanceCheck(params)
     if (!response.success) {
       throw new Error(response.error || 'Failed to fetch balance check')
     }
@@ -821,6 +822,9 @@ interface AccountingState {
   cashbookBalanceCheckReport: CashbookBalanceCheckReport | null
   cashbookBalanceCheckReportLoading: boolean
   cashbookBalanceCheckReportError: string | null
+
+  // Selected currency for management
+  selectedCurrency: AccountingCurrency | null
 }
 
 const initialState: AccountingState = {
@@ -988,6 +992,8 @@ const initialState: AccountingState = {
   cashbookReceiptLoading: false,
   cashbookReceiptError: null,
 
+  // Selected currency for management
+  selectedCurrency: null,
 }
 
 const accountingSlice = createSlice({
@@ -1069,11 +1075,28 @@ const accountingSlice = createSlice({
     // set errors createCashbookReceipt
     setCashbookReceiptError: (state, action: PayloadAction<string | null>) => {
       state.cashbookReceiptError = action.payload
-    }
+    },
 
-
-
-
+    // Currency management reducers
+    setCurrenciesLoading: (state, action: PayloadAction<boolean>) => {
+      state.currenciesLoading = action.payload
+    },
+    setCurrencies: (state, action: PayloadAction<AccountingCurrency[]>) => {
+      state.currencies = action.payload
+    },
+    setCurrenciesError: (state, action: PayloadAction<string | null>) => {
+      state.currenciesError = action.payload
+    },
+    removeCurrency: (state, action: PayloadAction<string>) => {
+      state.currencies = state.currencies.filter(c => c.id !== action.payload)
+    },
+    updateCurrency: (state, action: PayloadAction<AccountingCurrency>) => {
+      const index = state.currencies.findIndex(c => c.id === action.payload.id)
+      if (index !== -1) state.currencies[index] = action.payload
+    },
+    setSelectedCurrency: (state, action: PayloadAction<AccountingCurrency | null>) => {
+      state.selectedCurrency = action.payload
+    },
   },
   extraReducers: (builder) => {
     // Fetch expenses
@@ -1829,6 +1852,14 @@ export const {
   setSelectedCashbookBank,
   clearCashbookBanksError,
   clearCashbookEntriesError,
+
+  // Currency management actions
+  setCurrenciesLoading,
+  setCurrencies,
+  setCurrenciesError,
+  removeCurrency,
+  updateCurrency,
+  setSelectedCurrency,
 } = accountingSlice.actions
 
 export default accountingSlice.reducer

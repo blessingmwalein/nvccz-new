@@ -640,7 +640,7 @@ export interface CashFlowData {
   currency: { id: string; code: string; name: string }
   generatedAt: string
 }
-export interface CashFlowResponse extends CashFlowData {}
+export interface CashFlowResponse extends CashFlowData { }
 
 // --- BANK RECONCILIATION TYPES ---
 export interface BankReconciliation {
@@ -949,7 +949,7 @@ class AccountingApiService {
     const queryString = params ? `?${new URLSearchParams(
       Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
     ).toString()}` : ''
-    
+
     const response = await apiClient.get<AccountingResponse<CustomersResponse>>(`/accounting/customers${queryString}`)
     return response
   }
@@ -1006,7 +1006,7 @@ class AccountingApiService {
     const queryString = params ? `?${new URLSearchParams(
       Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
     ).toString()}` : ''
-    
+
     return apiClient.get<AccountingResponse<InvoicesResponse>>(`/accounting/invoices${queryString}`)
   }
 
@@ -1116,7 +1116,7 @@ class AccountingApiService {
     const queryString = params ? `?${new URLSearchParams(
       Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
     ).toString()}` : ''
-    
+
     const response = await apiClient.get<AccountingResponse<ChartOfAccount[]>>(`/accounting/chart-of-accounts${queryString}`)
     return response
   }
@@ -1150,8 +1150,8 @@ class AccountingApiService {
     const queryString = params ? `?${new URLSearchParams(
       Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
     ).toString()}` : ''
-    
-    const response = await apiClient.get<AccountingResponse<Vendor[]>>(`/accounting/vendors${queryString}`)
+
+    const response = await apiClient.get<AccountingResponse<Vendor[]>>(`/cashbook/vendors${queryString}`)
     return response
   }
 
@@ -1185,7 +1185,7 @@ class AccountingApiService {
     const queryString = params ? `?${new URLSearchParams(
       Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
     ).toString()}` : ''
-    
+
     const response = await apiClient.get<AccountingResponse<ExpenseCategory[]>>(`/accounting/expense-categories${queryString}`)
     return response
   }
@@ -1221,7 +1221,7 @@ class AccountingApiService {
     const queryString = params ? `?${new URLSearchParams(
       Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
     ).toString()}` : ''
-    
+
     const response = await apiClient.get<AccountingResponse<Expense[]>>(`/accounting/expenses${queryString}`)
     return response
   }
@@ -1417,56 +1417,6 @@ class AccountingApiService {
   }
   async rejectBankReconciliationResult(resultId: string): Promise<AccountingResponse<void>> {
     return apiClient.post<AccountingResponse<void>>(`/accounting/bank-reconciliation/results/${resultId}/reject`, {})
-  }
-
-  // Cashbook Banks
-  async getCashbookBanks(): Promise<AccountingResponse<CashbookBank[]>> {
-    return apiClient.get<AccountingResponse<CashbookBank[]>>('/cashbook/banks')
-  }
-
-  // Cashbook Entries
-  async getCashbookEntries(params: {
-    bankId: string
-    type?: 'RECEIPT' | 'PAYMENT'
-    status?: string
-    startDate?: string
-    endDate?: string
-  }): Promise<AccountingResponse<CashbookEntry[]>> {
-    const { bankId, ...query } = params
-    const queryString = Object.keys(query).length
-      ? '?' + new URLSearchParams(
-          Object.entries(query)
-            .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => [k, String(v)])
-        ).toString()
-      : ''
-    return apiClient.get<AccountingResponse<CashbookEntry[]>>(`/cashbook/${bankId}/entries${queryString}`)
-  }
-
-  // Create Receipt
-  async createCashbookReceipt(data: any): Promise<AccountingResponse<any>> {
-    return apiClient.post<AccountingResponse<any>>('/cashbook/receipts', data)
-  }
-
-  // Create Payment
-  async createCashbookPayment(data: any): Promise<AccountingResponse<any>> {
-    return apiClient.post<AccountingResponse<any>>('/cashbook/payments', data)
-  }
-
-  // Cashbook Bank Position
-  async getCashbookBankPosition(bankId: string): Promise<AccountingResponse<CashbookBankPosition>> {
-    return apiClient.get<AccountingResponse<CashbookBankPosition>>(`/cashbook/${bankId}/position`)
-  }
-
-  // Cashbook Reports
-  async getCashbookCashFlowReport(params: { bankId: string; startDate: string; endDate: string }): Promise<AccountingResponse<CashbookCashFlowReport>> {
-    const queryString = `?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()}`
-    return apiClient.get<AccountingResponse<CashbookCashFlowReport>>(`/cashbook/reports/cashflow${queryString}`)
-  }
-
-  async getCashbookBalanceCheck(params: { bankId: string; startDate: string; endDate: string }): Promise<AccountingResponse<CashbookBalanceCheckReport>> {
-    const queryString = `?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()}`
-    return apiClient.get<AccountingResponse<CashbookBalanceCheckReport>>(`/cashbook/balance-check${queryString}`)
   }
 
 }

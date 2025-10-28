@@ -31,17 +31,22 @@ class ApiClient {
 
   // Make authenticated request
   private async makeRequest<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
-    
+
     // Get token from cookies
     const token = getAuthToken()
-    
+
     // Default headers
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
+    }
+
+    // If body is FormData, don't set Content-Type
+    if (options.body instanceof FormData) {
+      delete defaultHeaders['Content-Type']
     }
 
     // Add authorization header if token exists
@@ -60,17 +65,17 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config)
-      
+
       // Handle unauthorized responses
       if (response.status === 401) {
         // Clear invalid token from cookies
         clearAuthCookies()
-        
+
         // Redirect to login page
         if (typeof window !== 'undefined') {
           window.location.href = '/login'
         }
-        
+
         throw new ApiError('Unauthorized - Please login again', 401)
       }
 
@@ -90,7 +95,7 @@ class ApiClient {
       if (error instanceof ApiError) {
         throw error
       }
-      
+
       console.error('API request failed:', error)
       throw new ApiError('Network error occurred', 0)
     }
@@ -105,13 +110,18 @@ class ApiClient {
   }
 
   // POST request
+  // ...existing code...
+
+  // POST request
   async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
     return this.makeRequest<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
     })
   }
+
+  // ...existing code...
 
   // PUT request
   async put<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {

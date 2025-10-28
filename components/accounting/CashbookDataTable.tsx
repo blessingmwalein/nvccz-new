@@ -36,7 +36,7 @@ export function CashbookDataTable({
   onAddPayment,
   onViewEntry,
   onExport,
-  readOnly = false, // Default to false for backward compatibility
+  readOnly = true, // Default to false for backward compatibility
 }: CashbookDataTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
