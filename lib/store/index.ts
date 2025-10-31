@@ -22,6 +22,7 @@ import eventsReducer from './slices/eventsSlice';
 import eventWizardReducer from './slices/eventWizardSlice'
 import analyticsReducer from './slices/analyticsSlice'
 import testPerfomanceReducer from './slices/testPerfomanceSlice'
+import cashbookReducer from './slices/cashbookSlice'
 
 export const store = configureStore({
   reducer: {
@@ -45,7 +46,8 @@ export const store = configureStore({
     events: eventsReducer,
     eventWizard: eventWizardReducer,
     analytics: analyticsReducer,
-    testPerfomance:testPerfomanceReducer
+    testPerfomance:testPerfomanceReducer,
+    cashbook: cashbookReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

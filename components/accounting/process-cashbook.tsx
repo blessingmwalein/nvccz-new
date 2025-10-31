@@ -85,6 +85,13 @@ export function ProcessCashbookModal({
   const [selectedAllocations, setSelectedAllocations] = useState<Allocation[]>([])
   const [isFetchingOpenItems, setIsFetchingOpenItems] = useState(false)
 
+  // NEW: matching states for transactions
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [isFetchingTransactions, setIsFetchingTransactions] = useState(false)
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
+  const [transactionDropdownOpen, setTransactionDropdownOpen] = useState(false)
+  const [matchingSubmitting, setMatchingSubmitting] = useState(false)
+
   const {
     control,
     register,
@@ -182,6 +189,12 @@ export function ProcessCashbookModal({
       if ((e.ctrlKey || e.metaKey) && (e.key === "i" || e.key === "I")) {
         e.preventDefault()
         handleAddRow(fields.length - 1)
+      }
+
+      // F7 -> open matching modal
+      if (e.key === "F7") {
+        e.preventDefault()
+        openMatchingModal()
       }
 
       // Esc -> close modal
@@ -358,7 +371,7 @@ export function ProcessCashbookModal({
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
       currency: selectedBank?.currency?.code || "ZAR",
-    }).format(amount)
+    }).format(Number(amount) || 0)
   }
 
   // Basic CSV line splitter that supports quoted commas
@@ -422,40 +435,104 @@ export function ProcessCashbookModal({
     }
   }
 
+  // UPDATED: Only set IDs. Do not fetch open items or open matching modal on selection.
   const handleCustomerVendorSelect = async (index: number, id: string, type: 'customer' | 'supplier') => {
-    // Always set the customer/vendor ID first
     if (type === 'customer') setValue(`entries.${index}.customerId`, id)
     else setValue(`entries.${index}.vendorId`, id)
+    // Removed: fetching open items and opening modal here
+  }
 
-    setIsFetchingOpenItems(true)
-    const apiMethod = type === 'customer' ? cashbookApi.getOpenItemsForCustomer : cashbookApi.getOpenItemsForSupplier
+  // NEW: Open custom matching modal and load posted payments
+  const openMatchingModal = async () => {
+    setMatchingOpen(true)
+    setSelectedTransactionId(null)
+    setOpenItems([])
+    setSelectedAllocations([])
+    setIsFetchingTransactions(true)
     try {
-      const res = await apiMethod(id)
-      if (res.success && res.message && res.message.length > 0) {
-        setOpenItems(res.message)
-        setCurrentEntryIndex(index)
-        setSelectedAllocations([])
-        setMatchingOpen(true)
-      } // No else needed, as ID is already set
+      const res = await cashbookApi.getCashbookTransactions({
+        type: 'PAYMENT',
+        status: 'POSTED',
+        bankId: selectedBank?.id, // include bank filter
+        limit: 100,
+      })
+      const list = (res as any)?.message?.reversals || (res as any)?.data?.reversals || []
+      setTransactions(Array.isArray(list) ? list : [])
     } catch (error) {
-      console.error("Error fetching open items:", error)
+      console.error("Failed to fetch transactions", error)
+      toast.error("Failed to fetch transactions")
+    } finally {
+      setIsFetchingTransactions(false)
+    }
+  }
+
+  // NEW: When a payment is selected, fetch open items for its counterparty
+  const handleTransactionSelect = async (transactionId: string) => {
+    setSelectedTransactionId(transactionId)
+    setTransactionDropdownOpen(false)
+    const tx = transactions.find(t => t.id === transactionId)
+    if (!tx) {
+      toast.error("Transaction not found")
+      return
+    }
+    const partyId = tx.customerId || tx.vendorId
+    if (!partyId) {
+      toast.info("No customer/vendor linked to this payment")
+      setOpenItems([])
+      return
+    }
+    setIsFetchingOpenItems(true)
+    try {
+      const apiMethod = tx.customerId ? cashbookApi.getOpenItemsForCustomer : cashbookApi.getOpenItemsForSupplier
+      const res = await apiMethod(partyId)
+      const items = (res as any)?.message || (res as any)?.data || []
+      if (Array.isArray(items) && items.length > 0) {
+        setOpenItems(items)
+        setSelectedAllocations([])
+      } else {
+        setOpenItems([])
+        toast.info("No open items found for selected payment")
+      }
+    } catch (error) {
+      console.error("Failed to fetch open items", error)
       toast.error("Failed to fetch open items")
     } finally {
       setIsFetchingOpenItems(false)
     }
   }
 
-  const handleMatchingConfirm = () => {
-    if (currentEntryIndex !== null) {
-      const totalAllocated = selectedAllocations.reduce((sum, a) => sum + a.allocatedAmount + a.discountAmount, 0)
-      const entryAmount = entries[currentEntryIndex]?.bankAmount || 0
-      if (totalAllocated > entryAmount) {
-        toast.error("Total allocated amount exceeds entry amount")
-        return
+  // NEW: Submit allocations to the matching API using selected paymentId
+  const handleMatchingConfirm = async () => {
+    if (!selectedTransactionId) {
+      toast.error("Please select a payment")
+      return
+    }
+    if (selectedAllocations.length === 0) {
+      toast.error("Please select at least one item to allocate")
+      return
+    }
+    const totalAllocated = selectedAllocations.reduce((sum, a) => sum + a.allocatedAmount + a.discountAmount, 0)
+    if (totalAllocated <= 0) {
+      toast.error("Allocated total must be greater than 0")
+      return
+    }
+    try {
+      setMatchingSubmitting(true)
+      const res = await cashbookApi.matchOpenItems(selectedTransactionId, selectedAllocations)
+      if ((res as any)?.success) {
+        toast.success("Allocations matched successfully")
+        setMatchingOpen(false)
+        setSelectedTransactionId(null)
+        setOpenItems([])
+        setSelectedAllocations([])
+      } else {
+        toast.error("Failed to match allocations")
       }
-      setValue(`entries.${currentEntryIndex}.allocations`, selectedAllocations)
-      setMatchingOpen(false)
-      setCurrentEntryIndex(null)
+    } catch (error) {
+      console.error("Matching error:", error)
+      toast.error("Failed to match allocations")
+    } finally {
+      setMatchingSubmitting(false)
     }
   }
 
@@ -965,7 +1042,13 @@ export function ProcessCashbookModal({
                   >
                     Insert <kbd className="px-2 py-1 text-xs bg-muted rounded text-black">Ctrl+I</kbd>
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={openMatchingModal}
+                    className="gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full"
+                  >
                     Match <kbd className="px-2 py-1 text-xs bg-muted rounded text-black">F7</kbd>
                   </Button>
                   <Button type="button" variant="outline" size="sm" className="gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full">
@@ -1053,94 +1136,258 @@ export function ProcessCashbookModal({
         </DialogContent>
       </Dialog>
 
+      {/* REPLACED: Custom Allocate Payment to Open Items modal */}
       <Dialog open={matchingOpen} onOpenChange={setMatchingOpen}>
         <DialogContent className="max-w-6xl md:max-w-6xl w-[90vw] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Allocate Payment to Open Items</DialogTitle>
           </DialogHeader>
-          <div className="py-4 flex-1 overflow-auto">
-            <table className="w-full border-collapse min-w-max">
-              <thead>
-                <tr className="bg-slate-100">
-                  <th className="border p-2">Select</th>
-                  <th className="border p-2">Invoice #</th>
-                  <th className="border p-2">Due Date</th>
-                  <th className="border p-2">Outstanding</th>
-                  <th className="border p-2">Allocated</th>
-                  <th className="border p-2">Discount</th>
-                  <th className="border p-2">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {openItems.map((item) => (
-                  <tr key={item.id}>
-                    <td className="border p-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedAllocations.some(a => a.openItemId === item.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAllocations([...selectedAllocations, {
-                              openItemId: item.id,
-                              allocatedAmount: 0,
-                              discountAmount: 0,
-                              description: item.description,
-                            }])
-                          } else {
-                            setSelectedAllocations(selectedAllocations.filter(a => a.openItemId !== item.id))
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="border p-2">{item.invoiceNumber}</td>
-                    <td className="border p-2">{format(new Date(item.dueDate), "dd/MM/yyyy")}</td>
-                    <td className="border p-2">{item.outstandingAmount}</td>
-                    <td className="border p-2">
-                      <Input
-                        type="number"
-                        value={selectedAllocations.find(a => a.openItemId === item.id)?.allocatedAmount || 0}
-                        onChange={(e) => {
-                          const amount = parseFloat(e.target.value) || 0
-                          setSelectedAllocations(selectedAllocations.map(a =>
-                            a.openItemId === item.id ? { ...a, allocatedAmount: amount } : a
-                          ))
-                        }}
-                        className="w-full"
-                      />
-                    </td>
-                    <td className="border p-2">
-                      <Input
-                        type="number"
-                        value={selectedAllocations.find(a => a.openItemId === item.id)?.discountAmount || 0}
-                        onChange={(e) => {
-                          const discount = parseFloat(e.target.value) || 0
-                          setSelectedAllocations(selectedAllocations.map(a =>
-                            a.openItemId === item.id ? { ...a, discountAmount: discount } : a
-                          ))
-                        }}
-                        className="w-full"
-                      />
-                    </td>
-                    <td className="border p-2">
-                      <Input
-                        value={selectedAllocations.find(a => a.openItemId === item.id)?.description || ""}
-                        onChange={(e) => {
-                          const desc = e.target.value
-                          setSelectedAllocations(selectedAllocations.map(a =>
-                            a.openItemId === item.id ? { ...a, description: desc } : a
-                          ))
-                        }}
-                        className="w-full"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="py-4 space-y-4">
+            {/* Transaction Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Payment</label>
+              <Popover open={transactionDropdownOpen} onOpenChange={setTransactionDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    disabled={isFetchingTransactions}
+                  >
+                    {isFetchingTransactions ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Loading payments...
+                      </>
+                    ) : selectedTransactionId ? (
+                      <span className="truncate">
+                        {(() => {
+                          const tx = transactions.find(t => t.id === selectedTransactionId)
+                          if (!tx) return "Select payment..."
+                          const counterparty = tx.customer?.name || tx.vendor?.name || "N/A"
+                          // Show reference - amount - status - date
+                          return `${tx.reference} — ${formatCurrency(Number(tx.amount))} — ${tx.status} — ${format(new Date(tx.transactionDate), "dd/MM/yyyy")} — ${counterparty}`
+                        })()}
+                      </span>
+                    ) : (
+                      "Select payment..."
+                    )}
+                    <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[700px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search payments..." />
+                    <CommandList className="max-h-[400px]">
+                      <CommandEmpty>No payments found.</CommandEmpty>
+                      <CommandGroup>
+                        {transactions.map((tx) => {
+                          const counterparty = tx.customer?.name || tx.vendor?.name || "N/A"
+                          const displayText = `${tx.reference} | ${formatCurrency(Number(tx.amount))} | ${tx.status} | ${format(new Date(tx.transactionDate), "dd/MM/yyyy")} | ${counterparty}`
+                          return (
+                            <CommandItem
+                              key={tx.id}
+                              value={tx.id}
+                              onSelect={() => handleTransactionSelect(tx.id)}
+                              className="text-xs"
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="truncate">{displayText}</span>
+                                <Check
+                                  className={cn(
+                                    "ml-2 w-4 h-4 flex-shrink-0",
+                                    selectedTransactionId === tx.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                              </div>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Open Items Table */}
+            {isFetchingOpenItems ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="ml-2">Loading open items...</span>
+              </div>
+            ) : openItems.length > 0 ? (
+              <div className="overflow-auto border rounded-lg max-h-[400px]">
+                <table className="w-full border-collapse min-w-max">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border px-2 py-1.5 text-left text-[11px] font-normal">Select</th>
+                      <th className="border px-2 py-1.5 text-left text-[11px] font-normal">Invoice #</th>
+                      <th className="border px-2 py-1.5 text-left text-[11px] font-normal">Due Date</th>
+                      <th className="border px-2 py-1.5 text-right text-[11px] font-normal">Outstanding</th>
+                      <th className="border px-2 py-1.5 text-right text-[11px] font-normal w-24">Allocated</th>
+                      <th className="border px-2 py-1.5 text-right text-[11px] font-normal w-24">Discount</th>
+                      <th className="border px-2 py-1.5 text-left text-[11px] font-normal">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openItems.map((item) => {
+                      const allocation = selectedAllocations.find(a => a.openItemId === item.id)
+                      const isSelected = !!allocation
+                      return (
+                        <tr key={item.id} className={cn(isSelected && "bg-blue-50")}>
+                          <td className="border p-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedAllocations([...selectedAllocations, {
+                                    openItemId: item.id,
+                                    allocatedAmount: Number(item.outstandingAmount),
+                                    discountAmount: 0,
+                                    description: item.description,
+                                  }])
+                                } else {
+                                  setSelectedAllocations(selectedAllocations.filter(a => a.openItemId !== item.id))
+                                }
+                              }}
+                            />
+                          </td>
+                          <td className="border p-2">{item.invoiceNumber}</td>
+                          <td className="border p-2">{format(new Date(item.dueDate), "dd/MM/yyyy")}</td>
+                          <td className="border p-2 text-right font-mono">
+                            {formatCurrency(Number(item.outstandingAmount))}
+                          </td>
+                          <td className="border p-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={allocation?.allocatedAmount || 0}
+                              onChange={(e) => {
+                                const amount = parseFloat(e.target.value) || 0
+                                if (isSelected) {
+                                  setSelectedAllocations(selectedAllocations.map(a =>
+                                    a.openItemId === item.id ? { ...a, allocatedAmount: amount } : a
+                                  ))
+                                } else {
+                                  setSelectedAllocations([...selectedAllocations, {
+                                    openItemId: item.id,
+                                    allocatedAmount: amount,
+                                    discountAmount: 0,
+                                    description: item.description,
+                                  }])
+                                }
+                              }}
+                              className="h-8 text-xs w-24 text-right font-mono"
+                              disabled={!isSelected}
+                            />
+                          </td>
+                          <td className="border p-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={allocation?.discountAmount || 0}
+                              onChange={(e) => {
+                                const discount = parseFloat(e.target.value) || 0
+                                if (isSelected) {
+                                  setSelectedAllocations(selectedAllocations.map(a =>
+                                    a.openItemId === item.id ? { ...a, discountAmount: discount } : a
+                                  ))
+                                }
+                              }}
+                              className="h-8 text-xs w-24 text-right font-mono"
+                              disabled={!isSelected}
+                            />
+                          </td>
+                          <td className="border p-2">
+                            <Input
+                              value={allocation?.description || item.description}
+                              onChange={(e) => {
+                                const desc = e.target.value
+                                if (isSelected) {
+                                  setSelectedAllocations(selectedAllocations.map(a =>
+                                    a.openItemId === item.id ? { ...a, description: desc } : a
+                                  ))
+                                }
+                              }}
+                              className="h-8 text-xs w-full"
+                              disabled={!isSelected}
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : selectedTransactionId ? (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                No open items found for selected payment
+              </div>
+            ) : (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                Select a payment to see open items
+              </div>
+            )}
           </div>
-          <div className="flex justify-end gap-3 border-t pt-4">
-            <Button variant="outline" onClick={() => setMatchingOpen(false)}>Cancel</Button>
-            <Button onClick={handleMatchingConfirm}>Confirm Allocations</Button>
+          <div className="flex items-center justify-between border-t px-6 py-4 gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Total Allocated:</span>
+                <span className="font-mono font-semibold">
+                  {formatCurrency(
+                    selectedAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Total Discount:</span>
+                <span className="font-mono font-semibold">
+                  {formatCurrency(
+                    selectedAllocations.reduce((sum, a) => sum + a.discountAmount, 0)
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 font-semibold">
+                <span>Total Amount:</span>
+                <span className="font-mono">
+                  {formatCurrency(
+                    selectedAllocations.reduce((sum, a) => sum + a.allocatedAmount + a.discountAmount, 0)
+                  )}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMatchingOpen(false)
+                  setSelectedTransactionId(null)
+                  setOpenItems([])
+                  setSelectedAllocations([])
+                }}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMatchingConfirm}
+                disabled={!selectedTransactionId || selectedAllocations.length === 0 || matchingSubmitting}
+                className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 disabled:opacity-70"
+              >
+                {matchingSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Matching...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Confirm Allocations
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

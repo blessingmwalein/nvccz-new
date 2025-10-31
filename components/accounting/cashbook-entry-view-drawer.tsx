@@ -3,15 +3,28 @@
 import { useState, useEffect, useMemo } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { format } from "date-fns"
-import { Banknote, Package, User, Building, Calculator, Copy } from "lucide-react"
+import { Banknote, Package, User, Building, Calculator, Copy, FileSignature, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
+import { cashbookApi } from "@/lib/api/cashbook-api"
 
 export function CashbookEntryViewDrawer({ isOpen, onClose, entry }) {
 	const { toast } = useToast()
+	const [showContraDialog, setShowContraDialog] = useState(false)
+	const [generatingContra, setGeneratingContra] = useState(false)
 
 	const getRelevantTabs = () => {
 		const baseTabs = [
@@ -44,6 +57,38 @@ export function CashbookEntryViewDrawer({ isOpen, onClose, entry }) {
 		})
 	}
 
+	const handleGenerateContra = async () => {
+		if (!entry?.id) return
+
+		setGeneratingContra(true)
+		try {
+			const response = await cashbookApi.generateContraEntry(entry.id)
+
+			if (response.success) {
+				toast({
+					title: "Success",
+					description: "Contra entry generated successfully",
+				})
+				setShowContraDialog(false)
+				// Optionally refresh the entry or close drawer
+			} else {
+				toast({
+					title: "Error",
+					description: response.message || "Failed to generate contra entry",
+					variant: "destructive",
+				})
+			}
+		} catch (error: any) {
+			toast({
+				title: "Error",
+				description: error?.message || "Failed to generate contra entry",
+				variant: "destructive",
+			})
+		} finally {
+			setGeneratingContra(false)
+		}
+	}
+
 	const renderedTabs = relevantTabs.map((tab) => {
 		const Icon = tab.icon
 		const isActive = activeTab === tab.id
@@ -69,19 +114,31 @@ export function CashbookEntryViewDrawer({ isOpen, onClose, entry }) {
 		<Sheet open={isOpen} onOpenChange={onClose}>
 			<SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
 				<SheetHeader>
-					<SheetTitle className="flex items-center gap-3">
-						<Banknote className="w-6 h-6" />
-						{entry.type === "RECEIPT" ? "Receipt" : "Payment"} Details - {entry.bank?.name} ({entry.bank?.accountNumber}) - {entry.bank?.currency?.code}
-						<Badge
-							className={
-								entry.status === "POSTED"
-									? "bg-green-100 text-green-800"
-									: "bg-yellow-100 text-yellow-800"
-							}
+					<div className="flex items-center justify-between">
+						<SheetTitle className="flex items-center gap-3">
+							<Banknote className="w-6 h-6" />
+							{entry.type === "RECEIPT" ? "Receipt" : "Payment"} Details - {entry.bank?.name} ({entry.bank?.accountNumber}) - {entry.bank?.currency?.code}
+							<Badge
+								className={
+									entry.status === "POSTED"
+										? "bg-green-100 text-green-800"
+										: "bg-yellow-100 text-yellow-800"
+								}
+							>
+								{entry.status}
+							</Badge>
+						</SheetTitle>
+						<Button
+							onClick={() => setShowContraDialog(true)}
+							variant="outline"
+							size="sm"
+							className="gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 border-0"
+							disabled={entry.status !== "POSTED"}
 						>
-							{entry.status}
-						</Badge>
-					</SheetTitle>
+							<FileSignature className="w-4 h-4" />
+							Generate Contra
+						</Button>
+					</div>
 				</SheetHeader>
 
 				{/* Tab Navigation */}
@@ -335,6 +392,60 @@ export function CashbookEntryViewDrawer({ isOpen, onClose, entry }) {
 					)}
 				</div>
 			</SheetContent>
+
+			{/* Contra Generation Confirmation Dialog */}
+			<AlertDialog open={showContraDialog} onOpenChange={(open) => !generatingContra && setShowContraDialog(open)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Generate Contra Entry</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to generate a contra entry for this transaction?
+							<div className="mt-4 p-3 bg-gray-50 rounded-md space-y-2">
+								<div className="flex justify-between text-sm">
+									<span className="text-gray-600">Reference:</span>
+									<span className="font-medium">{entry.reference}</span>
+								</div>
+								<div className="flex justify-between text-sm">
+									<span className="text-gray-600">Amount:</span>
+									<span className="font-medium">{Number(entry.amount).toLocaleString()}</span>
+								</div>
+								<div className="flex justify-between text-sm">
+									<span className="text-gray-600">Type:</span>
+									<span className="font-medium">{entry.type}</span>
+								</div>
+							</div>
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel 
+							disabled={generatingContra}
+							className="rounded-full"
+						>
+							Cancel
+						</AlertDialogCancel>
+						<Button
+							onClick={(e) => {
+								e.preventDefault()
+								handleGenerateContra()
+							}}
+							disabled={generatingContra}
+							className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
+						>
+							{generatingContra ? (
+								<>
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+									Generating...
+								</>
+							) : (
+								<>
+									<FileSignature className="w-4 h-4 mr-2" />
+									Generate Contra
+								</>
+							)}
+						</Button>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</Sheet>
 	)
 }

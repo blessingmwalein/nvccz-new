@@ -158,6 +158,38 @@ export interface CashbookBalanceCheckReport {
     summary: CashbookBalanceCheckSummary
 }
 
+// --- CASHBOOK TRANSACTION TYPES ---
+export interface CashbookTransaction {
+    id: string
+    bankId: string
+    transactionDate: string
+    description: string
+    amount: string
+    type: 'RECEIPT' | 'PAYMENT'
+    reference: string
+    status: string
+    counterpartyType: 'CUSTOMER' | 'VENDOR' | 'GL' | 'SUPPLIER'
+    glAccountId: string | null
+    customerId: string | null
+    vendorId: string | null
+    journalEntryId: string | null
+    isReconciled: boolean
+    reconciledAt: string | null
+    reconciledById: string | null
+    createdById: string
+    createdAt: string
+    updatedAt: string
+    isReversed?: boolean
+    reversedAt?: string | null
+    reversedById?: string | null
+    reversalId?: string | null
+    originalTransactionId?: string | null
+    bank?: CashbookBank
+    customer?: any
+    vendor?: any
+    glAccount?: any
+}
+
 // --- OPEN ITEMS TYPES ---
 export interface OpenItem {
     id: string
@@ -298,6 +330,126 @@ class CashbookApiService {
         projectCode?: string
     }): Promise<AccountingResponse<any>> {
         return apiClient.post<AccountingResponse<any>>('/cashbook/transfers', data)
+    }
+
+    // Cashbook Transactions
+    async getCashbookTransactions(params?: {
+        type?: 'RECEIPT' | 'PAYMENT'
+        status?: string
+        bankId?: string
+        page?: number
+        limit?: number
+    }): Promise<AccountingResponse<{ reversals: CashbookTransaction[]; pagination: any }>> {
+        const queryParams = new URLSearchParams()
+        if (params?.type) queryParams.append('type', params.type)
+        if (params?.status) queryParams.append('status', params.status)
+        if (params?.bankId) queryParams.append('bankId', params.bankId)
+        if (params?.page) queryParams.append('page', params.page.toString())
+        if (params?.limit) queryParams.append('limit', params.limit.toString())
+        
+        return apiClient.get<AccountingResponse<{ reversals: CashbookTransaction[]; pagination: any }>>(`/cashbook/transactions?${queryParams.toString()}`)
+    }
+
+    // Entry Types Management
+    async getEntryTypes(filters?: { transactionType?: string; isActive?: boolean }): Promise<AccountingResponse<any[]>> {
+        const queryParams = new URLSearchParams()
+        if (filters?.transactionType) queryParams.append('transactionType', filters.transactionType)
+        if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString())
+        return apiClient.get<AccountingResponse<any[]>>(`/cashbook/entry-types?${queryParams.toString()}`)
+    }
+
+    async createEntryType(data: {
+        name: string
+        description?: string
+        transactionType: 'RECEIPT' | 'PAYMENT'
+        counterpartyType: 'GL' | 'CUSTOMER' | 'SUPPLIER'
+        defaultGlAccountId?: string
+        isActive?: boolean
+        requiresProjectCode?: boolean
+        requiresReference?: boolean
+        autoGenerateReference?: boolean
+        referencePrefix?: string
+        debitCreditLogic?: 'AUTO' | 'MANUAL'
+        defaultDebitCredit?: 'DEBIT' | 'CREDIT'
+    }): Promise<AccountingResponse<any>> {
+        return apiClient.post<AccountingResponse<any>>('/cashbook/entry-types', data)
+    }
+
+    async updateEntryType(id: string, data: Partial<{
+        name: string
+        description?: string
+        transactionType: 'RECEIPT' | 'PAYMENT'
+        counterpartyType: 'GL' | 'CUSTOMER' | 'SUPPLIER'
+        defaultGlAccountId?: string
+        isActive?: boolean
+        requiresProjectCode?: boolean
+        requiresReference?: boolean
+        autoGenerateReference?: boolean
+        referencePrefix?: string
+        debitCreditLogic?: 'AUTO' | 'MANUAL'
+        defaultDebitCredit?: 'DEBIT' | 'CREDIT'
+    }>): Promise<AccountingResponse<any>> {
+        return apiClient.put<AccountingResponse<any>>(`/cashbook/entry-types/${id}`, data)
+    }
+
+    async deleteEntryType(id: string): Promise<AccountingResponse<any>> {
+        return apiClient.delete<AccountingResponse<any>>(`/cashbook/entry-types/${id}`)
+    }
+
+    // Period Lockout Management
+    async getPeriods(filters?: { year?: number; isLocked?: boolean }): Promise<AccountingResponse<any[]>> {
+        const queryParams = new URLSearchParams()
+        if (filters?.year) queryParams.append('year', filters.year.toString())
+        if (filters?.isLocked !== undefined) queryParams.append('isLocked', filters.isLocked.toString())
+        return apiClient.get<AccountingResponse<any[]>>(`/cashbook/periods?${queryParams.toString()}`)
+    }
+
+    async lockPeriod(data: { period: string; isLocked: boolean; reason?: string }): Promise<AccountingResponse<any>> {
+        return apiClient.post<AccountingResponse<any>>('/cashbook/periods/lock', data)
+    }
+
+    async getPeriodStatus(period: string): Promise<AccountingResponse<any>> {
+        return apiClient.get<AccountingResponse<any>>(`/cashbook/periods/${period}/status`)
+    }
+
+    async validateTransactionDate(transactionDate: string): Promise<AccountingResponse<any>> {
+        return apiClient.post<AccountingResponse<any>>('/cashbook/periods/validate-date', { transactionDate })
+    }
+
+    // Contra Entry Management
+    async getContraConfigs(filters?: { entryType?: string; glAccountId?: string; isEnabled?: boolean }): Promise<AccountingResponse<any[]>> {
+        const queryParams = new URLSearchParams()
+        if (filters?.entryType) queryParams.append('entryType', filters.entryType)
+        if (filters?.glAccountId) queryParams.append('glAccountId', filters.glAccountId)
+        if (filters?.isEnabled !== undefined) queryParams.append('isEnabled', filters.isEnabled.toString())
+        return apiClient.get<AccountingResponse<any[]>>(`/cashbook/contra/configs?${queryParams.toString()}`)
+    }
+
+    async configureContraEntry(data: {
+        entryType: 'RECEIPT' | 'PAYMENT'
+        glAccountId: string
+        contraType: 'DETAILED' | 'SUMMARY'
+        isEnabled: boolean
+    }): Promise<AccountingResponse<any>> {
+        return apiClient.post<AccountingResponse<any>>('/cashbook/contra/configure', data)
+    }
+
+    async updateContraConfig(id: string, data: Partial<{
+        entryType: 'RECEIPT' | 'PAYMENT'
+        glAccountId: string
+        contraType: 'DETAILED' | 'SUMMARY'
+        isEnabled: boolean
+    }>): Promise<AccountingResponse<any>> {
+        return apiClient.put<AccountingResponse<any>>(`/cashbook/contra/configure/${id}`, data)
+    }
+
+    async deleteContraConfig(id: string): Promise<AccountingResponse<any>> {
+        return apiClient.delete<AccountingResponse<any>>(`/cashbook/contra/configure/${id}`)
+    }
+
+    // Generate Contra Entry
+    async generateContraEntry(cashbookEntryId: string): Promise<AccountingResponse<any>> {
+        return apiClient.post<AccountingResponse<any>>('/cashbook/contra/generate', { cashbookEntryId })
     }
 }
 

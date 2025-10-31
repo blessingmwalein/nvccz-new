@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Banknote, Eye, TrendingUp, TrendingDown, Scale, Building2, AlertTriangle, FileText, BarChart3, CheckCircle, BookOpen } from "lucide-react"
+import { Plus, FileText, BarChart3, TrendingUp, BookOpen, Settings, Lock, FileSignature } from "lucide-react"
 import { format, startOfWeek, endOfWeek } from "date-fns"
 import { cn } from "@/lib/utils"
 import type { RootState, AppDispatch } from "@/lib/store/store"
@@ -12,9 +12,6 @@ import {
   fetchCashbookBanks,
   fetchCashbookEntries,
   setSelectedCashbookBank,
-  fetchCashbookBankPosition,
-  fetchCashbookCashFlowReport,
-  fetchCashbookBalanceCheck
 } from "@/lib/store/slices/accountingSlice"
 import { CreateCashbookReceiptModal } from "@/components/accounting/create-cashbook-receipt-modal"
 import { CreateCashbookPaymentModal } from "@/components/accounting/create-cashbook-payment-modal"
@@ -27,16 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { DatePicker } from "@/components/ui/date-picker" // Assuming shadcn DatePicker is available
+import { DatePicker } from "@/components/ui/date-picker"
 import { CashbookDataTable } from "@/components/accounting/CashbookDataTable"
-import { Card, CardContent } from "@/components/ui/card"
 import { ProcessCashbookModal } from "@/components/accounting/process-cashbook"
 import { cashbookApi } from "@/lib/api/cashbook-api"
-import { Skeleton } from "@/components/ui/skeleton"  // Add import for skeleton
-import { CreateCashbookTransferModal } from "@/components/accounting/create-cashbook-transfer-modal"  // Add import for new modal
+import { Skeleton } from "@/components/ui/skeleton"
+import { CreateCashbookTransferModal } from "@/components/accounting/create-cashbook-transfer-modal"
 import { ProcurementDataTable } from "@/components/procurement/procurement-data-table"
 import { CashbookBatchViewDrawer } from "@/components/accounting/cashbook-batch-view-drawer"
-import { CashbookTransferViewDrawer } from "@/components/accounting/cashbook-transfer-view-drawer"  // Add import for new drawer
+import { CashbookTransferViewDrawer } from "@/components/accounting/cashbook-transfer-view-drawer"
+import { EntryTypesTab } from "@/components/accounting/tabs/entry-types-tab"
+import { PeriodLockoutTab } from "@/components/accounting/tabs/period-lockout-tab"
+import { ContraEntriesTab } from "@/components/accounting/tabs/contra-entries-tab"
 
 function getWeekRange() {
   const now = new Date()
@@ -46,38 +45,31 @@ function getWeekRange() {
   }
 }
 
-
-// Add formatCurrency helper function
 const formatCurrency = (amount: number, currencyCode: string = 'USD') => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(amount)
 }
 
-// Define tabs
 const mainTabs = [
   { id: 'single', label: 'Single Entries', icon: FileText, gradient: 'from-blue-500 to-blue-600' },
   { id: 'batch', label: 'Batch', icon: BarChart3, gradient: 'from-green-500 to-green-600' },
-  { id: 'transfers', label: 'Cashbook Transfers', icon: TrendingUp, gradient: 'from-purple-500 to-purple-600' },  // Add new tab
+  { id: 'transfers', label: 'Cashbook Transfers', icon: TrendingUp, gradient: 'from-purple-500 to-purple-600' },
+  { id: 'entry-types', label: 'Entry Types', icon: Settings, gradient: 'from-orange-500 to-orange-600' },
+  { id: 'period-lockout', label: 'Period Lockout', icon: Lock, gradient: 'from-red-500 to-red-600' },
+  { id: 'contra-entries', label: 'Contra Entries', icon: FileSignature, gradient: 'from-indigo-500 to-indigo-600' },
 ]
 
 export default function CashbookPage() {
   const dispatch = useDispatch<AppDispatch>()
-  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'transfers'>('single')  // Update type
+  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'transfers' | 'entry-types' | 'period-lockout' | 'contra-entries'>('single')
   const [isProcessCashbookOpen, setIsProcessCashbookOpen] = useState(false)
   const [singleSubTab, setSingleSubTab] = useState<'receipts' | 'payments'>('receipts')
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)  // Add state for transfer modal
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
 
-  // Select correct state for banks and entries
   const cashbookBanks = useSelector((state: RootState) => state.accounting.cashbookBanks)
   const cashbookBanksLoading = useSelector((state: RootState) => state.accounting.cashbookBanksLoading)
   const selectedCashbookBank = useSelector((state: RootState) => state.accounting.selectedCashbookBank)
   const cashbookEntries = useSelector((state: RootState) => state.accounting.cashbookEntries)
   const cashbookEntriesLoading = useSelector((state: RootState) => state.accounting.cashbookEntriesLoading)
-  const cashbookBankPosition = useSelector((state: RootState) => state.accounting.cashbookBankPosition)
-  const cashbookBankPositionLoading = useSelector((state: RootState) => state.accounting.cashbookBankPositionLoading)
-  const cashbookCashFlowReport = useSelector((state: RootState) => state.accounting.cashbookCashFlowReport)
-  const cashbookCashFlowReportLoading = useSelector((state: RootState) => state.accounting.cashbookCashFlowReportLoading)
-  const cashbookBalanceCheckReport = useSelector((state: RootState) => state.accounting.cashbookBalanceCheckReport)
-  const cashbookBalanceCheckReportLoading = useSelector((state: RootState) => state.accounting.cashbookBalanceCheckReportLoading)
 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
@@ -87,30 +79,23 @@ export default function CashbookPage() {
   const [batchesLoading, setBatchesLoading] = useState(false)
   const [selectedBatch, setSelectedBatch] = useState(null)
   const [isBatchDrawerOpen, setIsBatchDrawerOpen] = useState(false)
-  const [transfers, setTransfers] = useState<any[]>([])  // Add state for transfers data
-  const [transfersLoading, setTransfersLoading] = useState(false)  // Add loading state
-  const [transferFilters, setTransferFilters] = useState(() => {  // Add filters for transfers
+  const [transfers, setTransfers] = useState<any[]>([])
+  const [transfersLoading, setTransfersLoading] = useState(false)
+  const [transferFilters, setTransferFilters] = useState(() => {
     const { startDate, endDate } = getWeekRange()
     return { fromBankId: "", toBankId: "", dateFrom: startDate, dateTo: endDate, page: 1, limit: 50 }
   })
-  const [selectedTransfer, setSelectedTransfer] = useState(null)  // Add state for selected transfer
-  const [isTransferDrawerOpen, setIsTransferDrawerOpen] = useState(false)  // Add state for transfer drawer
+  const [selectedTransfer, setSelectedTransfer] = useState(null)
+  const [isTransferDrawerOpen, setIsTransferDrawerOpen] = useState(false)
 
-  // Separate date states for each tab
   const [entriesStartDate, setEntriesStartDate] = useState<Date | undefined>(new Date(getWeekRange().startDate))
   const [entriesEndDate, setEntriesEndDate] = useState<Date | undefined>(new Date(getWeekRange().endDate))
-  const [cashflowStartDate, setCashflowStartDate] = useState<Date | undefined>(new Date(getWeekRange().startDate))
-  const [cashflowEndDate, setCashflowEndDate] = useState<Date | undefined>(new Date(getWeekRange().endDate))
-  const [balancecheckStartDate, setBalancecheckStartDate] = useState<Date | undefined>(new Date(getWeekRange().startDate))
-  const [balancecheckEndDate, setBalancecheckEndDate] = useState<Date | undefined>(new Date(getWeekRange().endDate))
 
-  // Keep filters for entries tab (includes type and status)
   const [filters, setFilters] = useState(() => {
     const { startDate, endDate } = getWeekRange()
     return { type: "", status: "", startDate, endDate }
   })
 
-  // Sync entries dates with filters
   useEffect(() => {
     setFilters(f => ({
       ...f,
@@ -125,9 +110,7 @@ export default function CashbookPage() {
 
   useEffect(() => {
     if (activeTab === 'single') {
-      dispatch(fetchCashbookEntries({
-        ...filters,
-      }))
+      dispatch(fetchCashbookEntries({ ...filters }))
     } else if (activeTab === 'batch') {
       const fetchBatches = async () => {
         setBatchesLoading(true)
@@ -161,7 +144,6 @@ export default function CashbookPage() {
     }
   }, [dispatch, activeTab, filters, transferFilters])
 
-  // Function to export table to CSV (simple Excel-like export)
   const exportToCSV = (data: any[], filename: string) => {
     const headers = ["Date", "Description", "Reference", "Receipts (Dr)", "Payments (Cr)", "Balance", "Status"]
     const rows = data.map(entry => [
@@ -170,10 +152,9 @@ export default function CashbookPage() {
       entry.reference,
       entry.type === "RECEIPT" ? Number(entry.amount).toLocaleString() : "",
       entry.type === "PAYMENT" ? Number(entry.amount).toLocaleString() : "",
-      "", // Balance will be calculated below
+      "",
       entry.status
     ])
-    // Calculate running balance
     let balance = 0
     rows.forEach(row => {
       if (row[3]) balance += parseFloat(row[3].replace(/,/g, ''))
@@ -190,7 +171,6 @@ export default function CashbookPage() {
     URL.revokeObjectURL(url)
   }
 
-  // Calculate running balance for display
   const calculateBalance = (entries: any[]) => {
     let balance = 0
     return entries.map(entry => {
@@ -209,16 +189,8 @@ export default function CashbookPage() {
   })
 
   const batchColumns = [
-    {
-      key: "name",
-      label: "Name",
-      sortable: true,
-    },
-    {
-      key: "description",
-      label: "Description",
-      sortable: true,
-    },
+    { key: "name", label: "Name", sortable: true },
+    { key: "description", label: "Description", sortable: true },
     {
       key: "status",
       label: "Status",
@@ -228,55 +200,17 @@ export default function CashbookPage() {
         </Badge>
       ),
     },
-    {
-      key: "totalAmount",
-      label: "Total Amount",
-      render: (value: number) => formatCurrency(value),
-      sortable: true,
-    },
-    {
-      key: "createdAt",
-      label: "Created At",
-      render: (value: string) => format(new Date(value), "yyyy-MM-dd"),
-      sortable: true,
-    },
+    { key: "totalAmount", label: "Total Amount", render: (value: number) => formatCurrency(value), sortable: true },
+    { key: "createdAt", label: "Created At", render: (value: string) => format(new Date(value), "yyyy-MM-dd"), sortable: true },
   ]
 
   const transferColumns = [
-    {
-      key: "transferDate",
-      label: "Transfer Date",
-      render: (value: string) => format(new Date(value), "yyyy-MM-dd"),
-      sortable: true,
-    },
-    {
-      key: "fromBank",
-      label: "From Bank",
-      render: (value: any) => value?.name || "N/A",
-      sortable: true,
-    },
-    {
-      key: "toBank",
-      label: "To Bank",
-      render: (value: any) => value?.name || "N/A",
-      sortable: true,
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      render: (value: number) => formatCurrency(value),
-      sortable: true,
-    },
-    {
-      key: "description",
-      label: "Description",
-      sortable: true,
-    },
-    {
-      key: "reference",
-      label: "Reference",
-      sortable: true,
-    },
+    { key: "transferDate", label: "Transfer Date", render: (value: string) => format(new Date(value), "yyyy-MM-dd"), sortable: true },
+    { key: "fromBank", label: "From Bank", render: (value: any) => value?.name || "N/A", sortable: true },
+    { key: "toBank", label: "To Bank", render: (value: any) => value?.name || "N/A", sortable: true },
+    { key: "amount", label: "Amount", render: (value: number) => formatCurrency(value), sortable: true },
+    { key: "description", label: "Description", sortable: true },
+    { key: "reference", label: "Reference", sortable: true },
     {
       key: "status",
       label: "Status",
@@ -286,15 +220,6 @@ export default function CashbookPage() {
         </Badge>
       ),
     },
-  ]
-
-  const batchFilterOptions = [
-    { key: "status", label: "Status", options: ["PENDING", "POSTED", "DRAFT"] },
-  ]
-
-  const transferFilterOptions = [
-    { key: "fromBankId", label: "From Bank", options: cashbookBanks.map(b => ({ value: b.id, label: b.name })) },
-    { key: "toBankId", label: "To Bank", options: cashbookBanks.map(b => ({ value: b.id, label: b.name })) },
   ]
 
   const handleViewBatch = (batch: any) => {
@@ -335,7 +260,7 @@ export default function CashbookPage() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Updated font and icon sizes */}
         <div className="flex items-center overflow-x-auto border-b px-6">
           <div className="flex space-x-1 min-w-max">
             {mainTabs.map((tab) => {
@@ -344,14 +269,14 @@ export default function CashbookPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'single' | 'batch' | 'transfers')}
+                  onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
-                    "flex items-center gap-3 px-6 py-4 text-lg font-medium rounded-t-lg border-b-2 transition-all duration-200",
+                    "flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-t-lg border-b-2 transition-all duration-200",
                     isActive ? "text-blue-600 border-blue-600" : "text-gray-600 border-transparent hover:text-gray-900"
                   )}
                 >
-                  <div className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-gradient-to-br transition-all duration-200", tab.gradient)}>
-                    <Icon className="w-4 h-4 text-white" />
+                  <div className={cn("w-5 h-5 rounded-full flex items-center justify-center bg-gradient-to-br transition-all duration-200", tab.gradient)}>
+                    <Icon className="w-3 h-3 text-white" />
                   </div>
                   <span>{tab.label}</span>
                 </button>
@@ -417,21 +342,16 @@ export default function CashbookPage() {
                   <SelectItem value="PENDING">Pending</SelectItem>
                 </SelectContent>
               </Select>
-              {/* Date range pickers */}
-              <div className="flex items-center gap-2">
-                <DatePicker
-                  value={entriesStartDate}
-                  onChange={setEntriesStartDate}
-                  className="rounded-full"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <DatePicker
-                  value={entriesEndDate}
-                  onChange={setEntriesEndDate}
-                  className="rounded-full"
-                />
-              </div>
+              <DatePicker
+                value={entriesStartDate}
+                onChange={setEntriesStartDate}
+                className="rounded-full"
+              />
+              <DatePicker
+                value={entriesEndDate}
+                onChange={setEntriesEndDate}
+                className="rounded-full"
+              />
             </div>
 
             {/* Cashbook Table */}
@@ -450,20 +370,16 @@ export default function CashbookPage() {
         )}
 
         {activeTab === 'batch' && (
-          <>
-            {/* Batch Table */}
-            <ProcurementDataTable
-              data={batches}
-              columns={batchColumns}
-              title="Batch Entries"
-              searchPlaceholder="Search batches..."
-              filterOptions={batchFilterOptions}
-              onView={handleViewBatch}
-              loading={batchesLoading}
-              onExport={() => exportToCSV(batches, 'batches.csv')}
-              emptyMessage="No batches found."
-            />
-          </>
+          <ProcurementDataTable
+            data={batches}
+            columns={batchColumns}
+            title="Batch Entries"
+            searchPlaceholder="Search batches..."
+            onView={handleViewBatch}
+            loading={batchesLoading}
+            onExport={() => exportToCSV(batches, 'batches.csv')}
+            emptyMessage="No batches found."
+          />
         )}
 
         {activeTab === 'transfers' && (
@@ -485,8 +401,8 @@ export default function CashbookPage() {
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>
-                    ))
-                  )}
+                    )))
+                  }
                 </SelectContent>
               </Select>
               <Select
@@ -504,8 +420,8 @@ export default function CashbookPage() {
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>
-                    ))
-                  )}
+                    )))
+                  }
                 </SelectContent>
               </Select>
               <DatePicker
@@ -533,7 +449,6 @@ export default function CashbookPage() {
               columns={transferColumns}
               title="Cashbook Transfers"
               searchPlaceholder="Search transfers..."
-              filterOptions={transferFilterOptions}
               onView={handleViewTransfer}
               loading={transfersLoading}
               onExport={() => exportToCSV(transfers, 'transfers.csv')}
@@ -542,6 +457,10 @@ export default function CashbookPage() {
           </>
         )}
 
+        {activeTab === 'entry-types' && <EntryTypesTab />}
+        {activeTab === 'period-lockout' && <PeriodLockoutTab />}
+        {activeTab === 'contra-entries' && <ContraEntriesTab />}
+
         {/* Modals */}
         <CreateCashbookReceiptModal
           isOpen={isReceiptModalOpen}
@@ -549,9 +468,7 @@ export default function CashbookPage() {
           bank={selectedCashbookBank}
           onSuccess={() => {
             setIsReceiptModalOpen(false)
-            dispatch(fetchCashbookEntries({
-              ...filters,
-            }))
+            dispatch(fetchCashbookEntries({ ...filters }))
           }}
         />
         <CreateCashbookPaymentModal
@@ -560,13 +477,10 @@ export default function CashbookPage() {
           bank={selectedCashbookBank}
           onSuccess={() => {
             setIsPaymentModalOpen(false)
-            dispatch(fetchCashbookEntries({
-              ...filters,
-            }))
+            dispatch(fetchCashbookEntries({ ...filters }))
           }}
         />
 
-        {/* Entry View Drawer */}
         <CashbookEntryViewDrawer
           isOpen={isViewDrawerOpen}
           onClose={() => {
@@ -584,7 +498,6 @@ export default function CashbookPage() {
           onBankChange={(bank) => dispatch(setSelectedCashbookBank(bank))}
         />
 
-        {/* Batch View Drawer */}
         <CashbookBatchViewDrawer
           isOpen={isBatchDrawerOpen}
           onClose={() => {
@@ -595,7 +508,6 @@ export default function CashbookPage() {
           onBatchUpdate={handleBatchUpdate}
         />
 
-        {/* Transfer Modal */}
         <CreateCashbookTransferModal
           isOpen={isTransferModalOpen}
           onClose={() => setIsTransferModalOpen(false)}
@@ -620,7 +532,6 @@ export default function CashbookPage() {
           }}
         />
 
-        {/* Transfer Drawer */}
         <CashbookTransferViewDrawer
           isOpen={isTransferDrawerOpen}
           onClose={() => {

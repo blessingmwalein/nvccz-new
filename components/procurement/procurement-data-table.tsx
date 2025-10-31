@@ -319,6 +319,8 @@ export function ProcurementDataTable<T extends { id: string }>({
                         <Checkbox
                           checked={selectedRows.length === paginatedData.length && paginatedData.length > 0}
                           onCheckedChange={handleSelectAll}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                         />
                       </TableHead>
                     )}
@@ -346,12 +348,27 @@ export function ProcurementDataTable<T extends { id: string }>({
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((row) => (
-                    <TableRow key={row.id}>
+                    <TableRow
+                      key={row.id}
+                      onClick={() => onView?.(row)}
+                      onKeyDown={(e) => {
+                        if (!onView) return
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          onView(row)
+                        }
+                      }}
+                      tabIndex={onView ? 0 : -1}
+                      role={onView ? "button" : undefined}
+                      className={`transition-colors ${onView ? "cursor-pointer hover:bg-gray-50 focus:bg-gray-50" : ""}`}
+                    >
                       {(bulkActions.length > 0 || onBulkAction) && (
                         <TableCell>
                           <Checkbox
                             checked={selectedRows.includes(row.id)}
                             onCheckedChange={(checked) => handleSelectRow(row.id, checked as boolean)}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                           />
                         </TableCell>
                       )}
@@ -367,11 +384,16 @@ export function ProcurementDataTable<T extends { id: string }>({
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
                                 <MoreHorizontal className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                               {onView && (
                                 <DropdownMenuItem onClick={() => onView(row)}>
                                   <Eye className="w-4 h-4 mr-2" />
