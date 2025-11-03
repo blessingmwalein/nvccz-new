@@ -27,7 +27,14 @@ import {
   Target, 
   List,
   Edit,
-  X
+  X,
+  TrendingUp, 
+  Building2, 
+  DollarSign,
+  Calendar,
+  Hash,
+  FileText,
+  BarChart3
 } from "lucide-react"
 import { KPI } from "@/lib/store/slices/performanceSlice"
 
@@ -69,6 +76,17 @@ export function KPIViewDrawer({ isOpen, onClose, kpi, onEdit, onDelete }: KPIVie
     })
   }
 
+   const getAccountTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      'Asset': 'bg-green-100 text-green-800',
+      'Liability': 'bg-red-100 text-red-800',
+      'Equity': 'bg-purple-100 text-purple-800',
+      'Revenue': 'bg-blue-100 text-blue-800',
+      'Expense': 'bg-orange-100 text-orange-800'
+    }
+    return colors[type] || 'bg-gray-100 text-gray-800'
+  }
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'Percentage': return 'bg-cyan-100 text-cyan-800'
@@ -93,35 +111,30 @@ export function KPIViewDrawer({ isOpen, onClose, kpi, onEdit, onDelete }: KPIVie
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[35vw] min-w-[800px] max-w-[1200px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden [&>button[class*='ring-offset-background']]:hidden [&>button[class*='absolute']]:hidden [&>button[class*='top-4']]:hidden">
+      <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
         <SheetHeader>
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-2xl font-normal flex items-center gap-2">
-              <Target className="w-6 h-6" />
-              KPI Details
-            </SheetTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onEdit(kpi)}
-                className="rounded-full h-10 w-10"
-              >
-                <Edit className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="rounded-full h-10 w-10"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+          <SheetTitle className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-white" />
             </div>
-          </div>
+            <span>{kpi.name}</span>
+          </SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          {/* Status Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={getTypeColor(kpi.type)}>{kpi.type}</Badge>
+            {kpi.isActive ? (
+              <Badge className="bg-green-100 text-green-800">Active</Badge>
+            ) : (
+              <Badge className="bg-red-100 text-red-800">Inactive</Badge>
+            )}
+            {kpi.hardcodedDetails?.isFinancial && (
+              <Badge className="bg-indigo-100 text-indigo-800">Financial</Badge>
+            )}
+          </div>
+
           {/* KPI Header */}
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="flex items-start justify-between">
@@ -266,10 +279,54 @@ export function KPIViewDrawer({ isOpen, onClose, kpi, onEdit, onDelete }: KPIVie
                   </div>
                 )}
 
+                {/* Hardcoded Details */}
+                {kpi.hardcodedDetails && (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-lg font-normal text-gray-900 flex items-center gap-2 mb-4">
+                      <Building2 className="w-5 h-5" />
+                      Financial Details
+                    </h3>
+                    <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                      <div>
+                        <span className="text-xs text-gray-500 uppercase">Description</span>
+                        <p className="text-sm text-gray-900 mt-1">{kpi.hardcodedDetails.description}</p>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Account Type</span>
+                        <Badge className={getAccountTypeColor(kpi.hardcodedDetails.accountType)}>
+                          {kpi.hardcodedDetails.accountType}
+                        </Badge>
+                      </div>
+                      
+                      {kpi.hardcodedDetails.accountNumber && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Account Number</span>
+                          <span className="text-sm font-medium font-mono">{kpi.hardcodedDetails.accountNumber}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Journal Entry Type</span>
+                        <Badge variant="outline" className="text-xs">
+                          {kpi.hardcodedDetails.journalEntryType}
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Code</span>
+                        <span className="text-xs font-mono text-gray-700 bg-gray-200 px-2 py-1 rounded">
+                          {kpi.hardcodedDetails.code}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Timestamps */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-normal text-gray-900 flex items-center gap-2 mb-4">
-                    <CiCalendar className="w-5 h-5" />
+                    <Calendar className="w-5 h-5" />
                     Timestamps
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

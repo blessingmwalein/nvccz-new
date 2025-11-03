@@ -5,36 +5,34 @@ export interface Goal {
   id: string
   title: string
   description: string
-  type: string
-  category: string
-  parentGoalId?: string
+  type: 'company' | 'department' | 'individual'
+  category: 'financial' | 'operational' | 'strategic'
   departmentId: string
-  monetaryValue: string
-  percentValue: string
-  monetaryValueAchieved: string
-  percentValueAchieved: string
-  kpiId?: string
-  status: string
-  priority: string
-  stage: string
+  monetaryValue?: string
+  percentValue?: string
+  monetaryValueAchieved?: string
+  percentValueAchieved?: string
+  priority: 'low' | 'medium' | 'high' | 'critical'
   startDate: string
   endDate: string
-  completedAt?: string
-  assignedToId?: string
-  createdById: string
-  activities?: any
+  assignedToId: string
+  status: 'not_started' | 'in_progress' | 'completed' | 'cancelled'
+  stage: 'planning' | 'in_progress' | 'completed'
+  progress: number
   createdAt: string
   updatedAt: string
+  completedAt?: string
+  parentGoalId?: string
+  kpiId?: string
+  createdById: string
+  
+  // Relational fields
   kpi?: {
     id: string
     name: string
     type: string
-    unitSymbol: string
-    unitPosition: string
-  }
-  department: {
-    id: string
-    name: string
+    unitSymbol?: string
+    unitPosition?: string
   }
   assignedTo?: {
     id: string
@@ -42,27 +40,26 @@ export interface Goal {
     lastName: string
     email: string
   }
-  createdBy: {
+  createdBy?: {
     id: string
     firstName: string
     lastName: string
     email: string
+  }
+  department?: {
+    id: string
+    name: string
   }
   parentGoal?: {
     id: string
     title: string
     type: string
   }
-  subGoals: Array<{
-    id: string
-    title: string
-    type: string
-    status: string
-    stage: string
-  }>
-  _count: {
-    subGoals: number
-    tasks: number
+  subGoals?: Goal[]
+  tasks?: any[]
+  _count?: {
+    subGoals?: number
+    tasks?: number
   }
 }
 

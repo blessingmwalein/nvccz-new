@@ -85,7 +85,17 @@ export interface TaskCreateResponse extends ApiResponse {
 }
 
 class DepartmentApiService {
-  // Get all departments with optional filters
+  // Get all available departments (simplified endpoint)
+  async getAvailableDepartments(): Promise<{ name: string; description: string }[]> {
+    const response = await apiClient.get<{
+      success: boolean;
+      message: string;
+      departments: { name: string; description: string }[];
+    }>('/performance/breakdown/departments/available')
+    return response.departments || []
+  }
+
+  // Get all departments with optional filters (legacy endpoint - keep for backwards compatibility)
   async getDepartments(filters?: {
     isActive?: boolean;
     branch?: string;

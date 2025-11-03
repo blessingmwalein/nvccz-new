@@ -332,38 +332,11 @@ export const performanceAPI = {
     }
   },
 
-  createDepartment: async (department: Omit<Department, 'id' | 'createdAt' | 'updatedAt' | 'users' | 'goals' | '_count'>): Promise<Department> => {
-    try {
-      const response = await departmentApiService.createDepartment(department)
-      return transformDepartmentData(response.department)
-    } catch (error: any) {
-      console.error('Failed to create department:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create department'
-      throw new Error(errorMessage)
-    }
+  getAvailableDepartments: async (): Promise<{ name: string; description: string }[]> => {
+    const response = await departmentApiService.getDepartments()
+    return response.departments
   },
 
-  updateDepartment: async (id: string, updates: Partial<Department>): Promise<Department> => {
-    try {
-      const response = await departmentApiService.updateDepartment(id, updates)
-      return transformDepartmentData(response.department)
-    } catch (error: any) {
-      console.error('Failed to update department:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update department'
-      throw new Error(errorMessage)
-    }
-  },
-
-  deleteDepartment: async (id: string): Promise<void> => {
-    try {
-      await departmentApiService.deleteDepartment(id)
-    } catch (error: any) {
-      console.error('Failed to delete department:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete department'
-      throw new Error(errorMessage)
-    }
-  },
-  
   // Goal APIs
   getGoals: async (): Promise<PerformanceGoal[]> => {
     await new Promise(resolve => setTimeout(resolve, 500))

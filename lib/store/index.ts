@@ -23,6 +23,7 @@ import eventWizardReducer from './slices/eventWizardSlice'
 import analyticsReducer from './slices/analyticsSlice'
 import testPerfomanceReducer from './slices/testPerfomanceSlice'
 import cashbookReducer from './slices/cashbookSlice'
+import scorecardReducer from "./slices/scorecardSlice" // Import the new reducer
 
 export const store = configureStore({
   reducer: {
@@ -48,6 +49,7 @@ export const store = configureStore({
     analytics: analyticsReducer,
     testPerfomance:testPerfomanceReducer,
     cashbook: cashbookReducer,
+    scorecard: scorecardReducer, // Add the scorecard reducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

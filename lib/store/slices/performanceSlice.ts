@@ -1,4 +1,7 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
+import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit"
+import { departmentApiService } from "@/lib/api/department-api"
+import { kpiApiService } from '@/lib/api/kpi-api'
+import { goalApiService } from '@/lib/api/goal-api'
 
 // KPI Types
 export interface KPI {
@@ -113,11 +116,16 @@ export interface PerformanceMetrics {
   }[]
 }
 
+interface GetGoalsParams {
+  type?: 'company' | 'department' | 'individual' | ''
+  department?: string
+}
+
 interface PerformanceState {
   // Data
   kpis: KPI[]
   departments: Department[]
-  goals: PerformanceGoal[]
+  goals: any[]
   tasks: Task[]
   metrics: PerformanceMetrics | null
   
@@ -149,6 +157,31 @@ interface PerformanceState {
   // Pagination
   currentPage: number
   itemsPerPage: number
+
+  // Available Departments
+  availableDepartments: { name: string; description: string }[]
+
+  // KPI Statistics
+  availableKPIs: any[]
+  kpiStatistics: any | null
+  selectedDepartmentFilter: string
+  selectedAccountTypeFilter: string
+
+  // Financial KPIs
+  financialKPIs: any[]
+  financialKPIsLoading: boolean
+
+  // Goals
+  goalsLoading: boolean
+  goalError: string | null
+
+  // Breakdown
+  breakdownUsers: any[]
+  breakdownUsersLoading: boolean
+
+  // Goal Details
+  selectedGoalDetails: any | null
+  selectedGoalDetailsLoading: boolean
 }
 
 const initialState: PerformanceState = {
@@ -187,7 +220,209 @@ const initialState: PerformanceState = {
   // Pagination
   currentPage: 1,
   itemsPerPage: 10,
+
+  // Available Departments
+  availableDepartments: [],
+
+  // KPI Statistics
+  availableKPIs: [],
+  kpiStatistics: null,
+  selectedDepartmentFilter: 'all',
+  selectedAccountTypeFilter: 'all',
+
+  // Financial KPIs
+  financialKPIs: [],
+  financialKPIsLoading: false,
+
+  // Goals
+  goalsLoading: false,
+  goalError: null,
+
+  // Breakdown
+  breakdownUsers: [],
+  breakdownUsersLoading: false,
+
+  // Goal Details
+  selectedGoalDetails: null,
+  selectedGoalDetailsLoading: false,
 }
+
+// Async thunks
+export const fetchAvailableDepartments = createAsyncThunk(
+  "performance/fetchAvailableDepartments",
+  async (_, { rejectWithValue }) => {
+    try {
+      const departments = await departmentApiService.getAvailableDepartments()
+      return departments
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Failed to load departments")
+    }
+  }
+)
+
+// Async thunks for KPIs
+export const fetchAvailableKPIs = createAsyncThunk(
+  'performance/fetchAvailableKPIs',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await kpiApiService.getAvailableKPIs()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to load KPIs')
+    }
+  }
+)
+
+export const fetchKPIsByDepartment = createAsyncThunk(
+  'performance/fetchKPIsByDepartment',
+  async (departmentName: string, { rejectWithValue }) => {
+    try {
+      const response = await kpiApiService.getKPIsByDepartment(departmentName)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to load department KPIs')
+    }
+  }
+)
+
+export const fetchKPIsByAccountType = createAsyncThunk(
+  'performance/fetchKPIsByAccountType',
+  async (accountType: string, { rejectWithValue }) => {
+    try {
+      const response = await kpiApiService.getKPIsByAccountType(accountType)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to load KPIs by account type')
+    }
+  }
+)
+
+export const fetchKPIStatistics = createAsyncThunk(
+  'performance/fetchKPIStatistics',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await kpiApiService.getKPIStatistics()
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to load KPI statistics')
+    }
+  }
+)
+
+export const fetchFinancialKPIs = createAsyncThunk(
+  'performance/fetchFinancialKPIs',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await kpiApiService.getFinancialKPIs()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to load financial KPIs')
+    }
+  }
+)
+
+// Async thunks for Goals
+export const fetchGoals = createAsyncThunk(
+  'performance/fetchGoals',
+  async (params: GetGoalsParams = {}, { rejectWithValue }) => {
+    try {
+      const response = await goalApiService.getGoals(params)
+      return response.goals
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to load goals')
+    }
+  },
+)
+
+export const createGoal = createAsyncThunk(
+  'performance/createGoal',
+  async (goalData: any, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await goalApiService.createGoal(goalData)
+      dispatch(fetchGoals()) // Refetch goals after creation
+      return response.goal
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to create goal')
+    }
+  },
+)
+
+export const deleteGoal = createAsyncThunk(
+  'performance/deleteGoal',
+  async (goalId: string, { dispatch, rejectWithValue }) => {
+    try {
+      await goalApiService.deleteGoal(goalId)
+      dispatch(fetchGoals()) // Refetch goals after deletion
+      return goalId
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to delete goal')
+    }
+  },
+)
+
+export const updateGoal = createAsyncThunk(
+  'performance/updateGoal',
+  async ({ goalId, data }: { goalId: string; data: any }, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await goalApiService.updateGoal(goalId, data)
+      dispatch(fetchGoals()) // Refetch goals after update
+      return response.goal
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to update goal')
+    }
+  },
+)
+
+// Async thunks for Goal Breakdown
+export const breakdownGoalToDepartments = createAsyncThunk(
+  'performance/breakdownToDepartments',
+  async (data: any, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await goalApiService.breakdownToDepartments(data)
+      dispatch(fetchGoals()) // Refetch goals to show new sub-goals
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to breakdown goal')
+    }
+  },
+)
+
+export const fetchUsersForBreakdown = createAsyncThunk(
+  'performance/fetchUsersForBreakdown',
+  async (departmentName: string, { rejectWithValue }) => {
+    try {
+      const response = await goalApiService.getUsersForBreakdown(departmentName)
+      return response.users
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch users')
+    }
+  },
+)
+
+export const breakdownGoalToIndividuals = createAsyncThunk(
+  'performance/breakdownToIndividuals',
+  async (data: any, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await goalApiService.breakdownToIndividuals(data)
+      dispatch(fetchGoals()) // Refetch goals to show new sub-goals
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to breakdown goal')
+    }
+  },
+)
+
+export const fetchGoalDetails = createAsyncThunk(
+  'performance/fetchGoalDetails',
+  async (goalId: string, { rejectWithValue }) => {
+    try {
+      const response = await goalApiService.getGoal(goalId)
+      return response.goal
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch goal details')
+    }
+  },
+)
 
 const performanceSlice = createSlice({
   name: "performance",
@@ -239,17 +474,11 @@ const performanceSlice = createSlice({
     },
     
     // Goals
-    setGoals: (state, action: PayloadAction<PerformanceGoal[]>) => {
+    setGoals: (state, action: PayloadAction<any[]>) => {
       state.goals = action.payload
     },
-    addGoal: (state, action: PayloadAction<PerformanceGoal>) => {
+    addGoal: (state, action: PayloadAction<any>) => {
       state.goals.unshift(action.payload)
-    },
-    updateGoal: (state, action: PayloadAction<{ id: string; updates: Partial<PerformanceGoal> }>) => {
-      const index = state.goals.findIndex((goal) => goal.id === action.payload.id)
-      if (index !== -1) {
-        state.goals[index] = { ...state.goals[index], ...action.payload.updates }
-      }
     },
     removeGoal: (state, action: PayloadAction<string>) => {
       state.goals = state.goals.filter((goal) => goal.id !== action.payload)
@@ -333,6 +562,30 @@ const performanceSlice = createSlice({
       state.itemsPerPage = action.payload
     },
     
+    // Available Departments
+    setAvailableDepartments: (state, action: PayloadAction<{ name: string; description: string }[]>) => {
+      state.availableDepartments = action.payload
+    },
+    
+    // KPI Statistics
+    setSelectedViewMode: (state, action: PayloadAction<'all' | 'department' | 'accountType'>) => {
+      state.selectedViewMode = action.payload
+    },
+    setSelectedAccountType: (state, action: PayloadAction<string>) => {
+      state.selectedAccountType = action.payload
+    },
+    
+    // New reducers
+    setSelectedDepartmentFilter: (state, action: PayloadAction<string>) => {
+      state.selectedDepartmentFilter = action.payload
+    },
+    setSelectedAccountTypeFilter: (state, action: PayloadAction<string>) => {
+      state.selectedAccountTypeFilter = action.payload
+    },
+    clearAvailableKPIs: (state) => {
+      state.availableKPIs = []
+    },
+    
     // Reset filters
     resetFilters: (state) => {
       state.selectedDepartment = "all"
@@ -352,6 +605,133 @@ const performanceSlice = createSlice({
       state.kpiSearchTerm = ""
       state.currentPage = 1
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchAvailableDepartments.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchAvailableDepartments.fulfilled, (state, action) => {
+        state.loading = false
+        state.availableDepartments = action.payload
+        state.error = null
+      })
+      .addCase(fetchAvailableDepartments.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      // Fetch available KPIs
+      .addCase(fetchAvailableKPIs.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchAvailableKPIs.fulfilled, (state, action) => {
+        state.loading = false
+        state.availableKPIs = action.payload.data || []
+        state.error = null
+      })
+      .addCase(fetchAvailableKPIs.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      // Fetch KPIs by department
+      .addCase(fetchKPIsByDepartment.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchKPIsByDepartment.fulfilled, (state, action) => {
+        state.loading = false
+        state.availableKPIs = action.payload.data || []
+        state.error = null
+      })
+      .addCase(fetchKPIsByDepartment.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      // Fetch KPIs by account type
+      .addCase(fetchKPIsByAccountType.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchKPIsByAccountType.fulfilled, (state, action) => {
+        state.loading = false
+        state.availableKPIs = action.payload.data || []
+        state.error = null
+      })
+      .addCase(fetchKPIsByAccountType.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      // Fetch KPI statistics
+      .addCase(fetchKPIStatistics.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(fetchKPIStatistics.fulfilled, (state, action) => {
+        state.loading = false
+        state.kpiStatistics = action.payload
+      })
+      .addCase(fetchKPIStatistics.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      // Fetch financial KPIs
+      .addCase(fetchFinancialKPIs.pending, (state) => {
+        state.financialKPIsLoading = true
+        state.error = null
+      })
+      .addCase(fetchFinancialKPIs.fulfilled, (state, action) => {
+        state.financialKPIsLoading = false
+        state.financialKPIs = action.payload.data || []
+      })
+      .addCase(fetchFinancialKPIs.rejected, (state, action) => {
+        state.financialKPIsLoading = false
+        state.error = action.payload as string
+      })
+      // Goals Reducers
+      .addCase(fetchGoals.pending, (state) => {
+        state.goalsLoading = true
+        state.goalError = null
+      })
+      .addCase(fetchGoals.fulfilled, (state, action) => {
+        state.goalsLoading = false
+        state.goals = action.payload
+      })
+      .addCase(fetchGoals.rejected, (state, action) => {
+        state.goalsLoading = false
+        state.goalError = action.payload as string
+      })
+      .addCase(createGoal.fulfilled, (state, action) => {
+        // The list is refetched, but we can add the new goal for immediate UI update
+        state.goals.unshift(action.payload)
+      })
+      .addCase(deleteGoal.fulfilled, (state, action) => {
+        state.goals = state.goals.filter((g) => g.id !== action.payload)
+      })
+      // Breakdown Reducers
+      .addCase(fetchUsersForBreakdown.pending, (state) => {
+        state.breakdownUsersLoading = true
+      })
+      .addCase(fetchUsersForBreakdown.fulfilled, (state, action) => {
+        state.breakdownUsersLoading = false
+        state.breakdownUsers = action.payload
+      })
+      .addCase(fetchUsersForBreakdown.rejected, (state) => {
+        state.breakdownUsersLoading = false
+        state.breakdownUsers = []
+      })
+      // Goal Details
+      .addCase(fetchGoalDetails.pending, (state) => {
+        state.selectedGoalDetailsLoading = true
+        state.selectedGoalDetails = null
+      })
+      .addCase(fetchGoalDetails.fulfilled, (state, action) => {
+        state.selectedGoalDetailsLoading = false
+        state.selectedGoalDetails = action.payload
+      })
+      .addCase(fetchGoalDetails.rejected, (state) => {
+        state.selectedGoalDetailsLoading = false
+      })
   },
 })
 
@@ -376,7 +756,6 @@ export const {
   // Goals
   setGoals,
   addGoal,
-  updateGoal,
   removeGoal,
   
   // Tasks
@@ -411,6 +790,18 @@ export const {
   // Pagination
   setCurrentPage,
   setItemsPerPage,
+  
+  // Available Departments
+  setAvailableDepartments,
+
+  // KPI Statistics
+  setSelectedViewMode,
+  setSelectedAccountType,
+  
+  // New exports
+  setSelectedDepartmentFilter,
+  setSelectedAccountTypeFilter,
+  clearAvailableKPIs,
   
   // Reset
   resetFilters,

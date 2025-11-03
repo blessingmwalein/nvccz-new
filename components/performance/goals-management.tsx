@@ -1,7 +1,17 @@
 "use client"
 
-import { useState } from "react"
-import { useAppSelector } from "@/lib/store"
+import { useState, useEffect, useMemo } from "react"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import {
+  fetchGoals,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+  fetchAvailableDepartments,
+  fetchAvailableKPIs,
+  breakdownGoalToDepartments,
+  breakdownGoalToIndividuals,
+} from "@/lib/store/slices/performanceSlice"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,23 +25,88 @@ import {
   CiCircleCheck as CiTarget,
   CiCircleCheck,
   CiRedo,
-  CiViewList,
+  CiViewList
 } from "react-icons/ci"
 import { toast } from "sonner"
-import { Drawer } from "../ui/drawer"
 import { GoalFormModal } from "./goal-form-modal"
-// import { Drawer, FormModal } from "@/components/ui"
+import { GoalViewDrawer } from "./goal-view-drawer"
+import { GoalsSkeleton } from "./goals-skeleton"
+import { DepartmentBreakdownModal } from "./department-breakdown-modal"
+import { IndividualBreakdownModal } from "./individual-breakdown-modal"
+import { AnimatePresence, motion } from "framer-motion"
+import { cn } from "@/lib/utils"
+import { ChevronDown } from "lucide-react"
+
+const CollapsibleSection = ({
+  title,
+  count,
+  color,
+  children,
+}: {
+  title: string
+  count: number
+  color: string
+  children: React.ReactNode
+}) => {
+  const [isOpen, setIsOpen] = useState(true)
+  return (
+    <div className="space-y-4">
+      <div
+        className="flex items-center gap-2 cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className={`w-1 h-6 ${color} rounded-full`}></div>
+        <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+        <Badge
+          className={`${color
+            .replace("bg-", "bg-")
+            .replace("-500", "-100")} ${color
+            .replace("bg-", "text-")
+            .replace("-500", "-800")}`}
+        >
+          {count}
+        </Badge>
+        <ChevronDown
+          className={cn("transition-transform", isOpen && "rotate-180")}
+        />
+      </div>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 export function GoalsManagement() {
-  const { goals, departments } = useAppSelector((state) => state.testPerfomance)
+  const dispatch = useAppDispatch()
+  const { goals, goalsLoading, goalError, availableDepartments } = useAppSelector(
+    (state) => state.performance,
+  )
 
   const [activeTab, setActiveTab] = useState<"all" | "company" | "department" | "individual">("all")
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingGoal, setEditingGoal] = useState<any>(null)
+  const [viewingGoal, setViewingGoal] = useState<any>(null)
+  const [breakdownGoal, setBreakdownGoal] = useState<any>(null)
+
+  useEffect(() => {
+    dispatch(fetchAvailableDepartments())
+    dispatch(fetchAvailableKPIs())
+    dispatch(fetchGoals())
+  }, [dispatch])
 
   const handleCreateGoal = () => {
+    setEditingGoal(null)
     setShowCreateModal(true)
   }
 
@@ -40,23 +115,66 @@ export function GoalsManagement() {
     setShowCreateModal(true)
   }
 
-  const handleViewGoal = (goal: any) => {
-    setSelectedGoalId(goal.id)
+  const handleDeleteGoal = async (goalId: string) => {
+    if (confirm("Are you sure you want to delete this goal? This action cannot be undone.")) {
+      toast.promise(dispatch(deleteGoal(goalId)).unwrap(), {
+        loading: "Deleting goal...",
+        success: "Goal deleted successfully.",
+        error: "Failed to delete goal.",
+      })
+    }
   }
 
-  const handleDeleteGoal = (goal: any) => {
-    toast.info(`Delete goal: ${goal.title} - using dummy data`)
+  const handleFormSubmit = async (data: any) => {
+    const action = editingGoal ? updateGoal({ goalId: editingGoal.id, data }) : createGoal(data)
+    toast.promise(dispatch(action).unwrap(), {
+      loading: editingGoal ? "Updating goal..." : "Creating goal...",
+      success: `Goal ${editingGoal ? "updated" : "created"} successfully.`,
+      error: (err) => `Failed to ${editingGoal ? "update" : "create"} goal: ${err.message}`,
+    })
+    setShowCreateModal(false)
+    setEditingGoal(null)
+  }
+
+  const handleBreakdown = (goal: any) => {
+    setViewingGoal(null) // Close view drawer
+    setBreakdownGoal(goal)
+  }
+
+  const handleDepartmentBreakdownSubmit = async (data: any) => {
+    toast.promise(dispatch(breakdownGoalToDepartments(data)).unwrap(), {
+      loading: "Breaking down goal...",
+      success: "Goal broken down successfully.",
+      error: (err) => `Failed to breakdown goal: ${err.message}`,
+    })
+    setBreakdownGoal(null)
+  }
+
+  const handleIndividualBreakdownSubmit = async (data: any) => {
+    toast.promise(dispatch(breakdownGoalToIndividuals(data)).unwrap(), {
+      loading: "Breaking down goal...",
+      success: "Goal broken down successfully.",
+      error: (err) => `Failed to breakdown goal: ${err.message}`,
+    })
+    setBreakdownGoal(null)
   }
 
   const handleRefresh = () => {
-    toast.success("Data refreshed from Redux store")
+    toast.promise(dispatch(fetchGoals()).unwrap(), {
+      loading: "Refreshing goals...",
+      success: "Goals refreshed successfully.",
+      error: "Failed to refresh goals.",
+    })
   }
 
-  const filteredGoals = goals.filter(
-    (goal) =>
-      goal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      goal.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      goal.category?.toLowerCase().includes(searchTerm.toLowerCase()),
+  const filteredGoals = useMemo(
+    () =>
+      goals.filter(
+        (goal) =>
+          goal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          goal.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+      ),
+    [goals, searchTerm],
   )
 
   const displayGoals = activeTab === "all" ? filteredGoals : filteredGoals.filter((g) => g.type === activeTab)
@@ -105,13 +223,13 @@ export function GoalsManagement() {
   }
 
   const renderGoalCard = (goal: any) => {
-    const department = departments.find((d) => d.id === goal.departmentId)
-    const progress = Number.parseFloat(goal.percentValueAchieved || "0")
+    const progress = Number.parseFloat(goal.progressPercentage || "0")
 
     return (
       <Card
         key={goal.id}
-        className="bg-white border border-gray-200 rounded-2xl shadow-none hover:shadow-lg transition-shadow duration-200"
+        className="bg-white border border-gray-200 rounded-2xl shadow-none hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+        onClick={() => setViewingGoal(goal)}
       >
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -120,29 +238,14 @@ export function GoalsManagement() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={() => handleViewGoal(goal)}
-                title="View Details"
-              >
-                <CiViewList className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
                 className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={() => handleEditGoal(goal)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleEditGoal(goal)
+                }}
                 title="Edit Goal"
               >
                 <CiEdit className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={() => handleDeleteGoal(goal)}
-                title="Delete Goal"
-              >
-                <CiTrash className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -166,7 +269,7 @@ export function GoalsManagement() {
                 <CiTarget className="w-4 h-4" />
                 <span>Department</span>
               </div>
-              <p className="text-sm font-medium">{department?.name || "Company-wide"}</p>
+              <p className="text-sm font-medium">{goal.departmentName || "Company-wide"}</p>
             </div>
 
             <div className="space-y-1">
@@ -174,11 +277,12 @@ export function GoalsManagement() {
                 <CiCircleCheck className="w-4 h-4" />
                 <span>Owner</span>
               </div>
-              <p className="text-sm font-medium">{goal.owner || "Unassigned"}</p>
+              <p className="text-sm font-medium">
+                {goal.assignedTo ? `${goal.assignedTo.firstName} ${goal.assignedTo.lastName}` : "Unassigned"}
+              </p>
             </div>
           </div>
 
-          {/* Progress Bar */}
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Progress</span>
@@ -194,7 +298,6 @@ export function GoalsManagement() {
             </div>
           </div>
 
-          {/* Target vs Current */}
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <span className="text-xs text-gray-500">Target</span>
@@ -206,19 +309,21 @@ export function GoalsManagement() {
             </div>
           </div>
 
-          {goal.parentGoalId && (
+          {goal.parentGoal && (
             <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2 text-sm text-blue-700">
                 <CiFlag className="w-4 h-4" />
-                <span className="font-medium">
-                  Child of: {goals.find((g) => g.id === goal.parentGoalId)?.title || "Parent Goal"}
-                </span>
+                <span className="font-medium">Child of: {goal.parentGoal.title}</span>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
     )
+  }
+
+  if (goalsLoading && goals.length === 0) {
+    return <GoalsSkeleton />
   }
 
   return (
@@ -230,12 +335,8 @@ export function GoalsManagement() {
           <p className="text-gray-600 font-normal">Create and track performance goals across the organization</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            className="rounded-full bg-gradient-to-br from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-gray-300"
-          >
-            <CiRedo className="w-4 h-4 mr-2" />
+          <Button onClick={handleRefresh} variant="outline" disabled={goalsLoading}>
+            <CiRedo className={`w-4 h-4 mr-2 ${goalsLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
           <Button
@@ -315,42 +416,26 @@ export function GoalsManagement() {
         </div>
       </div>
 
+      {goalError && <p className="text-red-500">{goalError}</p>}
+
       {displayGoals.length > 0 ? (
         <div className="space-y-6">
-          {/* Company Goals Section */}
           {(activeTab === "all" || activeTab === "company") && companyGoals.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
-                <h2 className="text-xl font-semibold text-gray-900">Company Goals</h2>
-                <Badge className="bg-purple-100 text-purple-800">{companyGoals.length}</Badge>
-              </div>
+            <CollapsibleSection title="Company Goals" count={companyGoals.length} color="bg-purple-500">
               <div className="space-y-4">{companyGoals.map(renderGoalCard)}</div>
-            </div>
+            </CollapsibleSection>
           )}
 
-          {/* Department Goals Section */}
           {(activeTab === "all" || activeTab === "department") && departmentGoals.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-                <h2 className="text-xl font-semibold text-gray-900">Department Goals</h2>
-                <Badge className="bg-blue-100 text-blue-800">{departmentGoals.length}</Badge>
-              </div>
+            <CollapsibleSection title="Department Goals" count={departmentGoals.length} color="bg-blue-500">
               <div className="space-y-4 pl-8 border-l-2 border-blue-200">{departmentGoals.map(renderGoalCard)}</div>
-            </div>
+            </CollapsibleSection>
           )}
 
-          {/* Individual Goals Section */}
           {(activeTab === "all" || activeTab === "individual") && individualGoals.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-6 bg-green-500 rounded-full"></div>
-                <h2 className="text-xl font-semibold text-gray-900">Individual Goals</h2>
-                <Badge className="bg-green-100 text-green-800">{individualGoals.length}</Badge>
-              </div>
+            <CollapsibleSection title="Individual Goals" count={individualGoals.length} color="bg-green-500">
               <div className="space-y-4 pl-16 border-l-2 border-green-200">{individualGoals.map(renderGoalCard)}</div>
-            </div>
+            </CollapsibleSection>
           )}
         </div>
       ) : (
@@ -364,35 +449,44 @@ export function GoalsManagement() {
               ? "No goals match your current search. Try adjusting your search criteria."
               : "Get started by creating your first goal to track performance objectives."}
           </p>
-          <Button
-            onClick={handleCreateGoal}
-            className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-          >
+          <Button onClick={handleCreateGoal}>
             <CiPlus className="w-4 h-4 mr-2" />
             Create Your First Goal
           </Button>
         </div>
       )}
 
-      {/* View Drawer */}
-      {selectedGoalId && (
-        <Drawer isOpen={selectedGoalId !== null} onClose={() => setSelectedGoalId(null)} title="Goal Details">
-          {/* Goal details would be rendered here */}
-        </Drawer>
+      {viewingGoal && (
+        <GoalViewDrawer isOpen={!!viewingGoal} onClose={() => setViewingGoal(null)} goal={viewingGoal} onBreakdown={handleBreakdown} />
       )}
 
-      {/* Form Modal */}
       {showCreateModal && (
         <GoalFormModal
           isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          title={editingGoal ? "Edit Goal" : "Create Goal"}
-          goal={editingGoal}
-          onSubmit={() => {
-            // Handle form submission
+          onClose={() => {
             setShowCreateModal(false)
             setEditingGoal(null)
           }}
+          goal={editingGoal}
+          onSubmit={handleFormSubmit}
+        />
+      )}
+
+      {breakdownGoal?.type === "company" && (
+        <DepartmentBreakdownModal
+          isOpen={!!breakdownGoal}
+          onClose={() => setBreakdownGoal(null)}
+          parentGoal={breakdownGoal}
+          onSubmit={handleDepartmentBreakdownSubmit}
+        />
+      )}
+
+      {breakdownGoal?.type === "department" && (
+        <IndividualBreakdownModal
+          isOpen={!!breakdownGoal}
+          onClose={() => setBreakdownGoal(null)}
+          departmentGoal={breakdownGoal}
+          onSubmit={handleIndividualBreakdownSubmit}
         />
       )}
     </div>

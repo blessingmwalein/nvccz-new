@@ -53,6 +53,23 @@ export interface KPI {
   }
 }
 
+export interface PerformanceGoal {
+  id: string
+  title: string
+  description: string
+  type: 'company' | 'department' | 'individual'
+  category: string
+  status: string
+  priority: string
+  targetValue: string
+  currentValue: string
+  percentValueAchieved: string
+  departmentId?: string
+  parentGoalId?: string
+  startDate: string
+  endDate: string
+}
+
 export interface KPIsResponse {
   success: boolean
   count: number
@@ -111,5 +128,61 @@ export const kpiApiService = {
 
   async deleteKPI(id: string): Promise<{ success: boolean; message: string }> {
     return apiClient.delete<{ success: boolean; message: string }>(`/kpis/${id}`)
-  }
+  },
+
+  // Get all available KPIs
+  async getAvailableKPIs(): Promise<{
+    success: boolean
+    message: string
+    data: any[]
+    total: number
+  }> {
+    return apiClient.get('/performance/kpis')
+  },
+
+  // Get KPIs by department name
+  async getKPIsByDepartment(departmentName: string): Promise<{
+    success: boolean
+    message: string
+    data: any[]
+    total: number
+    department: string
+  }> {
+    return apiClient.get(`/performance/kpis/department/${departmentName}`)
+  },
+
+  // Get KPIs by account type
+  async getKPIsByAccountType(accountType: string): Promise<{
+    success: boolean
+    message: string
+    data: any[]
+    total: number
+    accountType: string
+  }> {
+    return apiClient.get(`/performance/kpis/account-type/${accountType}`)
+  },
+
+  // Get KPI statistics
+  async getKPIStatistics(): Promise<{
+    success: boolean
+    message: string
+    data: {
+      total: number
+      financial: number
+      nonFinancial: number
+      byDepartment: Array<{ department: string; count: number }>
+      byAccountType: Array<{ accountType: string; count: number }>
+    }
+  }> {
+    return apiClient.get('/performance/kpis/statistics')
+  },
+
+  async getFinancialKPIs(): Promise<{
+    success: boolean
+    message: string
+    data: any[]
+    total: number
+  }> {
+    return apiClient.get('/performance/kpis/financial')
+  },
 }

@@ -79,5 +79,29 @@ export const kpiDataService = {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete KPI'
       throw new Error(errorMessage)
     }
+  },
+
+  // Get all available KPIs
+  getAvailableKPIs: async (): Promise<any> => {
+    const response = await kpiApiService.getAvailableKPIs()
+    return response
+  },
+
+  // Get KPIs by department name
+  getKPIsByDepartment: async (departmentName: string): Promise<any> => {
+    const response = await kpiApiService.getKPIsByDepartment(departmentName)
+    return response
+  },
+
+  // Get KPIs by account type
+  getKPIsByAccountType: async (accountType: string): Promise<any> => {
+    const response = await kpiApiService.getKPIsByAccountType(accountType)
+    return response
+  },
+
+  // Get KPI statistics
+  getKPIStatistics: async (): Promise<any> => {
+    const response = await kpiApiService.getKPIStatistics()
+    return response.data
   }
 }

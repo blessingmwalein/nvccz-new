@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -10,19 +10,22 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAppSelector } from "@/lib/store"
-import { toast } from "sonner"
 
 const goalSchema = yup.object({
-  title: yup.string().required("Title is required").min(3, "Title must be at least 3 characters"),
+  title: yup.string().required("Title is required").min(3),
   description: yup.string().required("Description is required"),
   type: yup.string().oneOf(["company", "department", "individual"]).required("Type is required"),
   category: yup.string().required("Category is required"),
-  priority: yup.string().oneOf(["low", "medium", "high", "critical"]).required("Priority is required"),
-  status: yup.string().required("Status is required"),
-  targetValue: yup.string().required("Target value is required"),
-  currentValue: yup.string().required("Current value is required"),
-  owner: yup.string().required("Owner is required"),
-  departmentId: yup.string().nullable(),
+  targetValue: yup.number().typeError("Target must be a number").required("Target value is required"),
+  targetUnit: yup.string().required("Target unit is required"),
+  kpiName: yup.string().required("A backing KPI is required"),
+  dataSourceModule: yup.string().nullable(),
+  dataSourceField: yup.string().nullable(),
+  departmentName: yup.string().when("type", {
+    is: (val: string) => val === "department" || val === "individual",
+    then: (schema) => schema.required("Department is required for this goal type"),
+    otherwise: (schema) => schema.nullable(),
+  }),
   parentGoalId: yup.string().nullable(),
   startDate: yup.string().required("Start date is required"),
   endDate: yup.string().required("End date is required"),
@@ -36,204 +39,196 @@ interface GoalFormModalProps {
 }
 
 export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModalProps) {
-  const { departments, goals } = useAppSelector((state) => state.performance)
+  const { availableDepartments, goals, availableKPIs } = useAppSelector((state) => state.performance)
 
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
-    setValue,
     watch,
   } = useForm({
     resolver: yupResolver(goalSchema),
-    defaultValues: goal || {
-      title: "",
-      description: "",
-      type: "individual",
-      category: "revenue",
-      priority: "medium",
-      status: "not_started",
-      targetValue: "",
-      currentValue: "0",
-      owner: "",
-      departmentId: null,
-      parentGoalId: null,
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    defaultValues: {
+      title: goal?.title || "",
+      description: goal?.description || "",
+      type: goal?.type || "company",
+      category: goal?.category || "financial",
+      targetValue: goal?.targetValue || 0,
+      targetUnit: goal?.targetUnit || "USD",
+      kpiName: goal?.kpi?.name || "",
+      dataSourceModule: goal?.dataSourceModule || null,
+      dataSourceField: goal?.dataSourceField || null,
+      departmentName: goal?.departmentName || null,
+      parentGoalId: goal?.parentGoalId || null,
+      startDate: goal?.startDate ? new Date(goal.startDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      endDate: goal?.endDate
+        ? new Date(goal.endDate).toISOString().split("T")[0]
+        : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     },
   })
 
   const goalType = watch("type")
 
-  // Filter parent goals based on type
   const availableParentGoals = goals.filter((g) => {
     if (goalType === "department") return g.type === "company"
     if (goalType === "individual") return g.type === "department"
     return false
   })
 
-  const handleFormSubmit = (data: any) => {
-    onSubmit(data)
-    toast.success(goal ? "Goal updated successfully" : "Goal created successfully")
-    onClose()
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{goal ? "Edit Goal" : "Create New Goal"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Goal Title *</Label>
-            <Input id="title" {...register("title")} placeholder="Enter goal title" />
+            <Input id="title" {...register("title")} placeholder="e.g., Achieve $5M Fund I AUM by Q4" />
             {errors.title && <p className="text-sm text-red-600">{errors.title.message}</p>}
           </div>
 
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description *</Label>
-            <Textarea id="description" {...register("description")} placeholder="Describe the goal" rows={3} />
+            <Textarea id="description" {...register("description")} placeholder="Describe the strategic importance of the goal" />
             {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
           </div>
 
-          {/* Type, Category, Priority */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
-              <Select onValueChange={(value) => setValue("type", value)} defaultValue={watch("type")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="company">Company</SelectItem>
-                  <SelectItem value="department">Department</SelectItem>
-                  <SelectItem value="individual">Individual</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.type && <p className="text-sm text-red-600">{errors.type.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select onValueChange={(value) => setValue("category", value)} defaultValue={watch("category")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="revenue">Revenue</SelectItem>
-                  <SelectItem value="cost">Cost</SelectItem>
-                  <SelectItem value="efficiency">Efficiency</SelectItem>
-                  <SelectItem value="quality">Quality</SelectItem>
-                  <SelectItem value="customer">Customer</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.category && <p className="text-sm text-red-600">{errors.category.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority *</Label>
-              <Select onValueChange={(value) => setValue("priority", value)} defaultValue={watch("priority")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.priority && <p className="text-sm text-red-600">{errors.priority.message}</p>}
-            </div>
-          </div>
-
-          {/* Status, Owner */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select onValueChange={(value) => setValue("status", value)} defaultValue={watch("status")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="not_started">Not Started</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.status && <p className="text-sm text-red-600">{errors.status.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="owner">Owner *</Label>
-              <Input id="owner" {...register("owner")} placeholder="Goal owner name" />
-              {errors.owner && <p className="text-sm text-red-600">{errors.owner.message}</p>}
-            </div>
+          {/* Type, Category */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Controller
+              name="type"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label>Type *</Label>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="company">Company</SelectItem>
+                      <SelectItem value="department">Department</SelectItem>
+                      <SelectItem value="individual">Individual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.type && <p className="text-sm text-red-600">{errors.type.message}</p>}
+                </div>
+              )}
+            />
+            <Controller
+              name="category"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label>Category *</Label>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="financial">Financial</SelectItem>
+                      <SelectItem value="operational">Operational</SelectItem>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="growth">Growth</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.category && <p className="text-sm text-red-600">{errors.category.message}</p>}
+                </div>
+              )}
+            />
           </div>
 
           {/* Department and Parent Goal */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="departmentId">Department</Label>
-              <Select
-                onValueChange={(value) => setValue("departmentId", value)}
-                defaultValue={watch("departmentId") || undefined}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None (Company-wide)</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {(goalType === "department" || goalType === "individual") && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Controller
+                name="departmentName"
+                control={control}
+                render={({ field }) => (
+                  <div className="space-y-2">
+                    <Label>Department *</Label>
+                    <Select onValueChange={field.onChange} value={field.value || "none"}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (Company-wide)</SelectItem>
+                        {availableDepartments.map((dept: any) => (
+                          <SelectItem key={dept.name} value={dept.name}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.departmentName && <p className="text-sm text-red-600">{errors.departmentName.message}</p>}
+                  </div>
+                )}
+              />
+              {availableParentGoals.length > 0 && (
+                 <Controller
+                  name="parentGoalId"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      <Label>Parent Goal</Label>
+                      <Select onValueChange={field.onChange} value={field.value || "none"}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select parent goal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {availableParentGoals.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              {g.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                />
+              )}
             </div>
+          )}
 
-            {availableParentGoals.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="parentGoalId">Parent Goal</Label>
-                <Select
-                  onValueChange={(value) => setValue("parentGoalId", value)}
-                  defaultValue={watch("parentGoalId") || undefined}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select parent goal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {availableParentGoals.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {/* Target and Current Values */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* KPI and Target */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Controller
+              name="kpiName"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2 col-span-1">
+                  <Label>Backing KPI *</Label>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select KPI" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableKPIs.map((kpi: any) => (
+                        <SelectItem key={kpi.name} value={kpi.name}>
+                          {kpi.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.kpiName && <p className="text-sm text-red-600">{errors.kpiName.message}</p>}
+                </div>
+              )}
+            />
             <div className="space-y-2">
               <Label htmlFor="targetValue">Target Value *</Label>
-              <Input id="targetValue" {...register("targetValue")} placeholder="e.g., 1000000" />
+              <Input id="targetValue" type="number" {...register("targetValue")} placeholder="e.g., 5000000" />
               {errors.targetValue && <p className="text-sm text-red-600">{errors.targetValue.message}</p>}
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="currentValue">Current Value *</Label>
-              <Input id="currentValue" {...register("currentValue")} placeholder="e.g., 500000" />
-              {errors.currentValue && <p className="text-sm text-red-600">{errors.currentValue.message}</p>}
+              <Label htmlFor="targetUnit">Target Unit *</Label>
+              <Input id="targetUnit" {...register("targetUnit")} placeholder="e.g., USD, %, items" />
+              {errors.targetUnit && <p className="text-sm text-red-600">{errors.targetUnit.message}</p>}
             </div>
           </div>
 
@@ -244,7 +239,6 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
               <Input id="startDate" type="date" {...register("startDate")} />
               {errors.startDate && <p className="text-sm text-red-600">{errors.startDate.message}</p>}
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="endDate">End Date *</Label>
               <Input id="endDate" type="date" {...register("endDate")} />
@@ -256,10 +250,7 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-            >
+            <Button type="submit">
               {goal ? "Update Goal" : "Create Goal"}
             </Button>
           </DialogFooter>

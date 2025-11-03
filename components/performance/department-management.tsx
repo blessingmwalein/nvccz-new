@@ -1,58 +1,24 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
-import { 
-  addDepartment,
-  updateDepartment,
-  removeDepartment,
-  setDepartments,
-  setLoading,
-  setCrudLoading,
-  setError
-} from "@/lib/store/slices/performanceSlice"
-import { performanceAPI } from "@/lib/api/performance-data"
+import { fetchAvailableDepartments } from "@/lib/store/slices/performanceSlice"
 import { DepartmentManagementSkeleton } from "./department-skeleton"
-import { DepartmentForm } from "./department-form"
 import { DepartmentViewDrawer } from "./department-view-drawer"
-import { ConfirmDeleteModal } from "./confirm-delete-modal"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { 
-  Building,
+  Building2,
   Search,
-  Plus,
-  RefreshCw,
-  X
+  X,
+  Users,
+  Target,
+  ArrowDown
 } from "lucide-react"
 import { 
   CiViewList,
-  CiEdit,
-  CiTrash,
   CiBank,
   CiRedo
 } from "react-icons/ci"
@@ -60,216 +26,169 @@ import { toast } from "sonner"
 
 export function DepartmentManagement() {
   const dispatch = useAppDispatch()
-  const { departments, loading, crudLoading, error } = useAppSelector((state) => state.performance)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingDepartment, setEditingDepartment] = useState<any>(null)
-  const [hasLoaded, setHasLoaded] = useState(false)
+  const { availableDepartments, loading, error } = useAppSelector((state) => state.performance)
   const [viewingDepartment, setViewingDepartment] = useState<any>(null)
   const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [departmentToDelete, setDepartmentToDelete] = useState<any>(null)
-  const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedBranch, setSelectedBranch] = useState("all")
-  const [selectedStatus, setSelectedStatus] = useState("all")
-  const itemsPerPage = 9
+  const hasLoadedRef = useRef(false)
 
-  // Load departments on component mount - prevent duplicate calls
-  const loadDepartments = useCallback(async (forceReload = false) => {
-    if ((hasLoaded || loading) && !forceReload) return
+  // Load available departments using thunk
+  const loadDepartments = (forceReload = false) => {
+    // Prevent duplicate calls
+    if ((hasLoadedRef.current || loading) && !forceReload) {
+      console.log('Skipping duplicate load request')
+      return
+    }
     
-    try {
-      dispatch(setLoading(true))
-      dispatch(setError(null))
-      
-      // Use backend filtering
-      const filters: { isActive?: boolean; branch?: string } = {}
-      if (selectedBranch !== "all") {
-        filters.branch = selectedBranch
-      }
-      if (selectedStatus !== "all") {
-        filters.isActive = selectedStatus === "active"
-      }
-      
-      console.log('Loading departments with filters:', filters)
-      const departments = await performanceAPI.getDepartments(filters)
-      dispatch(setDepartments(departments))
-      setHasLoaded(true)
-    } catch (error: any) {
-      console.error('Failed to load departments:', error)
-      dispatch(setError(error.message || 'Failed to load departments'))
-    } finally {
-      dispatch(setLoading(false))
-    }
-  }, [dispatch, hasLoaded, loading, selectedBranch, selectedStatus])
+    console.log('Loading available departments...')
+    hasLoadedRef.current = true
+    
+    dispatch(fetchAvailableDepartments())
+      .unwrap()
+      .then(() => {
+        // toast.success("Departments loaded successfully")
+      })
+      .catch((error) => {
+        console.error('Failed to load departments:', error)
+        toast.error("Failed to load departments")
+        hasLoadedRef.current = false // Reset on error to allow retry
+      })
+  }
 
   useEffect(() => {
-    loadDepartments()
-  }, [loadDepartments])
-
-  // Reload departments when filters change
-  useEffect(() => {
-    if (hasLoaded) {
-      console.log('Filter changed, reloading departments...')
-      loadDepartments(true)
+    // Only load once on mount
+    if (!hasLoadedRef.current) {
+      loadDepartments()
     }
-  }, [selectedBranch, selectedStatus])
+  }, [])
 
-  // Only apply client-side search filtering since branch and status are handled by backend
-  const filteredDepartments = departments.filter(dept => {
+  // Filter departments by search term
+  const filteredDepartments = availableDepartments.filter(dept => {
     const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          dept.description.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedDepartments = filteredDepartments.slice(startIndex, endIndex)
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedBranch, selectedStatus, searchTerm])
 
   const handleViewDepartment = (department: any) => {
     setViewingDepartment(department)
     setIsViewDrawerOpen(true)
   }
 
-  const handleEditDepartment = (department: any) => {
-    setEditingDepartment(department)
-    setIsDialogOpen(true)
-  }
-
-  const handleDeleteDepartment = (department: any) => {
-    setDepartmentToDelete(department)
-    setIsDeleteModalOpen(true)
-  }
-
-  const handleConfirmDelete = async () => {
-    if (!departmentToDelete) return
-    
-    console.log('Parent: Starting delete operation for department:', departmentToDelete.id)
-    try {
-      dispatch(setCrudLoading(true))
-      console.log('Parent: CRUD loading set to true')
-      await performanceAPI.deleteDepartment(departmentToDelete.id)
-      console.log('Parent: API call completed successfully')
-      dispatch(removeDepartment(departmentToDelete.id))
-      toast.success("Department deleted successfully")
-      // Close modal only after successful deletion
-      handleCloseDeleteModal()
-    } catch (error: any) {
-      console.error('Parent: Failed to delete department:', error)
-      toast.error(error.message || "Failed to delete department")
-      // Re-throw the error so the modal can handle it
-      throw error
-    } finally {
-      dispatch(setCrudLoading(false))
-      console.log('Parent: CRUD loading set to false')
+  // Department icon mapping
+  const getDepartmentIcon = (name: string) => {
+    const icons: Record<string, any> = {
+      'Finance': '💰',
+      'Sales': '📈',
+      'Operations': '⚙️',
+      'Procurement': '🛒',
+      'Human Resources': '👥',
+      'Marketing': '📣',
+      'Legal': '⚖️',
+      'IT': '💻'
     }
+    return icons[name] || '🏢'
   }
 
-  const handleCloseDeleteModal = () => {
-    setIsDeleteModalOpen(false)
-    setDepartmentToDelete(null)
-  }
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-  }
-
-  const handleCreateDepartment = async (departmentData: any) => {
-    try {
-      dispatch(setCrudLoading(true))
-      const department = await performanceAPI.createDepartment(departmentData)
-      // Add new department to the top of the list
-      dispatch(addDepartment(department))
-      toast.success("Department created successfully")
-      setIsDialogOpen(false)
-    } catch (error: any) {
-      console.error('Failed to create department:', error)
-      toast.error(error.message || "Failed to create department")
-    } finally {
-      dispatch(setCrudLoading(false))
+  const getDepartmentColor = (name: string) => {
+    const colors: Record<string, string> = {
+      'Finance': 'from-green-500 to-emerald-600',
+      'Sales': 'from-blue-500 to-cyan-600',
+      'Operations': 'from-purple-500 to-violet-600',
+      'Procurement': 'from-orange-500 to-amber-600',
+      'Human Resources': 'from-pink-500 to-rose-600',
+      'Marketing': 'from-yellow-500 to-orange-500',
+      'Legal': 'from-indigo-500 to-blue-600',
+      'IT': 'from-teal-500 to-cyan-600'
     }
+    return colors[name] || 'from-gray-500 to-gray-600'
   }
 
-  const handleUpdateDepartment = async (id: string, updates: any) => {
-    try {
-      dispatch(setCrudLoading(true))
-      const department = await performanceAPI.updateDepartment(id, updates)
-      dispatch(updateDepartment({ id, updates: department }))
-      toast.success("Department updated successfully")
-      setIsDialogOpen(false)
-      setEditingDepartment(null)
-    } catch (error: any) {
-      console.error('Failed to update department:', error)
-      toast.error(error.message || "Failed to update department")
-    } finally {
-      dispatch(setCrudLoading(false))
+  // Organizational hierarchy structure
+  const getOrganizationalStructure = () => {
+    const structure = {
+      executive: filteredDepartments.filter(d => ['Finance', 'Operations'].includes(d.name)),
+      core: filteredDepartments.filter(d => ['Sales', 'Marketing', 'Procurement'].includes(d.name)),
+      support: filteredDepartments.filter(d => ['Human Resources', 'Legal', 'IT'].includes(d.name))
     }
+    return structure
   }
 
+  const orgStructure = getOrganizationalStructure()
 
-  const getBranchColor = (branch: string) => {
-    switch (branch) {
-      case 'main_office': return 'bg-green-100 text-green-800'
-      case 'main': return 'bg-blue-100 text-blue-800'
-      case 'branch_1': return 'bg-purple-100 text-purple-800'
-      case 'branch_2': return 'bg-orange-100 text-orange-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
+  // Department Card Component
+  const DepartmentCard = ({ department }: { department: any }) => (
+    <Card className="bg-white border border-gray-200 rounded-2xl shadow-none hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-normal">{department.name}</CardTitle>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              onClick={() => handleViewDepartment(department)}
+              title="View Details"
+            >
+              <CiViewList className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getDepartmentColor(department.name)} flex items-center justify-center text-lg shadow-md`}>
+            {getDepartmentIcon(department.name)}
+          </div>
+          <Badge className="bg-green-100 text-green-800">
+            Active
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+          {department.description}
+        </p>
+        <div className="space-y-3">
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-500">Category</span>
+            <span className="text-sm font-medium">
+              {orgStructure.executive.some(d => d.name === department.name) ? 'Executive' :
+               orgStructure.core.some(d => d.name === department.name) ? 'Core' : 'Support'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-500">Level</span>
+            <span className="text-sm font-medium">
+              {orgStructure.executive.some(d => d.name === department.name) ? 'Level 1' :
+               orgStructure.core.some(d => d.name === department.name) ? 'Level 2' : 'Level 3'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">Status</span>
+            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+              Available
+            </Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl text-gray-900">Department Management</h1>
-          <p className="text-gray-600 font-normal">Create and manage departments</p>
+          <h1 className="text-3xl text-gray-900">Department Overview</h1>
+          <p className="text-gray-600 font-normal">Organizational hierarchy and structure</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={() => loadDepartments(true)}
-            disabled={loading}
-            className="rounded-full bg-gradient-to-br from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-gray-300"
-          >
-            <CiRedo className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full gradient-primary text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Department
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl md:max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingDepartment ? "Edit Department" : "Create New Department"}
-                </DialogTitle>
-              </DialogHeader>
-              <DepartmentForm 
-                department={editingDepartment}
-                onSave={editingDepartment ? 
-                  (updates) => handleUpdateDepartment(editingDepartment.id, updates) : 
-                  handleCreateDepartment
-                }
-                onClose={() => {
-                  setIsDialogOpen(false)
-                  setEditingDepartment(null)
-                }}
-                isLoading={crudLoading}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Button 
+          variant="outline"
+          onClick={() => loadDepartments(true)}
+          disabled={loading}
+          className="rounded-full bg-gradient-to-br from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-gray-300"
+        >
+          <CiRedo className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </Button>
       </div>
 
       {/* Loading State */}
@@ -293,84 +212,22 @@ export function DepartmentManagement() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="space-y-4">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search departments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      {/* Search */}
+      {!loading && !error && availableDepartments.length > 0 && (
+        <div className="space-y-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search departments..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by branch" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              <SelectItem value="main_office">Main Office</SelectItem>
-              <SelectItem value="main">Main</SelectItem>
-              <SelectItem value="branch_1">Branch 1</SelectItem>
-              <SelectItem value="branch_2">Branch 2</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active Only</SelectItem>
-              <SelectItem value="inactive">Inactive Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Filter Indicators */}
-        {(selectedBranch !== "all" || selectedStatus !== "all" || searchTerm) && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-600 font-medium">
-              {[
-                selectedBranch !== "all" ? 1 : 0,
-                selectedStatus !== "all" ? 1 : 0,
-                searchTerm ? 1 : 0
-              ].reduce((a, b) => a + b, 0)} filter{[
-                selectedBranch !== "all" ? 1 : 0,
-                selectedStatus !== "all" ? 1 : 0,
-                searchTerm ? 1 : 0
-              ].reduce((a, b) => a + b, 0) !== 1 ? 's' : ''} applied
-            </span>
-            
-            {selectedBranch !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                Branch: {selectedBranch.replace('_', ' ')}
-                <button
-                  onClick={() => setSelectedBranch("all")}
-                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Badge>
-            )}
-            
-            {selectedStatus !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                Status: {selectedStatus}
-                <button
-                  onClick={() => setSelectedStatus("all")}
-                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Badge>
-            )}
-            
-            {searchTerm && (
+          {/* Search Indicator */}
+          {searchTerm && (
+            <div className="flex items-center gap-2">
               <Badge variant="secondary" className="flex items-center gap-1">
                 Search: "{searchTerm}"
                 <button
@@ -380,23 +237,13 @@ export function DepartmentManagement() {
                   <X className="w-3 h-3" />
                 </button>
               </Badge>
-            )}
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelectedBranch("all")
-                setSelectedStatus("all")
-                setSearchTerm("")
-              }}
-              className="text-xs"
-            >
-              Clear all
-            </Button>
-          </div>
-        )}
-      </div>
+              <span className="text-sm text-gray-600">
+                {filteredDepartments.length} result{filteredDepartments.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Empty State */}
       {!loading && !error && filteredDepartments.length === 0 && (
@@ -405,130 +252,86 @@ export function DepartmentManagement() {
             <CiBank className="w-10 h-10 text-white" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No departments found</h3>
-          <p className="text-gray-600 mb-6">
-            {searchTerm || selectedBranch !== "all" || selectedStatus !== "all"
-              ? "Try adjusting your search or filter criteria."
-              : "Get started by creating your first department."
+          <p className="text-gray-600">
+            {searchTerm
+              ? "Try adjusting your search criteria."
+              : "No departments are currently available."
             }
           </p>
-          <Button onClick={() => setIsDialogOpen(true)} className="rounded-full gradient-primary text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Department
-          </Button>
         </div>
       )}
 
-      {/* Departments Grid */}
-      {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedDepartments.map((department) => (
-            <Card key={department.id} className="bg-white border border-gray-200 rounded-2xl shadow-none">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-normal">{department.name}</CardTitle>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                      onClick={() => handleViewDepartment(department)}
-                      title="View Details"
-                    >
-                      <CiViewList className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                      onClick={() => handleEditDepartment(department)}
-                      title="Edit Department"
-                    >
-                      <CiEdit className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                      onClick={() => handleDeleteDepartment(department)}
-                      title="Delete Department"
-                    >
-                      <CiTrash className="w-5 h-5" />
-                    </Button>
-                  </div>
+      {/* Organizational Hierarchy */}
+      {!loading && !error && filteredDepartments.length > 0 && (
+        <div className="space-y-8">
+          {/* Executive Level */}
+          {orgStructure.executive.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Badge className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+                  Executive Level
+                </Badge>
+                <div className="flex-1 h-px bg-gradient-to-r from-purple-200 to-transparent" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+                {orgStructure.executive.map((department, index) => (
+                  <DepartmentCard key={index} department={department} />
+                ))}
+              </div>
+              {/* Arrow Connector */}
+              <div className="flex justify-center">
+                <div className="flex flex-col items-center">
+                  <div className="h-8 w-px bg-gradient-to-b from-purple-400 to-blue-400" />
+                  <ArrowDown className="w-6 h-6 text-blue-500 animate-bounce" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={getBranchColor(department.branch)}>
-                    {department.branch}
-                  </Badge>
-                  <Badge className={department.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                    {department.isActive ? "Active" : "Inactive"}
-                  </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Core Departments Level */}
+          {orgStructure.core.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                  Core Departments
+                </Badge>
+                <div className="flex-1 h-px bg-gradient-to-r from-blue-200 to-transparent" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {orgStructure.core.map((department, index) => (
+                  <DepartmentCard key={index} department={department} />
+                ))}
+              </div>
+              {/* Arrow Connector */}
+              <div className="flex justify-center">
+                <div className="flex flex-col items-center">
+                  <div className="h-8 w-px bg-gradient-to-b from-blue-400 to-green-400" />
+                  <ArrowDown className="w-6 h-6 text-green-500 animate-bounce" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                  {department.description}
-                </p>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Users</span>
-                    <span className="text-sm font-medium">{department._count?.users || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Goals</span>
-                    <span className="text-sm font-medium">{department._count?.goals || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Created</span>
-                    <span className="text-sm text-gray-900">
-                      {new Date(department.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            </div>
+          )}
+
+          {/* Support Departments Level */}
+          {orgStructure.support.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Badge className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                  Support Departments
+                </Badge>
+                <div className="flex-1 h-px bg-gradient-to-r from-green-200 to-transparent" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {orgStructure.support.map((department, index) => (
+                  <DepartmentCard key={index} department={department} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Pagination */}
-      {!loading && !error && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-8">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredDepartments.length)} of {filteredDepartments.length} departments
-          </div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-              
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => handlePageChange(page)}
-                    isActive={currentPage === page}
-                    className="cursor-pointer"
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
-
+    
       {/* View Drawer */}
       <DepartmentViewDrawer
         department={viewingDepartment}
@@ -537,18 +340,6 @@ export function DepartmentManagement() {
           setIsViewDrawerOpen(false)
           setViewingDepartment(null)
         }}
-        onEdit={handleEditDepartment}
-      />
-
-      {/* Confirm Delete Modal */}
-      <ConfirmDeleteModal
-        isOpen={isDeleteModalOpen}
-        onClose={handleCloseDeleteModal}
-        onConfirm={handleConfirmDelete}
-        title="Delete Department"
-        description="Are you sure you want to delete this department? This action will permanently remove the department and all its associated data."
-        itemName={departmentToDelete?.name || ""}
-        isLoading={crudLoading}
       />
     </div>
   )

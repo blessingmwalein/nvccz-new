@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Sheet,
   SheetContent,
@@ -12,14 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { 
-  CiCircleCheck,
-  CiCalendar,
-  CiSquareRemove,
-  CiEdit,
-  CiTrash,
-  CiCircleCheck as CiTarget,
-  CiCircleCheck as CiChart,
-  CiViewList as CiList
+  CiGrid2H,
 } from "react-icons/ci"
 import { 
   User, 
@@ -35,9 +27,13 @@ import {
   AlertCircle,
   DollarSign,
   Flag,
-  Activity
+  Activity,
+  BarChart
 } from "lucide-react"
 import { Goal } from "@/lib/api/goals-data"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { fetchGoalDetails } from "@/lib/store/slices/performanceSlice"
+import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
 
 interface GoalViewDrawerProps {
   goal: Goal | null
@@ -45,9 +41,10 @@ interface GoalViewDrawerProps {
   onClose: () => void
   onEdit?: (goal: Goal) => void
   onDelete?: (goal: Goal) => void
+  onBreakdown?: (goal: Goal) => void
 }
 
-type TabType = "overview" | "progress" | "activities"
+type TabType = "overview" | "progress" | "activities" | "rollup"
 
 const tabs = [
   {
@@ -64,15 +61,29 @@ const tabs = [
     id: "activities" as TabType,
     label: "Activities",
     icon: Activity
+  },
+  {
+    id: "rollup" as TabType,
+    label: "Roll-up",
+    icon: BarChart
   }
 ]
 
-export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete }: GoalViewDrawerProps) {
+export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete, onBreakdown }: GoalViewDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview")
+  const dispatch = useAppDispatch()
+  const { selectedGoalDetails, selectedGoalDetailsLoading } = useAppSelector(state => state.performance)
+
+  useEffect(() => {
+    if (isOpen && goal?.id) {
+      dispatch(fetchGoalDetails(goal.id))
+    }
+  }, [isOpen, goal, dispatch])
 
   if (!goal) return null
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-GB', {
       year: 'numeric',
       month: 'short',
@@ -83,6 +94,7 @@ export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete }: Goal
   }
 
   const formatDateOnly = (dateString: string) => {
+    if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-GB', {
       year: 'numeric',
       month: 'short',
@@ -127,6 +139,15 @@ export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete }: Goal
     return "bg-red-500"
   }
 
+  const taskColumns: Column<any>[] = [
+    { key: 'title', label: 'Task Title', sortable: true },
+    { key: 'stage', label: 'Stage', sortable: true, render: (value) => <Badge variant="outline">{value}</Badge> },
+    { key: 'priority', label: 'Priority', sortable: true, render: (value) => <Badge>{value}</Badge> },
+    { key: 'monetaryValueAchieved', label: 'Value Achieved', sortable: true, render: (value) => `$${parseFloat(value || '0').toLocaleString()}` },
+    { key: 'creator', label: 'Creator', render: (value) => value ? `${value.firstName} ${value.lastName}` : 'N/A' },
+    { key: 'createdAt', label: 'Created At', sortable: true, render: (value) => formatDate(value) },
+  ]
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="w-[35vw] min-w-[800px] max-w-[1200px] overflow-y-auto p-5">
@@ -137,6 +158,16 @@ export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete }: Goal
               {goal.title}
             </SheetTitle>
             <div className="flex items-center gap-2">
+              {(goal.type === 'company' || goal.type === 'department') && onBreakdown && (
+                <Button
+                  variant="outline"
+                  onClick={() => onBreakdown(goal)}
+                  className="rounded-full h-10"
+                >
+                  <CiGrid2H className="w-4 h-4 mr-2" />
+                  Breakdown
+                </Button>
+              )}
               {onEdit && (
                 <Button
                   variant="outline"
@@ -147,14 +178,6 @@ export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete }: Goal
                   <Edit className="w-4 h-4" />
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="rounded-full h-10 w-10"
-              >
-                <X className="w-4 h-4" />
-              </Button>
             </div>
           </div>
         </SheetHeader>
@@ -520,6 +543,22 @@ export function GoalViewDrawer({ goal, isOpen, onClose, onEdit, onDelete }: Goal
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Roll-up Tab */}
+            {activeTab === "rollup" && (
+              <div className="space-y-4">
+                <ProcurementDataTable
+                  data={selectedGoalDetails?.tasks || []}
+                  columns={taskColumns}
+                  title="Roll-up Task Calculations"
+                  loading={selectedGoalDetailsLoading}
+                  emptyMessage="No tasks found for roll-up calculation."
+                  showSearch={true}
+                  showFilters={false}
+                  showActions={false}
+                />
               </div>
             )}
           </div>
