@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/pagination"
 import { cn } from "@/lib/utils"
 import { ProcurementDataTable } from "@/components/procurement/procurement-data-table"
+import { KPIPerformanceAnalysisTab } from "./kpi-performance-analysis-tab"
 
 export function KPIManagement() {
   const dispatch = useAppDispatch()
@@ -66,7 +67,9 @@ export function KPIManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(12)
-  const [activeTab, setActiveTab] = useState<"overview" | "financials">("overview")
+  const [financialCurrentPage, setFinancialCurrentPage] = useState(1)
+  const [financialItemsPerPage] = useState(10)
+  const [activeTab, setActiveTab] = useState<"overview" | "financials" | "analysis">("overview")
   const hasLoadedRef = useRef(false)
 
   // Account types for filtering
@@ -160,7 +163,7 @@ export function KPIManagement() {
   }
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as "overview" | "financials")
+    setActiveTab(value as "overview" | "financials" | "analysis")
   }
 
   const handleViewFinancialKPI = (kpi: any) => {
@@ -174,19 +177,36 @@ export function KPIManagement() {
     kpi.hardcodedDetails?.code?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Pagination logic
+  // Pagination logic for overview
   const totalPages = Math.ceil(filteredKPIs.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedKPIs = filteredKPIs.slice(startIndex, endIndex)
+
+  // Pagination logic for financial KPIs
+  const financialTotalPages = Math.ceil(financialKPIs.length / financialItemsPerPage)
+  const financialStartIndex = (financialCurrentPage - 1) * financialItemsPerPage
+  const financialEndIndex = financialStartIndex + financialItemsPerPage
+  const paginatedFinancialKPIs = financialKPIs.slice(financialStartIndex, financialEndIndex)
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [selectedDepartmentFilter, selectedAccountTypeFilter, searchTerm])
 
+  // Reset financial page when tab changes
+  useEffect(() => {
+    if (activeTab === 'financials') {
+      setFinancialCurrentPage(1)
+    }
+  }, [activeTab])
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
+  }
+
+  const handleFinancialPageChange = (page: number) => {
+    setFinancialCurrentPage(page)
   }
 
   const getFilterCount = () => {
@@ -218,8 +238,15 @@ export function KPIManagement() {
   }
 
   const departmentNameLookup = useMemo(() => {
+    // Add null check and ensure availableDepartments is an array
+    if (!availableDepartments || !Array.isArray(availableDepartments)) {
+      return new Map()
+    }
     return new Map(availableDepartments.map((dept: any) => [dept.id ?? dept.name, dept.name]))
   }, [availableDepartments])
+
+  // Add safe check for any other uses of availableDepartments
+  const validDepartments = Array.isArray(availableDepartments) ? availableDepartments : []
 
   const formatWeight = (value: string | number) => {
     const numeric = typeof value === "string" ? parseFloat(value) : value
@@ -326,6 +353,7 @@ export function KPIManagement() {
   const mainTabs = [
     { id: "overview", label: "KPIs Overview", icon: CiViewTimeline, gradient: "from-blue-500 to-indigo-600" },
     { id: "financials", label: "Financial KPIs", icon: CiViewBoard, gradient: "from-emerald-500 to-teal-600" },
+    { id: "analysis", label: "Performance Analysis", icon: TrendingUp, gradient: "from-purple-500 to-pink-600" },
   ]
 
   return (
@@ -425,7 +453,7 @@ export function KPIManagement() {
       )}
 
       {/* Tab Navigation */}
-      {/* <div className="flex items-center overflow-x-auto border-b px-6 mt-3">
+      <div className="flex items-center overflow-x-auto border-b px-6 mt-3">
         <div className="flex space-x-1 min-w-max px-4">
           {mainTabs.map((tab) => {
             const Icon = tab.icon
@@ -454,7 +482,7 @@ export function KPIManagement() {
             )
           })}
         </div>
-      </div> */}
+      </div>
 
       {activeTab === "overview" && (
         <div className="space-y-6">
@@ -504,7 +532,7 @@ export function KPIManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
-                  {availableDepartments.map((dept: any) => (
+                  {availableDepartments?.map((dept: any) => (
                     <SelectItem key={dept.name} value={dept.name}>
                       {dept.name}
                     </SelectItem>
@@ -705,17 +733,144 @@ export function KPIManagement() {
 
       {activeTab === "financials" && (
         <div className="space-y-6">
-          <ProcurementDataTable
-            data={financialKPIs}
-            columns={financialColumns}
-            title="Financial KPIs"
-            searchPlaceholder="Search financial KPIs..."
-            onView={handleViewFinancialKPI}
-            loading={financialKPIsLoading}
-            onExport={exportFinancialKPIs}
-            emptyMessage="No financial KPIs found."
-          />
+          {/* Filters for Financial KPIs */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Financial KPIs</h3>
+              <Button 
+                onClick={exportFinancialKPIs}
+                variant="outline"
+                className="rounded-full"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+
+          {/* Financial KPIs Grid */}
+          {financialKPIsLoading ? (
+            <KPIManagementSkeleton />
+          ) : financialKPIs.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedFinancialKPIs.map((kpi) => (
+                  <Card 
+                    key={kpi.id} 
+                    className="bg-white border border-gray-200 rounded-2xl shadow-none hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                    onClick={() => handleViewKPI(kpi)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getTypeColor(kpi.type)} flex items-center justify-center shadow-md`}>
+                          <BarChart3 className="w-5 h-5 text-white" />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-full w-8 h-8 p-0 bg-blue-500 hover:bg-blue-600 text-white"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewKPI(kpi)
+                          }}
+                        >
+                          <CiViewList className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <CardTitle className="text-base font-semibold line-clamp-2">{kpi.name}</CardTitle>
+                      <div className="flex items-center gap-2 flex-wrap mt-2">
+                        <Badge className="text-xs">{kpi.type}</Badge>
+                        {kpi.isActive && <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>}
+                        <Badge className="bg-indigo-100 text-indigo-800 text-xs">Financial</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                        {kpi.hardcodedDetails?.description || 'No description available'}
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Weight</span>
+                          <span className="font-medium">{formatWeight(kpi.weightValue)}</span>
+                        </div>
+                        {kpi.hardcodedDetails?.accountType && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Account Type</span>
+                            <Badge className={`${getAccountTypeColor(kpi.hardcodedDetails.accountType)} text-xs`}>
+                              {kpi.hardcodedDetails.accountType}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Pagination for Financial KPIs */}
+              {financialTotalPages > 1 && (
+                <div className="flex items-center justify-between mt-8">
+                  <div className="text-sm text-gray-600">
+                    Showing {financialStartIndex + 1} to {Math.min(financialEndIndex, financialKPIs.length)} of {financialKPIs.length} Financial KPIs
+                  </div>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => handleFinancialPageChange(financialCurrentPage - 1)}
+                          className={financialCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {Array.from({ length: Math.min(financialTotalPages, 5) }, (_, i) => {
+                        let pageNum
+                        if (financialTotalPages <= 5) {
+                          pageNum = i + 1
+                        } else if (financialCurrentPage <= 3) {
+                          pageNum = i + 1
+                        } else if (financialCurrentPage >= financialTotalPages - 2) {
+                          pageNum = financialTotalPages - 4 + i
+                        } else {
+                          pageNum = financialCurrentPage - 2 + i
+                        }
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handleFinancialPageChange(pageNum)}
+                              isActive={financialCurrentPage === pageNum}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      })}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => handleFinancialPageChange(financialCurrentPage + 1)}
+                          className={financialCurrentPage === financialTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Financial KPIs Found</h3>
+              <p className="text-gray-600">No financial KPIs are currently available.</p>
+            </div>
+          )}
         </div>
+      )}
+
+      {activeTab === "analysis" && (
+        <KPIPerformanceAnalysisTab />
       )}
 
       {/* KPI View Drawer */}

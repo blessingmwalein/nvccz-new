@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { fetchDepartmentScorecard } from "@/lib/store/slices/scorecardSlice"
 import { fetchAvailableDepartments } from "@/lib/store/slices/performanceSlice"
@@ -9,9 +9,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
-import { CiViewBoard, CiUser, CiRedo, CiTrophy } from "react-icons/ci"
+import { CiViewBoard, CiUser, CiRedo, CiTrophy, CiFileOn } from "react-icons/ci"
 import { TbTarget } from "react-icons/tb"
 import { toast } from "sonner"
+import { PDFDownloadLink } from "@react-pdf/renderer"
+import { DepartmentScorecardPDF } from "./department-scorecard-pdf"
 
 const DepartmentScorecardSkeleton = () => (
   <div className="space-y-6 animate-pulse">
@@ -42,6 +44,11 @@ export function DepartmentScorecardsPage() {
   const { departmentScorecard, loading, error } = useAppSelector((state) => state.scorecard)
   const { availableDepartments } = useAppSelector((state) => state.performance)
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   useEffect(() => {
     dispatch(fetchAvailableDepartments())
@@ -119,7 +126,7 @@ export function DepartmentScorecardsPage() {
               <SelectValue placeholder="Select Department" />
             </SelectTrigger>
             <SelectContent>
-              {availableDepartments.map((dept: any) => (
+              {availableDepartments?.map((dept: any) => (
                 <SelectItem key={dept.id} value={dept.name}>
                   {dept.name}
                 </SelectItem>
@@ -130,6 +137,21 @@ export function DepartmentScorecardsPage() {
             <CiRedo className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+          {isClient && departmentScorecard && (
+            <PDFDownloadLink
+              document={<DepartmentScorecardPDF data={departmentScorecard} />}
+              fileName={`${departmentScorecard.department.replace(/\s+/g, "-")}-Scorecard-${new Date()
+                .toISOString()
+                .split("T")[0]}.pdf`}
+            >
+              {({ loading: pdfLoading }) => (
+                <Button variant="outline" disabled={pdfLoading}>
+                  <CiFileOn className={`w-4 h-4 mr-2 ${pdfLoading ? "animate-spin" : ""}`} />
+                  {pdfLoading ? "Generating..." : "Export PDF"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          )}
         </div>
       </div>
 
@@ -226,7 +248,10 @@ export function DepartmentScorecardsPage() {
                     </div>
                     <div className="text-right">
                       <p
-                        className={`text-2xl font-normal ${getScoreColor(Number.parseFloat(departmentScorecard.scorecard.sections.outcomes.totalScore), departmentScorecard.scorecard.sections.outcomes.maxScore)}`}
+                        className={`text-2xl font-normal ${getScoreColor(
+                          Number.parseFloat(departmentScorecard.scorecard.sections.outcomes.totalScore),
+                          departmentScorecard.scorecard.sections.outcomes.maxScore
+                        )}`}
                       >
                         {departmentScorecard.scorecard.sections.outcomes.totalScore}
                       </p>
@@ -257,7 +282,10 @@ export function DepartmentScorecardsPage() {
                     </div>
                     <div className="text-right">
                       <p
-                        className={`text-2xl font-normal ${getScoreColor(Number.parseFloat(departmentScorecard.scorecard.sections.outputs.totalScore), departmentScorecard.scorecard.sections.outputs.maxScore)}`}
+                        className={`text-2xl font-normal ${getScoreColor(
+                          Number.parseFloat(departmentScorecard.scorecard.sections.outputs.totalScore),
+                          departmentScorecard.scorecard.sections.outputs.maxScore
+                        )}`}
                       >
                         {departmentScorecard.scorecard.sections.outputs.totalScore}
                       </p>
@@ -288,7 +316,10 @@ export function DepartmentScorecardsPage() {
                     </div>
                     <div className="text-right">
                       <p
-                        className={`text-2xl font-normal ${getScoreColor(Number.parseFloat(departmentScorecard.scorecard.sections.serviceDelivery.totalScore), departmentScorecard.scorecard.sections.serviceDelivery.maxScore)}`}
+                        className={`text-2xl font-normal ${getScoreColor(
+                          Number.parseFloat(departmentScorecard.scorecard.sections.serviceDelivery.totalScore),
+                          departmentScorecard.scorecard.sections.serviceDelivery.maxScore
+                        )}`}
                       >
                         {departmentScorecard.scorecard.sections.serviceDelivery.totalScore}
                       </p>
@@ -316,7 +347,10 @@ export function DepartmentScorecardsPage() {
                     </div>
                     <div className="text-right">
                       <p
-                        className={`text-2xl font-normal ${getScoreColor(Number.parseFloat(departmentScorecard.scorecard.sections.management.totalScore), departmentScorecard.scorecard.sections.management.maxScore)}`}
+                        className={`text-2xl font-normal ${getScoreColor(
+                          Number.parseFloat(departmentScorecard.scorecard.sections.management.totalScore),
+                          departmentScorecard.scorecard.sections.management.maxScore
+                        )}`}
                       >
                         {departmentScorecard.scorecard.sections.management.totalScore}
                       </p>
@@ -362,7 +396,10 @@ export function DepartmentScorecardsPage() {
                     </div>
                     <div className="text-right">
                       <p
-                        className={`text-2xl font-normal ${getScoreColor(Number.parseFloat(departmentScorecard.scorecard.sections.crossCutting.totalScore), departmentScorecard.scorecard.sections.crossCutting.maxScore)}`}
+                        className={`text-2xl font-normal ${getScoreColor(
+                          Number.parseFloat(departmentScorecard.scorecard.sections.crossCutting.totalScore),
+                          departmentScorecard.scorecard.sections.crossCutting.maxScore
+                        )}`}
                       >
                         {departmentScorecard.scorecard.sections.crossCutting.totalScore}
                       </p>

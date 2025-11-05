@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import {
   fetchGoals,
@@ -88,7 +88,7 @@ const CollapsibleSection = ({
 
 export function GoalsManagement() {
   const dispatch = useAppDispatch()
-  const { goals, goalsLoading, goalError, availableDepartments } = useAppSelector(
+  const { goals, goalsLoading, goalError, availableDepartments, availableKPIs } = useAppSelector(
     (state) => state.performance,
   )
 
@@ -98,12 +98,31 @@ export function GoalsManagement() {
   const [editingGoal, setEditingGoal] = useState<any>(null)
   const [viewingGoal, setViewingGoal] = useState<any>(null)
   const [breakdownGoal, setBreakdownGoal] = useState<any>(null)
+  const [isIndividualBreakdownModalOpen, setIsIndividualBreakdownModalOpen] = useState(false)
+  const [selectedGoalForIndividualBreakdown, setSelectedGoalForIndividualBreakdown] = useState<any>(null)
+  const hasLoadedInitialData = useRef(false)
 
   useEffect(() => {
-    dispatch(fetchAvailableDepartments())
-    dispatch(fetchAvailableKPIs())
-    dispatch(fetchGoals())
-  }, [dispatch])
+    // Only load initial data once when component mounts
+    if (!hasLoadedInitialData.current) {
+      const loadInitialData = async () => {
+        try {
+          // Only fetch if data doesn't exist
+            await dispatch(fetchGoals()).unwrap()
+            await dispatch(fetchAvailableDepartments()).unwrap()
+            await dispatch(fetchAvailableKPIs()).unwrap()
+
+
+       
+        } catch (error) {
+          console.error("Failed to load initial data:", error)
+        }
+      }
+      
+      loadInitialData()
+      hasLoadedInitialData.current = true
+    }
+  }, [dispatch, availableDepartments.length, availableKPIs.length, goals.length])
 
   const handleCreateGoal = () => {
     setEditingGoal(null)
@@ -141,13 +160,18 @@ export function GoalsManagement() {
     setBreakdownGoal(goal)
   }
 
-  const handleDepartmentBreakdownSubmit = async (data: any) => {
-    toast.promise(dispatch(breakdownGoalToDepartments(data)).unwrap(), {
-      loading: "Breaking down goal...",
-      success: "Goal broken down successfully.",
-      error: (err) => `Failed to breakdown goal: ${err.message}`,
-    })
-    setBreakdownGoal(null)
+  const handleBreakdownSubmit = async (data: any) => {
+    try {
+      const result = await dispatch(breakdownGoalToDepartments(data)).unwrap()
+      
+      // Return success to modal
+      return result
+    } catch (error: any) {
+      console.error("Breakdown error:", error)
+      // Toast is already shown in modal's catch block
+      // Return false to indicate failure
+      return false
+    }
   }
 
   const handleIndividualBreakdownSubmit = async (data: any) => {
@@ -477,7 +501,7 @@ export function GoalsManagement() {
           isOpen={!!breakdownGoal}
           onClose={() => setBreakdownGoal(null)}
           parentGoal={breakdownGoal}
-          onSubmit={handleDepartmentBreakdownSubmit}
+          onSubmit={handleBreakdownSubmit}
         />
       )}
 
@@ -489,6 +513,16 @@ export function GoalsManagement() {
           onSubmit={handleIndividualBreakdownSubmit}
         />
       )}
+
+      <IndividualBreakdownModal
+        isOpen={isIndividualBreakdownModalOpen}
+        onClose={() => {
+          setIsIndividualBreakdownModalOpen(false)
+          setSelectedGoalForIndividualBreakdown(null)
+        }}
+        parentGoal={selectedGoalForIndividualBreakdown}
+        onSubmit={handleIndividualBreakdownSubmit}
+      />
     </div>
   )
 }

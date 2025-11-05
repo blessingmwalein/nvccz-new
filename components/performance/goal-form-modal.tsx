@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DatePicker } from "@/components/ui/date-picker"
 import { useAppSelector } from "@/lib/store"
+import { format } from "date-fns"
 
 const goalSchema = yup.object({
   title: yup.string().required("Title is required").min(3),
@@ -27,8 +29,8 @@ const goalSchema = yup.object({
     otherwise: (schema) => schema.nullable(),
   }),
   parentGoalId: yup.string().nullable(),
-  startDate: yup.string().required("Start date is required"),
-  endDate: yup.string().required("End date is required"),
+  startDate: yup.date().required("Start date is required"),
+  endDate: yup.date().required("End date is required"),
 })
 
 interface GoalFormModalProps {
@@ -42,10 +44,9 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
   const { availableDepartments, goals, availableKPIs } = useAppSelector((state) => state.performance)
 
   const {
-    register,
     handleSubmit,
     control,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     watch,
   } = useForm({
     resolver: yupResolver(goalSchema),
@@ -61,20 +62,23 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
       dataSourceField: goal?.dataSourceField || null,
       departmentName: goal?.departmentName || null,
       parentGoalId: goal?.parentGoalId || null,
-      startDate: goal?.startDate ? new Date(goal.startDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-      endDate: goal?.endDate
-        ? new Date(goal.endDate).toISOString().split("T")[0]
-        : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      startDate: goal?.startDate ? new Date(goal.startDate) : new Date(),
+      endDate: goal?.endDate ? new Date(goal.endDate) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     },
   })
 
   const goalType = watch("type")
 
-  const availableParentGoals = goals.filter((g) => {
-    if (goalType === "department") return g.type === "company"
-    if (goalType === "individual") return g.type === "department"
-    return false
-  })
+  const availableParentGoals = Array.isArray(goals)
+    ? goals.filter((g) => {
+        if (goalType === "department") return g.type === "company"
+        if (goalType === "individual") return g.type === "department"
+        return false
+      })
+    : []
+
+  const validDepartments = Array.isArray(availableDepartments) ? availableDepartments : []
+  const validKPIs = Array.isArray(availableKPIs) ? availableKPIs : []
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -85,18 +89,41 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Goal Title *</Label>
-            <Input id="title" {...register("title")} placeholder="e.g., Achieve $5M Fund I AUM by Q4" />
-            {errors.title && <p className="text-sm text-red-600">{errors.title.message}</p>}
-          </div>
+          <Controller
+            name="title"
+            control={control}
+            render={({ field }) => (
+              <div className="space-y-2">
+                <Label htmlFor="title">Goal Title *</Label>
+                <Input
+                  id="title"
+                  {...field}
+                  placeholder="e.g., Achieve $5M Fund I AUM by Q4"
+                  className={errors.title ? "border-red-500" : ""}
+                />
+                {errors.title && <p className="text-sm text-red-600">{errors.title.message}</p>}
+              </div>
+            )}
+          />
 
           {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Textarea id="description" {...register("description")} placeholder="Describe the strategic importance of the goal" />
-            {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
-          </div>
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <div className="space-y-2">
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  {...field}
+                  placeholder="Describe the strategic importance of the goal"
+                  className={errors.description ? "border-red-500" : ""}
+                  rows={4}
+                />
+                {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
+              </div>
+            )}
+          />
 
           {/* Type, Category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -107,7 +134,7 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
                 <div className="space-y-2">
                   <Label>Type *</Label>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
+                    <SelectTrigger className={errors.type ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -127,7 +154,7 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
                 <div className="space-y-2">
                   <Label>Category *</Label>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
+                    <SelectTrigger className={errors.category ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -152,13 +179,17 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
                 render={({ field }) => (
                   <div className="space-y-2">
                     <Label>Department *</Label>
-                    <Select onValueChange={field.onChange} value={field.value || "none"}>
-                      <SelectTrigger>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || "none"}
+                      disabled={validDepartments.length === 0}
+                    >
+                      <SelectTrigger className={errors.departmentName ? "border-red-500" : ""}>
                         <SelectValue placeholder="Select department" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None (Company-wide)</SelectItem>
-                        {availableDepartments.map((dept: any) => (
+                        {validDepartments.map((dept: any) => (
                           <SelectItem key={dept.name} value={dept.name}>
                             {dept.name}
                           </SelectItem>
@@ -166,11 +197,14 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
                       </SelectContent>
                     </Select>
                     {errors.departmentName && <p className="text-sm text-red-600">{errors.departmentName.message}</p>}
+                    {validDepartments.length === 0 && (
+                      <p className="text-xs text-amber-500">No departments available</p>
+                    )}
                   </div>
                 )}
               />
               {availableParentGoals.length > 0 && (
-                 <Controller
+                <Controller
                   name="parentGoalId"
                   control={control}
                   render={({ field }) => (
@@ -204,12 +238,16 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
               render={({ field }) => (
                 <div className="space-y-2 col-span-1">
                   <Label>Backing KPI *</Label>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={validKPIs.length === 0}
+                  >
+                    <SelectTrigger className={errors.kpiName ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select KPI" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableKPIs.map((kpi: any) => (
+                      {validKPIs.map((kpi: any) => (
                         <SelectItem key={kpi.name} value={kpi.name}>
                           {kpi.name}
                         </SelectItem>
@@ -217,41 +255,107 @@ export function GoalFormModal({ isOpen, onClose, goal, onSubmit }: GoalFormModal
                     </SelectContent>
                   </Select>
                   {errors.kpiName && <p className="text-sm text-red-600">{errors.kpiName.message}</p>}
+                  {validKPIs.length === 0 && (
+                    <p className="text-xs text-amber-500">No KPIs available</p>
+                  )}
                 </div>
               )}
             />
-            <div className="space-y-2">
-              <Label htmlFor="targetValue">Target Value *</Label>
-              <Input id="targetValue" type="number" {...register("targetValue")} placeholder="e.g., 5000000" />
-              {errors.targetValue && <p className="text-sm text-red-600">{errors.targetValue.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="targetUnit">Target Unit *</Label>
-              <Input id="targetUnit" {...register("targetUnit")} placeholder="e.g., USD, %, items" />
-              {errors.targetUnit && <p className="text-sm text-red-600">{errors.targetUnit.message}</p>}
-            </div>
+            <Controller
+              name="targetValue"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label htmlFor="targetValue">Target Value *</Label>
+                  <Input
+                    id="targetValue"
+                    type="number"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    placeholder="e.g., 5000000"
+                    className={errors.targetValue ? "border-red-500" : ""}
+                  />
+                  {errors.targetValue && <p className="text-sm text-red-600">{errors.targetValue.message}</p>}
+                </div>
+              )}
+            />
+            <Controller
+              name="targetUnit"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label htmlFor="targetUnit">Target Unit *</Label>
+                  <Input
+                    id="targetUnit"
+                    {...field}
+                    placeholder="e.g., USD, %, items"
+                    className={errors.targetUnit ? "border-red-500" : ""}
+                  />
+                  {errors.targetUnit && <p className="text-sm text-red-600">{errors.targetUnit.message}</p>}
+                </div>
+              )}
+            />
           </div>
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date *</Label>
-              <Input id="startDate" type="date" {...register("startDate")} />
-              {errors.startDate && <p className="text-sm text-red-600">{errors.startDate.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date *</Label>
-              <Input id="endDate" type="date" {...register("endDate")} />
-              {errors.endDate && <p className="text-sm text-red-600">{errors.endDate.message}</p>}
-            </div>
+            <Controller
+              name="startDate"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label>Start Date *</Label>
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    allowFutureDates={true}
+                    className={errors.startDate ? "border-red-500" : ""}
+                  />
+                  {errors.startDate && <p className="text-sm text-red-600">{errors.startDate.message}</p>}
+                </div>
+              )}
+            />
+            <Controller
+              name="endDate"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <Label>End Date *</Label>
+                  <DatePicker
+                    value={field.value}
+                    allowFutureDates={true}
+                    onChange={field.onChange}
+                    className={errors.endDate ? "border-red-500" : ""}
+                  />
+                  {errors.endDate && <p className="text-sm text-red-600">{errors.endDate.message}</p>}
+                </div>
+              )}
+            />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="rounded-full"
+            >
               Cancel
             </Button>
-            <Button type="submit">
-              {goal ? "Update Goal" : "Create Goal"}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {goal ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                goal ? "Update Goal" : "Create Goal"
+              )}
             </Button>
           </DialogFooter>
         </form>

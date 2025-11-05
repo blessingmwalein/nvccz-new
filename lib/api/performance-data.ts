@@ -376,4 +376,15 @@ export const performanceAPI = {
     await new Promise(resolve => setTimeout(resolve, 500))
     return mockMetrics
   },
+
+  // Dashboard Analytics APIs
+  async getDashboardAnalytics() {
+    const response = await apiClient.get('/performance/analytics/dashboard')
+    return response.data.data
+  },
+
+  async getDepartmentComparison() {
+    const response = await apiClient.get('/performance/analytics/departments/comparison')
+    return response.data.data
+  },
 }

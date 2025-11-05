@@ -37,6 +37,8 @@ import {
   BarChart3
 } from "lucide-react"
 import { KPI } from "@/lib/store/slices/performanceSlice"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
+import { format } from "date-fns"
 
 interface KPIViewDrawerProps {
   isOpen: boolean
@@ -113,12 +115,23 @@ export function KPIViewDrawer({ isOpen, onClose, kpi, onEdit, onDelete }: KPIVie
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <span>{kpi.name}</span>
-          </SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <span>KPI View</span>
+            </SheetTitle>
+            {/* Custom Close Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="rounded-full h-10 w-10 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 mr-8"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">

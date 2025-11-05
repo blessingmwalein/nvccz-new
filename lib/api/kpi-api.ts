@@ -1,4 +1,4 @@
-import { apiClient } from './api-client'
+import { apiClient, ApiResponse } from './api-client'
 
 export interface KPICreateRequest {
   name: string
@@ -185,4 +185,34 @@ export const kpiApiService = {
   }> {
     return apiClient.get('/performance/kpis/financial')
   },
+
+  getKPIAnalytics: async (params?: {
+    kpiId?: string
+    department?: string
+    startDate?: string
+    endDate?: string
+  }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.kpiId) queryParams.append('kpiId', params.kpiId)
+    if (params?.department) queryParams.append('department', params.department)
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+
+    const response = await apiClient.get<any>(`/performance/analytics/kpi?${queryParams.toString()}`)
+    return response.data
+  },
+
+  async getDashboardAnalytics() {
+    const response = await apiClient.get('/performance/analytics/dashboard')
+    return response.data
+  },
+
+  async getDepartmentComparison() {
+    const response = await apiClient.get('/performance/analytics/departments/comparison')
+    return response.data
+  },
 }
+
+export const kpiApi = kpiApiService
+
+export default kpiApiService

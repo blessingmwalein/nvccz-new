@@ -37,7 +37,7 @@ import { CalculateDepreciationModal } from "./calculate-depreciation-modal"
 import { DisposeAssetModal } from "./dispose-asset-modal"
 import { RevalueAssetModal } from "./revalue-asset-modal"
 import { ConfirmationDialog } from "../ui/confirmation-drawer"
-import type { AppDispatch } from "@/lib/store/store"
+import type { AppDispatch } from "@/lib/store"
 import { postDepreciation } from "@/lib/store/slices/accountingSlice"
 
 interface AssetViewDrawerProps {

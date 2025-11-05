@@ -180,13 +180,13 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [
       { id: "accounting-dashboard", name: "Dashboard", path: "/accounting", icon: CiGrid41, description: "Accounting dashboard" },
       { id: "general-ledger", name: "General Ledger", path: "/accounting/general-ledger", icon: CiFileOn, description: "Chart of accounts and journal entries" },
-      { 
-        id: "cash-book", 
-        name: "Cash Book", 
-        path: "/accounting/cash-book", 
-        icon: CiMoneyCheck1, 
-        description: "Cash book management" ,
-        
+      {
+        id: "cash-book",
+        name: "Cash Book",
+        path: "/accounting/cash-book",
+        icon: CiMoneyCheck1,
+        description: "Cash book management",
+
       },
 
       { id: "invoices", name: "Accounts Receivable", path: "/accounting/invoices", icon: CiUser, description: "Customer invoices and payments" },
@@ -256,7 +256,35 @@ export const MODULE_CONFIG: ModuleConfig[] = [
         description: "Access control and event module configuration",
       },
     ],
-  }
+  },
+
+  //admin-management
+  {
+    id: "admin-management",
+    name: "Admin Management",
+    path: "/admin",
+    icon: CiUser,
+    description: "User and role management",
+    color: "oklch(0.68 0.12 240)", // a subtle blue tone for events
+    subModules: [
+      { id: "admin-dashboard", name: "Admin Dashboard", path: "/admin", icon: CiGrid41, description: "Admin overview and metrics" },
+
+      {
+        id: "user-management",
+        name: "User Management",
+        path: "/admin/users",
+        icon: CiUser,
+        description: "Manage users and their roles",
+      },
+      {
+        id: "role-management",
+        name: "Role Management",
+        path: "/admin/roles",
+        icon: CiUser,
+        description: "Manage user roles and permissions",
+      },
+    ],
+  },
 ]
 
 export const getModuleById = (id: string): ModuleConfig | undefined => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -96,21 +96,24 @@ export default function CashbookPage() {
     return { type: "", status: "", startDate, endDate }
   })
 
-  useEffect(() => {
-    setFilters(f => ({
-      ...f,
-      startDate: entriesStartDate ? format(entriesStartDate, "yyyy-MM-dd") : "",
-      endDate: entriesEndDate ? format(entriesEndDate, "yyyy-MM-dd") : ""
-    }))
-  }, [entriesStartDate, entriesEndDate])
+  const isFetchingRef = useRef(false)
 
   useEffect(() => {
-    dispatch(fetchCashbookBanks())
+    if (isFetchingRef.current) return
+    
+    isFetchingRef.current = true
+    dispatch(fetchCashbookBanks()).finally(() => {
+      isFetchingRef.current = false
+    })
   }, [dispatch])
 
   useEffect(() => {
     if (activeTab === 'single') {
-      dispatch(fetchCashbookEntries({ ...filters }))
+      const timeoutId = setTimeout(() => {
+        dispatch(fetchCashbookEntries({ ...filters }))
+      }, 300) // Debounce to prevent rapid re-fetches
+      
+      return () => clearTimeout(timeoutId)
     } else if (activeTab === 'batch') {
       const fetchBatches = async () => {
         setBatchesLoading(true)
@@ -140,7 +143,9 @@ export default function CashbookPage() {
           setTransfersLoading(false)
         }
       }
-      fetchTransfers()
+      
+      const timeoutId = setTimeout(fetchTransfers, 300) // Debounce
+      return () => clearTimeout(timeoutId)
     }
   }, [dispatch, activeTab, filters, transferFilters])
 
@@ -396,13 +401,15 @@ export default function CashbookPage() {
                 <SelectContent>
                   {cashbookBanksLoading ? (
                     <Skeleton className="h-4 w-full" />
-                  ) : (
+                  ) : Array.isArray(cashbookBanks) && cashbookBanks.length > 0 ? (
                     cashbookBanks.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>
-                    )))
-                  }
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-muted-foreground">No banks available</div>
+                  )}
                 </SelectContent>
               </Select>
               <Select
@@ -415,13 +422,15 @@ export default function CashbookPage() {
                 <SelectContent>
                   {cashbookBanksLoading ? (
                     <Skeleton className="h-4 w-full" />
-                  ) : (
+                  ) : Array.isArray(cashbookBanks) && cashbookBanks.length > 0 ? (
                     cashbookBanks.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>
-                    )))
-                  }
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-muted-foreground">No banks available</div>
+                  )}
                 </SelectContent>
               </Select>
               <DatePicker

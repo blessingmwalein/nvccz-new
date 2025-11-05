@@ -1,7 +1,7 @@
-import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit"
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit"
 import { departmentApiService } from "@/lib/api/department-api"
 import { kpiApiService } from '@/lib/api/kpi-api'
-import { goalApiService } from '@/lib/api/goal-api'
+import { goalApiService, type GoalActivity, type GoalRollupData } from "@/lib/api/goal-api"
 
 // KPI Types
 export interface KPI {
@@ -182,21 +182,39 @@ interface PerformanceState {
   // Goal Details
   selectedGoalDetails: any | null
   selectedGoalDetailsLoading: boolean
+
+  // KPI Analytics
+  kpiAnalytics: any[]
+  kpiAnalyticsLoading: boolean
+  kpiAnalyticsSummary: any | null
+
+  // Goal Activities
+  goalActivities: GoalActivity[]
+  goalActivitiesLoading: boolean
+
+  // Goal Rollup Data
+  goalRollupData: GoalRollupData | null
+  goalRollupDataLoading: boolean
+
+  // Dashboard Analytics
+  dashboardData: any | null
+  departmentComparison: any | null
+  dashboardLoading: boolean
+  departmentComparisonLoading: boolean
 }
 
 const initialState: PerformanceState = {
-  // Data
-  kpis: [],
-  departments: [],
   goals: [],
+  kpis: [],
   tasks: [],
-  metrics: null,
-  
-  // UI State
   loading: false,
-  crudLoading: false,
   error: null,
-  
+  selectedGoal: null,
+  selectedKPI: null,
+  selectedTask: null,
+  availableDepartments: [], // Ensure it's initialized as empty array
+  availableDepartmentsLoading: false,
+
   // Filters
   selectedDepartment: "all",
   selectedCategory: "all",
@@ -221,9 +239,6 @@ const initialState: PerformanceState = {
   currentPage: 1,
   itemsPerPage: 10,
 
-  // Available Departments
-  availableDepartments: [],
-
   // KPI Statistics
   availableKPIs: [],
   kpiStatistics: null,
@@ -245,31 +260,52 @@ const initialState: PerformanceState = {
   // Goal Details
   selectedGoalDetails: null,
   selectedGoalDetailsLoading: false,
+
+  // KPI Analytics
+  kpiAnalytics: [],
+  kpiAnalyticsLoading: false,
+  kpiAnalyticsSummary: null,
+
+  // Goal Activities
+  goalActivities: [],
+  goalActivitiesLoading: false,
+
+  // Goal Rollup Data
+  goalRollupData: null,
+  goalRollupDataLoading: false,
+
+  // Dashboard Analytics
+  dashboardData: null,
+  departmentComparison: null,
+  dashboardLoading: false,
+  departmentComparisonLoading: false,
 }
 
 // Async thunks
 export const fetchAvailableDepartments = createAsyncThunk(
-  "performance/fetchAvailableDepartments",
+  'performance/fetchAvailableDepartments',
   async (_, { rejectWithValue }) => {
     try {
-      const departments = await departmentApiService.getAvailableDepartments()
-      return departments
+      const response = await departmentApiService.getAvailableDepartments()
+      return response || []
     } catch (error: any) {
-      return rejectWithValue(error.message || "Failed to load departments")
+      return rejectWithValue(error.message || 'Failed to fetch available departments')
     }
   }
 )
 
 // Async thunks for KPIs
 export const fetchAvailableKPIs = createAsyncThunk(
-  'performance/fetchAvailableKPIs',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await kpiApiService.getAvailableKPIs()
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to load KPIs')
+  "performance/fetchAvailableKPIs",
+  async (_, { getState }) => {
+    // Check if KPIs already exist in state
+    const state = getState() as any
+    if (state.performance.availableKPIs?.length > 0) {
+      return { data: state.performance.availableKPIs }
     }
+    
+    const response = await kpiApiService.getAvailableKPIs()
+    return response
   }
 )
 
@@ -379,7 +415,11 @@ export const breakdownGoalToDepartments = createAsyncThunk(
   async (data: any, { dispatch, rejectWithValue }) => {
     try {
       const response = await goalApiService.breakdownToDepartments(data)
-      dispatch(fetchGoals()) // Refetch goals to show new sub-goals
+      
+      // Refetch goals to show new sub-goals
+      await dispatch(fetchGoals())
+      
+      // Return the response for success handling
       return response
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to breakdown goal')
@@ -391,9 +431,12 @@ export const fetchUsersForBreakdown = createAsyncThunk(
   'performance/fetchUsersForBreakdown',
   async (departmentName: string, { rejectWithValue }) => {
     try {
+      console.log('Thunk: Fetching users for department:', departmentName)
       const response = await goalApiService.getUsersForBreakdown(departmentName)
-      return response.users
+      console.log('Thunk: Users response:', response)
+      return response.users || []
     } catch (error: any) {
+      console.error('Thunk: Error fetching users:', error)
       return rejectWithValue(error.message || 'Failed to fetch users')
     }
   },
@@ -422,6 +465,69 @@ export const fetchGoalDetails = createAsyncThunk(
       return rejectWithValue(error.message || 'Failed to fetch goal details')
     }
   },
+)
+
+// Async thunks for KPI Analytics
+export const fetchKPIAnalytics = createAsyncThunk(
+  "performance/fetchKPIAnalytics",
+  async (params?: {
+    kpiId?: string
+    department?: string
+    startDate?: string
+    endDate?: string
+  }) => {
+    const response = await kpiApiService.getKPIAnalytics(params)
+    return response
+  }
+)
+
+export const recalculateGoalRollup = createAsyncThunk(
+  "performance/recalculateGoalRollup",
+  async (goalId: string) => {
+    const response = await goalApiService.recalculateRollup(goalId)
+    return response
+  }
+)
+
+export const fetchGoalActivities = createAsyncThunk(
+  "performance/fetchGoalActivities",
+  async (goalId: string) => {
+    const response = await goalApiService.getGoalActivities(goalId)
+    return response.data
+  }
+)
+
+export const fetchGoalRollup = createAsyncThunk(
+  "performance/fetchGoalRollup",
+  async (goalId: string) => {
+    const response = await goalApiService.getGoalRollup(goalId)
+    return response.data
+  }
+)
+
+// New async thunks for dashboard analytics
+export const fetchDashboardAnalytics = createAsyncThunk(
+  'performance/fetchDashboardAnalytics',
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await kpiApiService.getDashboardAnalytics()
+      return data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch dashboard analytics')
+    }
+  }
+)
+
+export const fetchDepartmentComparison = createAsyncThunk(
+  'performance/fetchDepartmentComparison',
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await kpiApiService.getDepartmentComparison()
+      return data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch department comparison')
+    }
+  }
 )
 
 const performanceSlice = createSlice({
@@ -609,17 +715,18 @@ const performanceSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchAvailableDepartments.pending, (state) => {
-        state.loading = true
-        state.error = null
+        state.availableDepartmentsLoading = true
       })
       .addCase(fetchAvailableDepartments.fulfilled, (state, action) => {
-        state.loading = false
-        state.availableDepartments = action.payload
-        state.error = null
+        state.availableDepartmentsLoading = false
+        // Ensure payload is always an array
+        state.availableDepartments = Array.isArray(action.payload) ? action.payload : []
       })
       .addCase(fetchAvailableDepartments.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload as string
+        state.availableDepartmentsLoading = false
+        state.error = action.error.message || 'Failed to fetch available departments'
+        // Reset to empty array on error
+        state.availableDepartments = []
       })
       // Fetch available KPIs
       .addCase(fetchAvailableKPIs.pending, (state) => {
@@ -731,6 +838,93 @@ const performanceSlice = createSlice({
       })
       .addCase(fetchGoalDetails.rejected, (state) => {
         state.selectedGoalDetailsLoading = false
+      })
+      // KPI Analytics
+      .addCase(fetchKPIAnalytics.pending, (state) => {
+        state.kpiAnalyticsLoading = true
+        state.error = null
+      })
+      .addCase(fetchKPIAnalytics.fulfilled, (state, action) => {
+        state.kpiAnalyticsLoading = false
+        console.log('KPI Analytics Response:', action.payload)
+        // The payload now directly contains kpiAnalytics and summary
+        state.kpiAnalytics = action.payload?.kpiAnalytics || []
+        state.kpiAnalyticsSummary = action.payload?.summary || null
+        console.log('KPI Analytics State:', state.kpiAnalytics)
+        console.log('KPI Analytics Summary:', state.kpiAnalyticsSummary)
+      })
+      .addCase(fetchKPIAnalytics.rejected, (state, action) => {
+        state.kpiAnalyticsLoading = false
+        state.error = action.error.message || "Failed to fetch KPI analytics"
+        console.error('KPI Analytics Error:', action.error)
+      })
+      // Recalculate Goal Rollup
+      .addCase(recalculateGoalRollup.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(recalculateGoalRollup.fulfilled, (state, action) => {
+        state.loading = false
+        // Optionally, you can update the state with the new rollup data
+        // For example, if the rollup affects the goals in the state:
+        const updatedGoal = action.payload
+        const index = state.goals.findIndex((goal) => goal.id === updatedGoal.id)
+        if (index !== -1) {
+          state.goals[index] = updatedGoal
+        }
+      })
+      .addCase(recalculateGoalRollup.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      // Fetch goal activities
+      .addCase(fetchGoalActivities.pending, (state) => {
+        state.goalActivitiesLoading = true
+        state.error = null
+      })
+      .addCase(fetchGoalActivities.fulfilled, (state, action) => {
+        state.goalActivitiesLoading = false
+        state.goalActivities = action.payload
+      })
+      .addCase(fetchGoalActivities.rejected, (state, action) => {
+        state.goalActivitiesLoading = false
+        state.error = action.error.message || "Failed to fetch goal activities"
+      })
+      // Fetch goal rollup data
+      .addCase(fetchGoalRollup.pending, (state) => {
+        state.goalRollupDataLoading = true
+        state.error = null
+      })
+      .addCase(fetchGoalRollup.fulfilled, (state, action) => {
+        state.goalRollupDataLoading = false
+        state.goalRollupData = action.payload
+      })
+      .addCase(fetchGoalRollup.rejected, (state, action) => {
+        state.goalRollupDataLoading = false
+        state.error = action.error.message || "Failed to fetch goal rollup data"
+      })
+      // Fetch dashboard analytics
+      .addCase(fetchDashboardAnalytics.pending, (state) => {
+        state.dashboardLoading = true
+      })
+      .addCase(fetchDashboardAnalytics.fulfilled, (state, action) => {
+        state.dashboardLoading = false
+        state.dashboardData = action.payload
+      })
+      .addCase(fetchDashboardAnalytics.rejected, (state, action) => {
+        state.dashboardLoading = false
+        state.error = action.payload as string
+      })
+      // Fetch department comparison
+      .addCase(fetchDepartmentComparison.pending, (state) => {
+        state.departmentComparisonLoading = true
+      })
+      .addCase(fetchDepartmentComparison.fulfilled, (state, action) => {
+        state.departmentComparisonLoading = false
+        state.departmentComparison = action.payload
+      })
+      .addCase(fetchDepartmentComparison.rejected, (state, action) => {
+        state.departmentComparisonLoading = false
+        state.error = action.payload as string
       })
   },
 })

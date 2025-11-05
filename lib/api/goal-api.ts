@@ -5,6 +5,88 @@ interface GetGoalsParams {
   department?: string
 }
 
+export interface GoalActivity {
+  id: string
+  userId: string
+  activityType: string
+  title: string
+  description: string
+  goalId: string
+  taskId: string | null
+  kpiId: string | null
+  monetaryValueAchieved: string | null
+  percentValueAchieved: string | null
+  createdAt: string
+  user: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  task?: {
+    id: string
+    title: string
+    monetaryValue: string | null
+    stage: string
+  }
+}
+
+export interface GoalRollupData {
+  goal: {
+    id: string
+    title: string
+    type: string
+    category: string
+    targetValue: string | null
+    currentValue: string
+    progressPercentage: string
+    stage: string
+    kpi: {
+      id: string
+      name: string
+      type: string
+      unitSymbol: string
+      unitPosition: string
+    }
+  }
+  rollup: {
+    totalSubGoals: number
+    completedSubGoals: number
+    inProgressSubGoals: number
+    notStartedSubGoals: number
+    totalTargetValue: number
+    totalCurrentValue: number
+    overallProgressPercentage: string
+    departmentBreakdown: Array<{
+      id: string
+      title: string
+      department: string
+      targetValue: string
+      currentValue: string
+      progressPercentage: string
+      stage: string
+      individualGoals?: Array<{
+        id: string
+        title: string
+        assignedTo: string
+        targetValue: string | null
+        currentValue: string
+        progressPercentage: string
+        stage: string
+      }>
+    }>
+    individualBreakdown: Array<{
+      id: string
+      title: string
+      assignedTo: string
+      targetValue: string | null
+      currentValue: string
+      progressPercentage: string
+      stage: string
+    }>
+  }
+}
+
 export const goalApiService = {
   // Get all performance goals with optional filters
   async getGoals(params: GetGoalsParams = {}): Promise<any> {
@@ -45,12 +127,47 @@ export const goalApiService = {
   },
 
   // Get users for a department for breakdown
-  async getUsersForBreakdown(departmentName: string): Promise<any> {
-    return apiClient.get(`/performance/breakdown/users/${departmentName}`)
+  async getUsersForBreakdown(departmentId: string) {
+    try {
+      console.log('API call: getUsersForBreakdown with departmentId:', departmentId)
+      const response = await fetch(`/api/performance/breakdown/users?departmentId=${departmentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch users')
+      }
+
+      const data = await response.json()
+      console.log('API response:', data)
+      return data
+    } catch (error: any) {
+      console.error('API error:', error)
+      throw error
+    }
   },
 
   // Breakdown department goal to individuals
   async breakdownToIndividuals(data: any): Promise<any> {
     return apiClient.post('/performance/breakdown/individuals', data)
+  },
+
+  // Recalculate goal rollup
+  async recalculateRollup(goalId: string): Promise<any> {
+    return apiClient.post(`/performance/rollup/${goalId}/recalculate`, {})
+  },
+
+  // Get goal activities
+  async getGoalActivities(goalId: string): Promise<{ success: boolean; message: string; data: GoalActivity[]; timestamp: string }> {
+    return apiClient.get(`/activities/goal/${goalId}`)
+  },
+
+  // Get goal rollup data
+  async getGoalRollup(goalId: string): Promise<{ success: boolean; message: string; data: GoalRollupData; timestamp: string }> {
+    return apiClient.get(`/performance/rollup/${goalId}`)
   },
 }

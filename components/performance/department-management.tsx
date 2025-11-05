@@ -63,11 +63,13 @@ export function DepartmentManagement() {
   }, [])
 
   // Filter departments by search term
-  const filteredDepartments = availableDepartments.filter(dept => {
-    const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         dept.description.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
-  })
+  const filteredDepartments = Array.isArray(availableDepartments) 
+    ? availableDepartments.filter(dept => {
+        const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             dept.description.toLowerCase().includes(searchTerm.toLowerCase())
+        return matchesSearch
+      })
+    : []
 
   const handleViewDepartment = (department: any) => {
     setViewingDepartment(department)
