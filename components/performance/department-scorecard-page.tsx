@@ -12,8 +12,6 @@ import { Progress } from "@/components/ui/progress"
 import { CiViewBoard, CiUser, CiRedo, CiTrophy, CiFileOn } from "react-icons/ci"
 import { TbTarget } from "react-icons/tb"
 import { toast } from "sonner"
-import { PDFDownloadLink } from "@react-pdf/renderer"
-import { DepartmentScorecardPDF } from "./department-scorecard-pdf"
 
 const DepartmentScorecardSkeleton = () => (
   <div className="space-y-6 animate-pulse">
@@ -45,9 +43,19 @@ export function DepartmentScorecardsPage() {
   const { availableDepartments } = useAppSelector((state) => state.performance)
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
   const [isClient, setIsClient] = useState(false)
+  const [PDFComponents, setPDFComponents] = useState<any>(null)
 
   useEffect(() => {
     setIsClient(true)
+    // Dynamically import PDF components only on client
+    import("@react-pdf/renderer").then((pdfModule) => {
+      import("./department-scorecard-pdf").then((pdfComponent) => {
+        setPDFComponents({
+          PDFDownloadLink: pdfModule.PDFDownloadLink,
+          DepartmentScorecardPDF: pdfComponent.default,
+        })
+      })
+    })
   }, [])
 
   useEffect(() => {
@@ -137,20 +145,20 @@ export function DepartmentScorecardsPage() {
             <CiRedo className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          {isClient && departmentScorecard && (
-            <PDFDownloadLink
-              document={<DepartmentScorecardPDF data={departmentScorecard} />}
+          {isClient && departmentScorecard && PDFComponents && (
+            <PDFComponents.PDFDownloadLink
+              document={<PDFComponents.DepartmentScorecardPDF data={departmentScorecard} />}
               fileName={`${departmentScorecard.department.replace(/\s+/g, "-")}-Scorecard-${new Date()
                 .toISOString()
                 .split("T")[0]}.pdf`}
             >
-              {({ loading: pdfLoading }) => (
+              {({ loading: pdfLoading }: any) => (
                 <Button variant="outline" disabled={pdfLoading}>
                   <CiFileOn className={`w-4 h-4 mr-2 ${pdfLoading ? "animate-spin" : ""}`} />
                   {pdfLoading ? "Generating..." : "Export PDF"}
                 </Button>
               )}
-            </PDFDownloadLink>
+            </PDFComponents.PDFDownloadLink>
           )}
         </div>
       </div>

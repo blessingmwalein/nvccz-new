@@ -154,7 +154,7 @@ interface DepartmentScorecardPDFProps {
   data: any
 }
 
-export function DepartmentScorecardPDF({ data }: DepartmentScorecardPDFProps) {
+export default function DepartmentScorecardPDF({ data }: DepartmentScorecardPDFProps) {
   const getPerformanceBandColor = (band: string) => {
     switch (band) {
       case "Excellent":

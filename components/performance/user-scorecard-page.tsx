@@ -10,7 +10,6 @@ import { Progress } from "@/components/ui/progress"
 import { CiUser, CiViewBoard, CiCircleCheck, CiRedo, CiTrophy, CiFileOn } from "react-icons/ci"
 import { TbTarget } from "react-icons/tb"
 import { toast } from "sonner"
-import html2canvas from "html2canvas"
 import {
   PieChart,
   Pie,
@@ -24,8 +23,6 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts"
-import { PDFDownloadLink } from "@react-pdf/renderer"
-import { UserScorecardPDF } from "./user-scorecard-pdf"
 
 const UserScorecardSkeleton = () => (
   <div className="space-y-6 animate-pulse">
@@ -55,6 +52,7 @@ export function UserScorecardsPage() {
   const scorecardRef = useRef<HTMLDivElement>(null)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [PDFComponents, setPDFComponents] = useState<any>(null)
   const hasFetched = useRef(false)
 
   useEffect(() => {
@@ -72,6 +70,15 @@ export function UserScorecardsPage() {
 
   useEffect(() => {
     setIsClient(true)
+    // Dynamically import PDF components only on client
+    import("@react-pdf/renderer").then((pdfModule) => {
+      import("./user-scorecard-pdf").then((pdfComponent) => {
+        setPDFComponents({
+          PDFDownloadLink: pdfModule.PDFDownloadLink,
+          UserScorecardPDF: pdfComponent.default,
+        })
+      })
+    })
   }, [])
 
   const handleRefresh = () => {
@@ -80,7 +87,6 @@ export function UserScorecardsPage() {
       hasFetched.current = true
     })
   }
-
 
   const getPerformanceColor = (rating: string) => {
     switch (rating) {
@@ -136,20 +142,20 @@ export function UserScorecardsPage() {
             <CiRedo className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          {isClient && userScorecard && (
-            <PDFDownloadLink
-              document={<UserScorecardPDF data={userScorecard} />}
+          {isClient && userScorecard && PDFComponents && (
+            <PDFComponents.PDFDownloadLink
+              document={<PDFComponents.UserScorecardPDF data={userScorecard} />}
               fileName={`${userScorecard.user.name.replace(/\s+/g, "-")}-Scorecard-${new Date()
                 .toISOString()
                 .split("T")[0]}.pdf`}
             >
-              {({ loading: pdfLoading }) => (
+              {({ loading: pdfLoading }: any) => (
                 <Button variant="outline" disabled={pdfLoading}>
                   <CiFileOn className={`w-4 h-4 mr-2 ${pdfLoading ? "animate-spin" : ""}`} />
                   {pdfLoading ? "Generating..." : "Export PDF"}
                 </Button>
               )}
-            </PDFDownloadLink>
+            </PDFComponents.PDFDownloadLink>
           )}
         </div>
       </div>

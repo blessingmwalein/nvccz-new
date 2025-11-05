@@ -135,7 +135,7 @@ interface UserScorecardPDFProps {
   data: any
 }
 
-export const UserScorecardPDF: React.FC<UserScorecardPDFProps> = ({ data }) => {
+export default function UserScorecardPDF({ data }: UserScorecardPDFProps) {
   const getPerformanceBandColor = (band: string) => {
     switch (band) {
       case "Excellent":
