@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { 
-  CheckCircle, 
-  Circle, 
-  FileText, 
-  Users, 
+import {
+  CheckCircle,
+  Circle,
+  FileText,
+  Users,
   DollarSign,
   Eye,
   Edit,
@@ -150,17 +150,17 @@ export function ApplicationTimeline({
 
   useEffect(() => {
     let stageIndex = stages.findIndex(stage => stage.id === application.currentStage)
-    
+
     // Special handling for BOARD_APPROVED - it should show TERM_SHEET as current
     if (application.currentStage === "BOARD_APPROVED") {
       stageIndex = stages.findIndex(stage => stage.id === "TERM_SHEET")
     }
-    
+
     // Special handling for DUE_DILIGENCE_COMPLETED - it should show UNDER_BOARD_REVIEW as current
     if (application.currentStage === "DUE_DILIGENCE_COMPLETED") {
       stageIndex = stages.findIndex(stage => stage.id === "UNDER_BOARD_REVIEW")
     }
-    
+
     setCurrentStageIndex(stageIndex >= 0 ? stageIndex : 0)
   }, [application.currentStage])
 
@@ -181,8 +181,8 @@ export function ApplicationTimeline({
 
   // Fetch fund disbursement data when component mounts or application changes
   useEffect(() => {
-    if (application.currentStage === 'INVESTMENT_IMPLEMENTATION' || 
-        application.currentStage === 'FUND_DISBURSED') {
+    if (application.currentStage === 'INVESTMENT_IMPLEMENTATION' ||
+      application.currentStage === 'FUND_DISBURSED') {
       fetchFundDisbursementData()
     }
   }, [application.id, application.currentStage])
@@ -287,7 +287,7 @@ export function ApplicationTimeline({
 
   const handleConfirmFundDisbursement = async () => {
     if (!pendingDisbursement) return
-    
+
     try {
       await fundDisbursementApi.create(application.id, {
         amount: pendingDisbursement.amount,
@@ -300,15 +300,15 @@ export function ApplicationTimeline({
         },
         notes: pendingDisbursement.notes || undefined
       })
-      
+
       // Close the dialogs and reset state
       setShowConfirmationDialog(false)
       setShowFundDisbursementForm(false)
       setPendingDisbursement(null)
-      
+
       // Refresh and close drawer
       await handleActionWithRefresh()
-      
+
     } catch (error) {
       console.error('Error creating fund disbursement:', error)
     }
@@ -361,7 +361,7 @@ export function ApplicationTimeline({
     fetchBoardReviewData()
     fetchTermSheetData()
     fetchFundDisbursementData()
-    
+
     if (onClose) {
       onClose()
     }
@@ -373,13 +373,13 @@ export function ApplicationTimeline({
       if (stageIndex === 3) return "current"
       return "upcoming"
     }
-    
+
     if (application.currentStage === "DUE_DILIGENCE_COMPLETED") {
       if (stageIndex < 2) return "completed"
       if (stageIndex === 2) return "current"
       return "upcoming"
     }
-    
+
     if (stageIndex < currentStageIndex) return "completed"
     if (stageIndex === currentStageIndex) return "current"
     return "upcoming"
@@ -462,17 +462,19 @@ export function ApplicationTimeline({
       <div className="relative text-center mb-8">
         <h2 className="text-xl font-normal text-gray-900 mb-2">Application Timeline</h2>
         <p className="text-sm text-gray-600">Track the progress of this investment application</p>
-        
+
         {/* Close Button */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="absolute -top-2 right-0 w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 group"
-            aria-label="Close drawer"
-          >
-            <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          </button>
-        )}
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onClose}
+          className="absolute -top-2 right-0 rounded-full h-10 w-10 bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-md hover:shadow-lg transition-all"
+          aria-label="Close drawer"
+        >
+          <X className="w-5 h-5" />
+        </Button>
+
       </div>
 
       {/* Timeline Steps */}
@@ -484,14 +486,14 @@ export function ApplicationTimeline({
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Initiate Fund Disbursement</h3>
-                  <button 
+                  <button
                     onClick={() => setShowFundDisbursementForm(false)}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     ×
                   </button>
                 </div>
-                
+
                 <FundDisbursementForm
                   applicationId={application.id}
                   portfolioCompanyId={application.portfolioCompanyId || ''}
@@ -503,7 +505,7 @@ export function ApplicationTimeline({
             </div>
           </div>
         )}
-        
+
         <FundDisbursementConfirmationDialog
           open={showConfirmationDialog}
           onOpenChange={setShowConfirmationDialog}
@@ -516,7 +518,7 @@ export function ApplicationTimeline({
           }}
           loading={false}
         />
-      
+
         {stages.map((stage, index) => {
           const status = getStageStatus(index)
           const isCompleted = status === "completed"
@@ -542,21 +544,19 @@ export function ApplicationTimeline({
               </div>
 
               <div className="ml-6 flex-1 pb-8">
-                <Card className={`transition-all duration-300 ${
-                  isCurrent 
-                    ? 'border-2 border-blue-500 shadow-lg bg-white' 
-                    : isCompleted 
-                    ? 'border-green-200 bg-white' 
+                <Card className={`transition-all duration-300 ${isCurrent
+                  ? 'border-2 border-blue-500 shadow-lg bg-white'
+                  : isCompleted
+                    ? 'border-green-200 bg-white'
                     : isUpcoming
-                    ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
-                    : 'border-gray-200 bg-white'
-                }`}>
+                      ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                      : 'border-gray-200 bg-white'
+                  }`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle className={`text-base font-normal ${
-                          isCurrent ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-600'
-                        }`}>
+                        <CardTitle className={`text-base font-normal ${isCurrent ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-600'
+                          }`}>
                           {stage.title}
                         </CardTitle>
                         <p className="text-sm text-gray-500 mt-1">{stage.description}</p>

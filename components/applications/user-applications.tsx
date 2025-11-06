@@ -27,6 +27,7 @@ import { dueDiligenceApi } from "@/lib/api/due-diligence-api"
 import { boardReviewApi } from "@/lib/api/board-review-api"
 import { termSheetApi } from "@/lib/api/term-sheet-api"
 import { toast } from "sonner"
+import { se } from "date-fns/locale"
 
 type Application = {
   id: string
@@ -509,6 +510,12 @@ export function UserApplications() {
               onInitiateFundDisbursement={handleInitiateFundDisbursement}
               onCreateFundDisbursement={handleCreateFundDisbursement}
               refreshTrigger={refreshTrigger}
+              onClose={() => {
+                //remove setSelectedApplication
+                setSelected(null)
+                setDrawerOpen(false)
+              }}
+
             />
           )}
         </SheetContent>
