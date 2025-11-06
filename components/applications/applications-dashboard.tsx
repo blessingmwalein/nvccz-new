@@ -726,7 +726,7 @@ export function ApplicationsDashboard() {
               onInitiateFundDisbursement={handleInitiateFundDisbursement}
               refreshTrigger={refreshTrigger}
               onRefresh={handleRefresh}
-              onClose={() => setDrawerOpen(false)}
+              // onClose={() => setDrawerOpen(false)}
             />
           )}
         </SheetContent>

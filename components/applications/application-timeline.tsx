@@ -362,9 +362,9 @@ export function ApplicationTimeline({
     fetchTermSheetData()
     fetchFundDisbursementData()
 
-    if (onClose) {
-      onClose()
-    }
+    // if (onClose) {
+    //   onClose()
+    // }
   }
 
   const getStageStatus = (stageIndex: number) => {
@@ -464,17 +464,17 @@ export function ApplicationTimeline({
         <p className="text-sm text-gray-600">Track the progress of this investment application</p>
 
         {/* Close Button */}
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onClose}
-          className="absolute -top-2 right-0 rounded-full h-10 w-10 bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-md hover:shadow-lg transition-all"
-          aria-label="Close drawer"
-        >
-          <X className="w-5 h-5" />
-        </Button>
-
+        
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onClose}
+            className="absolute -top-2 right-0 rounded-full h-10 w-10 bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-md hover:shadow-lg transition-all"
+            aria-label="Close drawer"
+          >
+            <X className="w-5 h-5" />
+          </Button>
+      
       </div>
 
       {/* Timeline Steps */}
@@ -545,12 +545,12 @@ export function ApplicationTimeline({
 
               <div className="ml-6 flex-1 pb-8">
                 <Card className={`transition-all duration-300 ${isCurrent
-                  ? 'border-2 border-blue-500 shadow-lg bg-white'
-                  : isCompleted
-                    ? 'border-green-200 bg-white'
-                    : isUpcoming
-                      ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
-                      : 'border-gray-200 bg-white'
+                    ? 'border-2 border-blue-500 shadow-lg bg-white'
+                    : isCompleted
+                      ? 'border-green-200 bg-white'
+                      : isUpcoming
+                        ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                        : 'border-gray-200 bg-white'
                   }`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
