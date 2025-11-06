@@ -295,3 +295,16 @@ const authSlice = createSlice({
 
 export const { clearError, setLoading, updateUserDetails } = authSlice.actions
 export default authSlice.reducer
+
+// Add helper selectors at the end of the file
+export const selectUserPermissions = (state: { auth: AuthState }) => {
+  const userDetails = state.auth.userDetails
+  if (!userDetails) return null
+  
+  return {
+    role: userDetails.role.code,
+    department: userDetails.role.department,
+    level: userDetails.role.level,
+    permissions: userDetails.role.permissions,
+  }
+}

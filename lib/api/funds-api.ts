@@ -15,6 +15,24 @@ export interface Fund {
   createdById: string
   createdAt: string
   updatedAt: string
+  fundDisbursements?: Array<{
+    id: string
+    amount: string
+    disbursementDate: string
+    disbursementType: string
+    status: string
+    notes: string
+    transactionReference: string
+    approvedAt: string | null
+    disbursedAt: string | null
+    investmentImplementation: {
+      id: string
+      portfolioCompany: {
+        id: string
+        name: string
+      }
+    }
+  }>
 }
 
 export interface FundsListResponse {

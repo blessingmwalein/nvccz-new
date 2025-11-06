@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
-import { applicationsApi, ApplicationCreateRequest } from '@/lib/api/applications-api'
+import { applicationsApi, ApplicationCreateRequest, Application } from '@/lib/api/applications-api'
 
 export interface Document {
   documentType: 'BUSINESS_PLAN' | 'PROOF_OF_CONCEPT' | 'MARKET_RESEARCH' | 'PROJECTED_CASH_FLOWS' | 'HISTORICAL_FINANCIALS'
@@ -36,6 +36,11 @@ export interface ApplicationFormData {
   errors: Record<string, string>
   lastResponse?: any
   submitError?: string
+  
+  // Applications list state
+  applications: Application[]
+  isLoading: boolean
+  fetchError?: string
 }
 
 const initialState: ApplicationFormData = {
@@ -56,7 +61,10 @@ const initialState: ApplicationFormData = {
   isSubmitting: false,
   errors: {},
   lastResponse: undefined,
-  submitError: undefined
+  submitError: undefined,
+  applications: [],
+  isLoading: false,
+  fetchError: undefined
 }
 
 // Async thunk for submitting application
@@ -98,6 +106,19 @@ export const submitApplication = createAsyncThunk(
       return response
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to submit application')
+    }
+  }
+)
+
+// Async thunk for fetching applications
+export const fetchApplications = createAsyncThunk(
+  'application/fetchApplications',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.getAll()
+      return response.data.applications
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch applications')
     }
   }
 )
@@ -179,6 +200,19 @@ const applicationSlice = createSlice({
       .addCase(submitApplication.rejected, (state, action) => {
         state.isSubmitting = false
         state.submitError = action.payload as string
+      })
+      .addCase(fetchApplications.pending, (state) => {
+        state.isLoading = true
+        state.fetchError = undefined
+      })
+      .addCase(fetchApplications.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.applications = action.payload
+        state.fetchError = undefined
+      })
+      .addCase(fetchApplications.rejected, (state, action) => {
+        state.isLoading = false
+        state.fetchError = action.payload as string
       })
   }
 })

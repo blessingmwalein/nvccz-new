@@ -11,13 +11,6 @@ import {
   CiShop,
   CiCirclePlus,
   CiCircleMinus,
-  CiViewBoard,
-  CiViewColumn,
-  CiFileOn,
-  CiViewTimeline,
-  CiGrid41,
-  CiViewTable,
-  CiCalendar
 } from "react-icons/ci"
 
 export function PortfolioSidebar() {
@@ -57,6 +50,7 @@ export function PortfolioSidebar() {
       }
     }
 
+    // Check groups and their items
     if (module.groups && module.groups.length > 0) {
       for (const g of module.groups) {
         if (Array.isArray(g.items) && g.items.length > 0) {
@@ -71,6 +65,7 @@ export function PortfolioSidebar() {
       }
     }
 
+    // Check subModules
     if (module.subModules) {
       for (const s of module.subModules) {
         check(s.path, s.id)
@@ -92,6 +87,7 @@ export function PortfolioSidebar() {
   }, [module, collapsedGroups])
 
   const handleItemClick = (path: string) => {
+    if (!path) return
     router.push(path)
   }
 
@@ -134,70 +130,98 @@ export function PortfolioSidebar() {
 
         {/* Navigation Items */}
         <div className="space-y-4">
-          {module.groups && module.groups.length > 0 ? (
-            module.groups.map(group => {
-              const GroupIcon = getGroupIcon(group.id)
-              const collapsed = collapsedGroups[group.id]
-              return (
-                <div key={group.id} className="space-y-2">
-                  <button
-                    type="button"
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer"
-                    onClick={() => toggleGroup(group.id)}
-                  >
-                    <span className="flex items-center gap-2 text-[15px] text-gray-800">
-                      <GroupIcon className="w-5 h-5" />
-                      {group.title}
-                    </span>
-                    {collapsed ? (
-                      <CiCirclePlus className="w-5 h-5 text-gray-500" />
-                    ) : (
-                      <CiCircleMinus className="w-5 h-5 text-gray-500" />
+          {/* Groups with collapsible items */}
+          {module.groups && module.groups.length > 0 && (
+            <>
+              {module.groups.map(group => {
+                const GroupIcon = getGroupIcon(group.id)
+                const collapsed = collapsedGroups[group.id]
+                return (
+                  <div key={group.id} className="space-y-2">
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleGroup(group.id)}
+                    >
+                      <span className="flex items-center gap-2 text-[15px] text-gray-800">
+                        <GroupIcon className="w-5 h-5" />
+                        {group.title}
+                      </span>
+                      {collapsed ? (
+                        <CiCirclePlus className="w-5 h-5 text-gray-500" />
+                      ) : (
+                        <CiCircleMinus className="w-5 h-5 text-gray-500" />
+                      )}
+                    </button>
+                    {!collapsed && (
+                      <div className="space-y-1 pl-5 border-l border-gray-200 ml-2">
+                        {Array.isArray(group.items) && group.items.length > 0 ? (
+                          group.items.map((item) => {
+                            const Icon = item.icon
+                            const active = activeItemId === item.id
+                            return (
+                              <Button
+                                key={item.id}
+                                variant="ghost"
+                                className={cn(
+                                  "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
+                                  "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
+                                  active && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
+                                )}
+                                onClick={() => handleItemClick(item.path)}
+                              >
+                                <Icon className="w-4 h-4" />
+                                <span className="text-[13px]">{item.name}</span>
+                              </Button>
+                            )
+                          })
+                        ) : group.path ? (
+                          <Button
+                            key={group.id}
+                            variant="ghost"
+                            className={cn(
+                              "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
+                              "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
+                              activeItemId === group.id && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
+                            )}
+                            onClick={() => handleItemClick(group.path!)}
+                          >
+                            <GroupIcon className="w-4 h-4" />
+                            <span className="text-[13px]">{group.title}</span>
+                          </Button>
+                        ) : null}
+                      </div>
                     )}
-                  </button>
-                  {!collapsed && (
-                    <div className="space-y-1 pl-5 border-l border-gray-200 ml-2">
-                      {Array.isArray(group.items) && group.items.length > 0 ? (
-                        group.items.map((item) => {
-                          const Icon = item.icon
-                          const active = activeItemId === item.id
-                          return (
-                            <Button
-                              key={item.id}
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
-                                "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
-                                active && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
-                              )}
-                              onClick={() => handleItemClick(item.path)}
-                            >
-                              <Icon className="w-4 h-4" />
-                              <span className="text-[13px]">{item.name}</span>
-                            </Button>
-                          )
-                        })
-                      ) : group.path ? (
-                        <Button
-                          key={group.id}
-                          variant="ghost"
-                          className={cn(
-                            "w-full justify-start gap-3 h-9 cursor-pointer rounded-full transition-all duration-200 text-gray-700",
-                            "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
-                            activeItemId === group.id && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
-                          )}
-                          onClick={() => handleItemClick(group.path!)}
-                        >
-                          <GroupIcon className="w-4 h-4" />
-                          <span className="text-[13px]">{group.title}</span>
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          ) : null}
+                  </div>
+                )
+              })}
+            </>
+          )}
+
+          {/* SubModules - displayed below groups */}
+          {module.subModules && module.subModules.length > 0 && (
+            <div className="space-y-1 pt-4 border-t border-gray-200">
+              {module.subModules.map((subModule) => {
+                const Icon = subModule.icon
+                const active = activeItemId === subModule.id
+                return (
+                  <Button
+                    key={subModule.id}
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start gap-3 h-10 cursor-pointer rounded-full transition-all duration-200 text-gray-800",
+                      "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:rounded-full",
+                      active && "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg rounded-full",
+                    )}
+                    onClick={() => handleItemClick(subModule.path)}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-sm">{subModule.name}</span>
+                  </Button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </aside>

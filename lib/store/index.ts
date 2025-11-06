@@ -26,6 +26,8 @@ import cashbookReducer from './slices/cashbookSlice'
 import scorecardReducer from "./slices/scorecardSlice"
 import adminReducer from './slices/adminSlice'
 import applicationPortalReducer from './slices/applicationPortalSlice'
+import portfolioCompaniesReducer from './slices/portfolioCompaniesSlice'
+import portfolioDashboardReducer from './slices/portfolioDashboardSlice'
 
 export const store = configureStore({
   reducer: {
@@ -53,7 +55,9 @@ export const store = configureStore({
     cashbook: cashbookReducer,
     scorecard: scorecardReducer,
     admin: adminReducer,
-    applicationPortal: applicationPortalReducer, // Add the application portal reducer
+    applicationPortal: applicationPortalReducer,
+    portfolioCompanies: portfolioCompaniesReducer,
+    portfolioDashboard: portfolioDashboardReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

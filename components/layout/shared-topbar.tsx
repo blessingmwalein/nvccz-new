@@ -46,6 +46,9 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
   const currency = useAppSelector((state) => state.ui.currency)
   const { user, token, isAuthenticated } = useAppSelector((state) => state.auth)
 
+  // Check if user is applicant
+  const isApplicant = user?.role?.toLowerCase() === 'applicant'
+
   const handleCurrencyToggle = (newCurrency: "USD" | "ZIG") => {
     dispatch(setCurrency(newCurrency))
   }
@@ -97,36 +100,38 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
         {/* Right Section - Actions and Profile */}
         <div className="flex items-center gap-3">
 
-          {/* App Switcher with Active Module */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div 
-                onClick={() => setShowAppSwitcher(true)} 
-                className="flex items-center gap-2 px-2 py-2 rounded-full cursor-pointer transition-colors group hover:primary-200 bg-accent"
-                style={{
-                  backgroundColor: 'oklch(0.60 0.18 252)20'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)30'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)20'
-                }}
-              >
-                <div className="w-8 h-8 rounded-full  dark:bg-gray-800  dark:border-gray-700 flex items-center justify-center">
-                  <CiGrid41 size={20} style={{ color: 'oklch(0.60 0.18 252)' }} />
+          {/* App Switcher with Active Module - Hidden for applicants */}
+          {!isApplicant && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div 
+                  onClick={() => setShowAppSwitcher(true)} 
+                  className="flex items-center gap-2 px-2 py-2 rounded-full cursor-pointer transition-colors group hover:primary-200 bg-accent"
+                  style={{
+                    backgroundColor: 'oklch(0.60 0.18 252)20'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)30'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'oklch(0.60 0.18 252)20'
+                  }}
+                >
+                  <div className="w-8 h-8 rounded-full  dark:bg-gray-800  dark:border-gray-700 flex items-center justify-center">
+                    <CiGrid41 size={20} style={{ color: 'oklch(0.60 0.18 252)' }} />
+                  </div>
+                  {currentModule !== "homepage" && (
+                    <span className="text-sm text-muted-foreground capitalize group-hover:text-gray-500  dark:group-hover:text-gray-400">
+                      {currentModule.replace("-", " ")}
+                    </span>
+                  )}
                 </div>
-                {currentModule !== "homepage" && (
-                  <span className="text-sm text-muted-foreground capitalize group-hover:text-gray-500  dark:group-hover:text-gray-400">
-                    {currentModule.replace("-", " ")}
-                  </span>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Switch Applications</p>
-            </TooltipContent>
-          </Tooltip>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Switch Applications</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {/* Notifications */}
           <Tooltip>
@@ -177,7 +182,7 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
                   <span className="text-sm font-medium">
                     {user ? `${user.firstName} ${user.lastName}` : "User"}
                   </span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground capitalize">
                     {user?.role || "User"}
                   </span>
                 </div>
@@ -218,17 +223,19 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
         </div>
       </div>
 
-        {/* App Switcher Dropdown */}
-        <AppSwitcherDropdown
-          isOpen={showAppSwitcher}
-          onClose={() => setShowAppSwitcher(false)}
-          onModuleSelect={(module) => {
-            console.log('SharedTopbar onModuleSelect called with:', module)
-            onModuleSelect(module)
-            setShowAppSwitcher(false)
-          }}
-          currentModule={currentModule}
-        />
+        {/* App Switcher Dropdown - Only show if not applicant */}
+        {!isApplicant && (
+          <AppSwitcherDropdown
+            isOpen={showAppSwitcher}
+            onClose={() => setShowAppSwitcher(false)}
+            onModuleSelect={(module) => {
+              console.log('SharedTopbar onModuleSelect called with:', module)
+              onModuleSelect(module)
+              setShowAppSwitcher(false)
+            }}
+            currentModule={currentModule}
+          />
+        )}
       </header>
     </TooltipProvider>
   )

@@ -156,69 +156,79 @@ export function FundsList() {
         {!loading && paginated.length === 0 && (
           <div className="text-center text-gray-600 py-12">No funds found</div>
         )}
-        {!loading && paginated.map((f) => (
-          <div
-            key={f.id}
-            className="p-6 rounded-2xl border border-border hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer bg-white relative"
-            onClick={() => { setSelected(f); setDrawerOpen(true) }}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 rounded-full h-10 w-10 bg-blue-50 text-blue-600 hover:bg-blue-100"
-              onClick={(e) => { e.stopPropagation(); setSelected(f); setDrawerOpen(true) }}
-              aria-label="View"
+        {!loading && paginated.map((f) => {
+          const totalDisbursed = (f.fundDisbursements || [])
+            .filter(d => d.status === 'DISBURSED')
+            .reduce((sum, d) => sum + Number(d.amount), 0)
+          
+          return (
+            <div
+              key={f.id}
+              className="p-6 rounded-2xl border border-border hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer bg-white relative"
+              onClick={() => { setSelected(f); setDrawerOpen(true) }}
             >
-              <Eye className="w-5 h-5" />
-            </Button>
-            <div className="flex items-start justify-between mb-3">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-xl">{f.name}</h4>
-                  <Badge variant={f.status === 'OPEN' ? 'default' : 'secondary'} className="text-xs">{f.status}</Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 rounded-full h-10 w-10 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                onClick={(e) => { e.stopPropagation(); setSelected(f); setDrawerOpen(true) }}
+                aria-label="View"
+              >
+                <Eye className="w-5 h-5" />
+              </Button>
+              <div className="flex items-start justify-between mb-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-xl">{f.name}</h4>
+                    <Badge variant={f.status === 'OPEN' ? 'default' : 'secondary'} className="text-xs">{f.status}</Badge>
+                  </div>
+                  <p className="text-base text-muted-foreground line-clamp-2">{f.description}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(f.focusIndustries || []).slice(0, 4).map((ind) => (
+                      <Badge key={ind} variant="secondary" className="text-xs">{ind}</Badge>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-base text-muted-foreground line-clamp-2">{f.description}</p>
-                <div className="flex flex-wrap gap-1">
-                  {(f.focusIndustries || []).slice(0, 4).map((ind) => (
-                    <Badge key={ind} variant="secondary" className="text-xs">{ind}</Badge>
-                  ))}
+                <div className="text-right space-y-2 mt-12">
+                  <div>
+                    <div className="text-xs text-gray-500">Total</div>
+                    <div className="text-base text-purple-700">${Number(f.totalAmount).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Remaining</div>
+                    <div className="text-base text-emerald-600">${Number(f.remainingAmount).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Disbursed</div>
+                    <div className="text-base text-blue-600">${totalDisbursed.toLocaleString()}</div>
+                  </div>
                 </div>
               </div>
-              <div className="text-right space-y-2 mt-12">
-                <div>
-                  <div className="text-xs text-gray-500">Total</div>
-                  <div className="text-base text-purple-700">${Number(f.totalAmount).toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">Remaining</div>
-                  <div className="text-base text-emerald-600">${Number(f.remainingAmount).toLocaleString()}</div>
-                </div>
+              <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                <span className="font-medium">Min ${Number(f.minInvestment).toLocaleString()} • Max ${Number(f.maxInvestment).toLocaleString()}</span>
+                <span className="font-medium">
+                  {formatLongDate(f.applicationStart)} - {formatLongDate(f.applicationEnd)}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {(() => {
+                  const total = Number(f.totalAmount) || 0
+                  const remaining = Number(f.remainingAmount) || 0
+                  const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0
+                  return (
+                    <>
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span>Funded</span>
+                        <span className="font-medium">{pct.toFixed(0)}% remaining</span>
+                      </div>
+                      <Progress value={pct} className="h-2" />
+                    </>
+                  )
+                })()}
               </div>
             </div>
-            <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-              <span className="font-medium">Min ${Number(f.minInvestment).toLocaleString()} • Max ${Number(f.maxInvestment).toLocaleString()}</span>
-              <span className="font-medium">
-                {formatLongDate(f.applicationStart)} - {formatLongDate(f.applicationEnd)}
-              </span>
-            </div>
-            <div className="space-y-1">
-              {(() => {
-                const total = Number(f.totalAmount) || 0
-                const remaining = Number(f.remainingAmount) || 0
-                const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0
-                return (
-                  <>
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>Funded</span>
-                      <span className="font-medium">{pct.toFixed(0)}% remaining</span>
-                    </div>
-                    <Progress value={pct} className="h-2" />
-                  </>
-                )
-              })()}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Pagination */}

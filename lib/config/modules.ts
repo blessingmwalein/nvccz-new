@@ -69,6 +69,8 @@ export interface ModuleConfig {
   path: string
   subModules: SubModuleConfig[]
   groups?: ModuleGroupConfig[]
+  requiresPermission?: boolean // Add this
+  minLevel?: number // Add this
 }
 
 export const MODULE_CONFIG: ModuleConfig[] = [
@@ -87,9 +89,14 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     description: "Manage investment portfolios and assets",
     icon: CiShop,
     color: "oklch(0.72 0.12 225)",
-    path: "/portfolio/applications/dashboard",
+    path: "/portfolio",
     // Flat shortcuts (optional)
-    subModules: [],
+    subModules: [
+      { id: "Dashboard", name: "Dashboard", path: "/portfolio", icon: CiGrid41, description: "Manage your portfolio" },
+      { id: "funds", name: "Funds", path: "/portfolio/funds", icon: CiDollar, description: "Manage funds and investments" },
+      { id: "companies", name: "Companies", path: "/portfolio/companies", icon: CiShop, description: "Manage companies" }
+
+    ],
     // Grouped navigation per requirements
     groups: [
 
@@ -105,22 +112,31 @@ export const MODULE_CONFIG: ModuleConfig[] = [
           // { id: "applications-disbursement", name: "Fund Disbursement", path: "/portfolio/applications/disbursement", icon: CiViewTimeline, description: "Fund disbursement" }
         ]
       },
-      {
-        id: "funds",
-        title: "Funds",
-        path: "/portfolio/funds",
+      // {
+      //   id: "funds",
+      //   title: "Funds",
+      //   path: "/portfolio/funds",
 
 
-      },
-      {
-        id: "companies",
-        title: "Companies",
-        items: [
-          { id: "companies-page", name: "Companies", path: "/portfolio/companies", icon: CiShop, description: "Companies" },
-          { id: "companies-performance", name: "Performance Dashboard", path: "/portfolio/companies/performance", icon: CiGrid41, description: "Company performance" },
-          { id: "companies-updates", name: "Quarterly Updates", path: "/portfolio/companies/updates", icon: CiCalendar, description: "Quarterly updates" }
-        ]
-      }
+      // },
+      // { id: "companies-page", title: "Companies", path: "/portfolio/companies" },
+
+      // {
+      //   id: "companies",
+      //   title: "Companies",
+      //   path: "/portfolio/companies",
+
+
+      // },
+      // {
+      //   id: "companies",
+      //   title: "Companies",
+      //   items: [
+      //     { id: "companies-page", name: "Companies", path: "/portfolio/companies", icon: CiShop, description: "Companies" },
+      //     { id: "companies-performance", name: "Performance Dashboard", path: "/portfolio/companies/performance", icon: CiGrid41, description: "Company performance" },
+      //     { id: "companies-updates", name: "Quarterly Updates", path: "/portfolio/companies/updates", icon: CiCalendar, description: "Quarterly updates" }
+      //   ]
+      // }
     ]
   },
   {
