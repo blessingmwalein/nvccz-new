@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useAppSelector } from "@/lib/store"
+import { useAppSelector, useAppDispatch } from "@/lib/store"
+import { fetchApplications } from "@/lib/store/slices/applicationSlice"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,9 +24,6 @@ import { TermSheetConfirmationDialog } from "./term-sheet-confirmation-dialog"
 import { FinalizeTermSheetConfirmationDialog } from "./finalize-term-sheet-confirmation-dialog"
 import { FundDisbursementModal } from "./fund-disbursement-modal"
 import { CreateFundDisbursementModal } from "./create-fund-disbursement-modal"
-import { dueDiligenceApi } from "@/lib/api/due-diligence-api"
-import { boardReviewApi } from "@/lib/api/board-review-api"
-import { termSheetApi } from "@/lib/api/term-sheet-api"
 import { toast } from "sonner"
 import { se } from "date-fns/locale"
 
@@ -119,10 +117,8 @@ const getStageIcon = (stage: string) => {
 }
 
 export function UserApplications() {
-  const token = useAppSelector((s) => s.auth.token)
-  const [apps, setApps] = useState<Application[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const dispatch = useAppDispatch()
+  const { applications: apps, isLoading: loading, fetchError: error } = useAppSelector((s) => s.application)
   const [query, setQuery] = useState("")
   const [selectedStage, setSelectedStage] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
@@ -143,25 +139,11 @@ export function UserApplications() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const fetchApps = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await fetch("https://nvccz-pi.vercel.app/api/applications", {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-        },
-      })
-      if (!res.ok) throw new Error(await res.text())
-      const json = await res.json()
-      const list: Application[] = json?.data?.applications || []
-      setApps(list)
-      return list // Return the fresh data
-    } catch (e: any) {
-      setError(e?.message || "Failed to load applications")
-      return null
-    } finally {
-      setLoading(false)
+    const result = await dispatch(fetchApplications())
+    if (fetchApplications.fulfilled.match(result)) {
+      return result.payload
     }
+    return null
   }
 
   const refreshSelectedApplication = async () => {
@@ -180,9 +162,8 @@ export function UserApplications() {
   }
 
   useEffect(() => {
-    fetchApps()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+    dispatch(fetchApplications())
+  }, [dispatch])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
@@ -308,7 +289,6 @@ export function UserApplications() {
           <p className="text-gray-600">Filter and review all applications</p>
         </div>
         <div className="flex items-center gap-3">
-          
           <Button variant="outline" onClick={fetchApps} disabled={loading}>
             <CiRedo size={18} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Refreshing...' : 'Refresh'}
@@ -352,10 +332,7 @@ export function UserApplications() {
         </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">{error}</div>
-      )}
+
 
       {/* Applications List (no current card) */}
       {loading ? (
@@ -528,8 +505,8 @@ export function UserApplications() {
         applicationId={selected?.id || ''}
         onSuccess={async () => {
           setDueDiligenceModalOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
@@ -539,8 +516,8 @@ export function UserApplications() {
         applicationId={selected?.id || ''}
         onSuccess={async () => {
           setBoardReviewModalOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
@@ -550,8 +527,8 @@ export function UserApplications() {
         applicationId={selected?.id || ''}
         onSuccess={async () => {
           setTermSheetModalOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
@@ -563,8 +540,8 @@ export function UserApplications() {
           portfolioCompanyId={selected.portfolioCompanyId}
           onSuccess={async () => {
             setInitiateFundDisbursementModalOpen(false)
-            await refreshSelectedApplication() // Refresh the selected application data
-            setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+            await refreshSelectedApplication()
+            setRefreshTrigger(prev => prev + 1)
           }}
         />
       )}
@@ -577,13 +554,12 @@ export function UserApplications() {
           companyName={selected.businessName}
           onSuccess={async () => {
             setCreateFundDisbursementModalOpen(false)
-            await refreshSelectedApplication() // Refresh the selected application data
-            setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+            await refreshSelectedApplication()
+            setRefreshTrigger(prev => prev + 1)
           }}
         />
       )}
 
-      {/* Due Diligence Confirmation Dialog */}
       <DueDiligenceConfirmationDialog
         isOpen={dueDiligenceConfirmationOpen}
         onClose={() => setDueDiligenceConfirmationOpen(false)}
@@ -591,11 +567,10 @@ export function UserApplications() {
         applicationName={selected?.businessName || ''}
         onSuccess={() => {
           setDueDiligenceConfirmationOpen(false)
-          fetchApps() // Reload application data
+          fetchApps()
         }}
       />
 
-      {/* Complete Due Diligence Confirmation Dialog */}
       <CompleteDueDiligenceConfirmationDialog
         isOpen={completeDueDiligenceConfirmationOpen}
         onClose={() => setCompleteDueDiligenceConfirmationOpen(false)}
@@ -603,12 +578,11 @@ export function UserApplications() {
         applicationName={selected?.businessName || ''}
         onSuccess={async () => {
           setCompleteDueDiligenceConfirmationOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
-      {/* Board Review Confirmation Dialog */}
       <BoardReviewConfirmationDialog
         isOpen={boardReviewConfirmationOpen}
         onClose={() => setBoardReviewConfirmationOpen(false)}
@@ -616,12 +590,11 @@ export function UserApplications() {
         applicationName={selected?.businessName || ''}
         onSuccess={async () => {
           setBoardReviewConfirmationOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
-      {/* Complete Board Review Confirmation Dialog */}
       <CompleteBoardReviewConfirmationDialog
         isOpen={completeBoardReviewConfirmationOpen}
         onClose={() => setCompleteBoardReviewConfirmationOpen(false)}
@@ -629,12 +602,11 @@ export function UserApplications() {
         applicationName={selected?.businessName || ''}
         onSuccess={async () => {
           setCompleteBoardReviewConfirmationOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
-      {/* Term Sheet Confirmation Dialog */}
       <TermSheetConfirmationDialog
         isOpen={termSheetConfirmationOpen}
         onClose={() => setTermSheetConfirmationOpen(false)}
@@ -642,12 +614,11 @@ export function UserApplications() {
         applicationName={selected?.businessName || ''}
         onSuccess={async () => {
           setTermSheetConfirmationOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
 
-      {/* Finalize Term Sheet Confirmation Dialog */}
       <FinalizeTermSheetConfirmationDialog
         isOpen={finalizeTermSheetConfirmationOpen}
         onClose={() => setFinalizeTermSheetConfirmationOpen(false)}
@@ -655,12 +626,10 @@ export function UserApplications() {
         applicationName={selected?.businessName || ''}
         onSuccess={async () => {
           setFinalizeTermSheetConfirmationOpen(false)
-          await refreshSelectedApplication() // Refresh the selected application data
-          setRefreshTrigger(prev => prev + 1) // Trigger drawer refresh
+          await refreshSelectedApplication()
+          setRefreshTrigger(prev => prev + 1)
         }}
       />
-
-     
     </div>
   )
 }

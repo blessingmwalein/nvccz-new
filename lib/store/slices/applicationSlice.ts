@@ -41,6 +41,8 @@ export interface ApplicationFormData {
   applications: Application[]
   isLoading: boolean
   fetchError?: string
+  investmentUsers: any[]
+  usersLoading: boolean
 }
 
 const initialState: ApplicationFormData = {
@@ -64,7 +66,9 @@ const initialState: ApplicationFormData = {
   submitError: undefined,
   applications: [],
   isLoading: false,
-  fetchError: undefined
+  fetchError: undefined,
+  investmentUsers: [],
+  usersLoading: false
 }
 
 // Async thunk for submitting application
@@ -119,6 +123,71 @@ export const fetchApplications = createAsyncThunk(
       return response.data.applications
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch applications')
+    }
+  }
+)
+
+// Async thunk for fetching investment users
+export const fetchInvestmentUsers = createAsyncThunk(
+  'application/fetchInvestmentUsers',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.getInvestmentUsers()
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch investment users')
+    }
+  }
+)
+
+// Async thunk for assigning due diligence task
+export const assignDueDiligenceTask = createAsyncThunk(
+  'application/assignDueDiligenceTask',
+  async ({ applicationId, taskData }: { applicationId: string, taskData: any }, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.assignDueDiligenceTask(applicationId, taskData)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to assign task')
+    }
+  }
+)
+
+// Async thunk for creating task activity
+export const createTaskActivity = createAsyncThunk(
+  'application/createTaskActivity',
+  async ({ taskId, activityData }: { taskId: string, activityData: any }, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.createTaskActivity(taskId, activityData)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to create activity')
+    }
+  }
+)
+
+// Async thunk for getting activity for approval
+export const getActivityForApproval = createAsyncThunk(
+  'application/getActivityForApproval',
+  async (activityId: string, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.getActivityForApproval(activityId)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch activity')
+    }
+  }
+)
+
+// Async thunk for approving activity
+export const approveActivity = createAsyncThunk(
+  'application/approveActivity',
+  async ({ activityId, approvalData }: { activityId: string, approvalData: any }, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.approveActivity(activityId, approvalData)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to approve activity')
     }
   }
 )
@@ -213,6 +282,71 @@ const applicationSlice = createSlice({
       .addCase(fetchApplications.rejected, (state, action) => {
         state.isLoading = false
         state.fetchError = action.payload as string
+      })
+      .addCase(fetchInvestmentUsers.pending, (state) => {
+        state.usersLoading = true
+        state.fetchError = undefined
+      })
+      .addCase(fetchInvestmentUsers.fulfilled, (state, action) => {
+        state.usersLoading = false
+        state.investmentUsers = action.payload
+        state.fetchError = undefined
+      })
+      .addCase(fetchInvestmentUsers.rejected, (state, action) => {
+        state.usersLoading = false
+        state.fetchError = action.payload as string
+      })
+      .addCase(assignDueDiligenceTask.pending, (state) => {
+        state.isSubmitting = true
+        state.submitError = undefined
+      })
+      .addCase(assignDueDiligenceTask.fulfilled, (state, action) => {
+        state.isSubmitting = false
+        state.lastResponse = action.payload
+        state.submitError = undefined
+      })
+      .addCase(assignDueDiligenceTask.rejected, (state, action) => {
+        state.isSubmitting = false
+        state.submitError = action.payload as string
+      })
+      .addCase(createTaskActivity.pending, (state) => {
+        state.isSubmitting = true
+        state.submitError = undefined
+      })
+      .addCase(createTaskActivity.fulfilled, (state, action) => {
+        state.isSubmitting = false
+        state.lastResponse = action.payload
+        state.submitError = undefined
+      })
+      .addCase(createTaskActivity.rejected, (state, action) => {
+        state.isSubmitting = false
+        state.submitError = action.payload as string
+      })
+      .addCase(getActivityForApproval.pending, (state) => {
+        state.isLoading = true
+        state.fetchError = undefined
+      })
+      .addCase(getActivityForApproval.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.lastResponse = action.payload
+        state.fetchError = undefined
+      })
+      .addCase(getActivityForApproval.rejected, (state, action) => {
+        state.isLoading = false
+        state.fetchError = action.payload as string
+      })
+      .addCase(approveActivity.pending, (state) => {
+        state.isSubmitting = true
+        state.submitError = undefined
+      })
+      .addCase(approveActivity.fulfilled, (state, action) => {
+        state.isSubmitting = false
+        state.lastResponse = action.payload
+        state.submitError = undefined
+      })
+      .addCase(approveActivity.rejected, (state, action) => {
+        state.isSubmitting = false
+        state.submitError = action.payload as string
       })
   }
 })

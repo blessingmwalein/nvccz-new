@@ -5,14 +5,16 @@ import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CiViewList as List, CiCircleCheck as Activity } from "react-icons/ci"
-import { X } from "lucide-react"
+import { DollarSign, X } from "lucide-react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { fetchTaskActivities } from "@/lib/store/slices/taskSlice"
 import { TaskCard } from "./task-card"
 import { ActivityCard } from "./activity-card"
 import { CreateActivityModal } from "./create-activity-modal"
+import { TaskActivityModal } from "@/components/applications/task-activity-modal"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { Card, CardContent } from "../ui/card"
 
 interface TaskDrawerViewProps {
   task: any
@@ -73,6 +75,7 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
   const { activities, activitiesLoading, activitiesError } = useAppSelector((state) => state.tasks)
   const [activeDrawerTab, setActiveDrawerTab] = useState<DrawerTab>("details")
   const [isCreateActivityModalOpen, setCreateActivityModalOpen] = useState(false)
+  const [isTaskActivityModalOpen, setTaskActivityModalOpen] = useState(false)
 
   useEffect(() => {
     if (activeDrawerTab === "activity" && task?.id) {
@@ -95,6 +98,8 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
     { id: "activity", label: "Activity Log", icon: Activity },
   ]
 
+  const isInvestmentTask = task?.department === "Investments"
+
   return (
     <>
       <SheetHeader>
@@ -103,14 +108,24 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
             <span className="truncate">Task View</span>
           </SheetTitle>
           <div className="flex items-center gap-2 mr-8">
-            <Button 
+
+            <Button
+              onClick={() => setTaskActivityModalOpen(true)}
+              className="rounded-full h-10 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              Log Activity
+            </Button>
+
+
+            {/* <Button 
               onClick={() => setCreateActivityModalOpen(true)}
               className="rounded-full h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
             >
               <Activity className="w-4 h-4 mr-2" />
               Log Activity
-            </Button>
-            
+            </Button> */}
+
             {/* Custom Close Button */}
             <Button
               variant="ghost"
@@ -122,7 +137,7 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
             </Button>
           </div>
         </div>
-      
+
       </SheetHeader>
 
       {/* Tab Navigation */}
@@ -155,6 +170,42 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
               <ActivityListSkeleton />
             ) : activities.length > 0 ? (
               <div className="space-y-4">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <Card className="border-l-4 border-l-green-500">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <Activity className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600">Total Activities</p>
+                          <p className="text-xl font-semibold text-gray-900">{activities.length}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  {task?.monetaryValueAchieved && parseFloat(task.monetaryValueAchieved) > 0 && (
+                    <Card className="border-l-4 border-l-blue-500">
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <DollarSign className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Value Achieved</p>
+                            <p className="text-xl font-semibold text-blue-600">
+                              ${parseFloat(task.monetaryValueAchieved).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Activity List */}
                 {activities.map((activity) => (
                   <ActivityCard key={activity.id} activity={activity} />
                 ))}
@@ -179,6 +230,20 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
           if (task?.id) {
             dispatch(fetchTaskActivities(task.id))
           }
+        }}
+      />
+
+      <TaskActivityModal
+        isOpen={isTaskActivityModalOpen}
+        onClose={() => setTaskActivityModalOpen(false)}
+        taskId={task?.id || ''}
+        taskTitle={task?.title}
+        onSuccess={() => {
+          setTaskActivityModalOpen(false)
+          if (task?.id) {
+            dispatch(fetchTaskActivities(task.id))
+          }
+          toast.success('Activity logged successfully')
         }}
       />
     </>

@@ -54,6 +54,107 @@ export interface ApplicationCreateResponse {
   message?: string
 }
 
+export interface InvestmentUser {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  userDepartment: string
+  departmentRole: string
+  roleCode: string
+  role: {
+    id: string
+    name: string
+    description: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InvestmentUsersResponse {
+  success: boolean
+  message: string
+  data: InvestmentUser[]
+  timestamp: string
+}
+
+export interface TaskAssignmentRequest {
+  assigneeId: string
+  title: string
+  description: string
+  priority: 'low' | 'medium' | 'high'
+  dueDate: string
+}
+
+export interface TaskAssignmentResponse {
+  success: boolean
+  message: string
+  data: {
+    task: any
+    dueDiligence: {
+      id: string
+      applicationId: string
+    }
+  }
+  timestamp: string
+}
+
+export interface TaskActivityRequest {
+  title: string
+  description: string
+  valueCollected?: number
+  documents?: File[]
+}
+
+export interface TaskActivityResponse {
+  success: boolean
+  message: string
+  data: any
+  timestamp: string
+}
+
+export interface ActivityApprovalRequest {
+  approved: boolean
+  comments: string
+}
+
+export interface ActivityApprovalResponse {
+  success: boolean
+  message: string
+  data: {
+    id: string
+    approvalStatus: string
+    approvedBy: string
+    approvedAt: string
+    documents: Array<{
+      fileName: string
+      fileUrl: string
+      fileSize: number
+    }>
+  }
+  timestamp: string
+}
+
+export interface ActivityDetailResponse {
+  success: boolean
+  message: string
+  data: {
+    id: string
+    userId: string
+    activityType: string
+    title: string
+    description: string
+    monetaryValueAchieved: string | null
+    percentValueAchieved: string | null
+    createdAt: string
+    task: any
+    user: any
+    documents: any[]
+    approvalStatus: string
+  }
+  timestamp: string
+}
+
 class ApplicationsApiService {
   // Get all applications
   async getAll(): Promise<ApplicationsResponse> {
@@ -105,6 +206,46 @@ class ApplicationsApiService {
   // Delete an application
   async delete(id: string): Promise<{ success: boolean; message?: string }> {
     return apiClient.delete<{ success: boolean; message?: string }>(`/applications/${id}`)
+  }
+
+  // Get investment department users
+  async getInvestmentUsers(): Promise<InvestmentUsersResponse> {
+    return apiClient.get<InvestmentUsersResponse>('/applications/due-diligence/investments-users')
+  }
+
+  // Assign task to user for due diligence
+  async assignDueDiligenceTask(applicationId: string, taskData: TaskAssignmentRequest): Promise<TaskAssignmentResponse> {
+    return apiClient.post<TaskAssignmentResponse>(`/applications/${applicationId}/due-diligence/assign-task`, taskData)
+  }
+
+  // Create activity for a task
+  async createTaskActivity(taskId: string, activityData: TaskActivityRequest): Promise<TaskActivityResponse> {
+    const formData = new FormData()
+    
+    formData.append('title', activityData.title)
+    formData.append('description', activityData.description)
+    
+    if (activityData.valueCollected !== undefined) {
+      formData.append('valueCollected', activityData.valueCollected.toString())
+    }
+    
+    if (activityData.documents && activityData.documents.length > 0) {
+      activityData.documents.forEach((file) => {
+        formData.append('documents', file)
+      })
+    }
+    
+    return apiClient.post<TaskActivityResponse>(`/activities/task/${taskId}`, formData)
+  }
+
+  // Get activity detail for approval
+  async getActivityForApproval(activityId: string): Promise<ActivityDetailResponse> {
+    return apiClient.get<ActivityDetailResponse>(`/activities/${activityId}/approval`)
+  }
+
+  // Approve activity
+  async approveActivity(activityId: string, approvalData: ActivityApprovalRequest): Promise<ActivityApprovalResponse> {
+    return apiClient.post<ActivityApprovalResponse>(`/activities/${activityId}/approve`, approvalData)
   }
 }
 

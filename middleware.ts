@@ -17,18 +17,12 @@ export function middleware(request: NextRequest) {
       const profile = JSON.parse(decodeURIComponent(userProfile.value))
       const roleName = profile.role?.name?.toLowerCase()
       
-      const roleRedirects: Record<string, string> = {
-        'applicant': '/application-portal',
-        'admin': '/admin',
-        // 'investment_manager': '/investments/dashboard',
-        // 'board_member': '/board/dashboard',
-        // 'analyst': '/analytics/dashboard',
-        // 'finance': '/finance/dashboard',
-        // 'compliance': '/compliance/dashboard'
+      // Redirect applicants to their portal, everyone else to admin
+      if (roleName === 'applicant') {
+        return NextResponse.redirect(new URL('/application-portal', request.url))
       }
       
-      const redirectPath = roleRedirects[roleName] || '/'
-      return NextResponse.redirect(new URL(redirectPath, request.url))
+      return NextResponse.redirect(new URL('/admin', request.url))
     } catch (error) {
       console.error('Error parsing user profile:', error)
     }
@@ -47,42 +41,18 @@ export function middleware(request: NextRequest) {
       const profile = JSON.parse(decodeURIComponent(userProfile.value))
       const roleName = profile.role?.name?.toLowerCase()
 
-      // Admin has access to all routes
-      if (roleName === 'admin') {
-        return NextResponse.next()
-      }
-
-      // Define route access patterns for other roles
-      const roleRouteAccess: Record<string, string[]> = {
-        'applicant': ['/application-portal', '/profile', '/settings'],
-        'investment_manager': ['/investments', '/applications', '/portfolio', '/due-diligence', '/board-review', '/term-sheets', '/reports', '/profile', '/settings'],
-        'board_member': ['/board', '/applications', '/portfolio', '/reports', '/profile', '/settings'],
-        'analyst': ['/analytics', '/applications', '/portfolio', '/reports', '/profile', '/settings'],
-        'finance': ['/finance', '/investments', '/portfolio', '/reports', '/profile', '/settings'],
-        'compliance': ['/compliance', '/applications', '/portfolio', '/reports', '/profile', '/settings']
-      }
-
-      const allowedRoutes = roleRouteAccess[roleName] || []
-      const publicAuthRoutes = ['/profile', '/settings', '/help', '/notifications']
-
-      // Check if user has access to the route
-      const hasAccess = allowedRoutes.some(route => pathname.startsWith(route)) || 
-                       publicAuthRoutes.some(route => pathname.startsWith(route))
-
-      if (!hasAccess) {
-        // Redirect to their default dashboard if they don't have access
-        const roleRedirects: Record<string, string> = {
-          'applicant': '/application-portal',
-          // 'investment_manager': '/investments/dashboard',
-          // 'board_member': '/board/dashboard',
-          // 'analyst': '/analytics/dashboard',
-          // 'finance': '/finance/dashboard',
-          // 'compliance': '/compliance/dashboard'
-        }
+      // Applicants can only access application portal
+      if (roleName === 'applicant') {
+        const applicantAllowedRoutes = ['/application-portal', '/profile', '/settings', '/help', '/notifications']
+        const hasAccess = applicantAllowedRoutes.some(route => pathname.startsWith(route))
         
-        const redirectPath = roleRedirects[roleName] || '/'
-        return NextResponse.redirect(new URL(redirectPath, request.url))
+        if (!hasAccess) {
+          return NextResponse.redirect(new URL('/application-portal', request.url))
+        }
       }
+
+      // All other users (admin, investment_manager, etc.) have full access
+      // No restrictions for non-applicant roles
     } catch (error) {
       console.error('Error checking route access:', error)
       // If there's an error parsing profile, redirect to login

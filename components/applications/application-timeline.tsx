@@ -14,13 +14,15 @@ import {
   Eye,
   Edit,
   Play,
-  X
+  X,
+  UserPlus
 } from "lucide-react"
 import { CiFileOn } from "react-icons/ci"
 import { dueDiligenceApi, DueDiligenceData } from "@/lib/api/due-diligence-api"
 import { boardReviewApi, BoardReviewData } from "@/lib/api/board-review-api"
 import { termSheetApi, TermSheetData } from "@/lib/api/term-sheet-api"
 import { fundDisbursementApi, FundDisbursementData } from "@/lib/api/fund-disbursement-api"
+import { applicationsApi } from "@/lib/api/applications-api"
 import { FundDisbursementForm } from "./fund-disbursement-form"
 import { FundDisbursementConfirmationDialog } from "./fund-disbursement-confirmation-dialog"
 import { ApplicationDataSection } from "./timeline/application-data-section"
@@ -43,6 +45,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DueDiligenceTaskModal } from "./due-diligence-task-modal"
+import { ActivityApprovalModal } from "./activity-approval-modal"
 
 interface ApplicationTimelineProps {
   application: Application
@@ -147,6 +151,11 @@ export function ApplicationTimeline({
   const [approvingDisbursementId, setApprovingDisbursementId] = useState<string | null>(null)
   const [disbursingFundId, setDisbursingFundId] = useState<string | null>(null)
   const [transactionReference, setTransactionReference] = useState('')
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [showActivityApprovalModal, setShowActivityApprovalModal] = useState(false)
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
+  const [activityApprovalData, setActivityApprovalData] = useState<any>(null)
+  const [activityApprovalLoading, setActivityApprovalLoading] = useState(false)
 
   useEffect(() => {
     let stageIndex = stages.findIndex(stage => stage.id === application.currentStage)
@@ -200,6 +209,14 @@ export function ApplicationTimeline({
     try {
       const response = await dueDiligenceApi.getByApplicationId(application.id)
       setDueDiligenceData(response.data)
+      
+      // After successfully fetching due diligence, fetch activity approval data if available
+      if (response.data?.tasks?.length > 0 && response.data.tasks[0]?.activityLogs?.length > 0) {
+        const firstActivityLogId = response.data.tasks[0].activityLogs[0].id
+        await fetchActivityApprovalData(firstActivityLogId)
+      } else {
+        setActivityApprovalData(null)
+      }
     } catch (error: any) {
       // If it's a 404 or similar "not found" error, don't treat it as an error
       if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('No due diligence data')) {
@@ -210,6 +227,20 @@ export function ApplicationTimeline({
       }
     } finally {
       setDueDiligenceLoading(false)
+    }
+  }
+
+  const fetchActivityApprovalData = async (activityId: string) => {
+    try {
+      setActivityApprovalLoading(true)
+      const response = await applicationsApi.getActivityForApproval(activityId)
+      setActivityApprovalData(response.data)
+      setSelectedActivityId(activityId)
+    } catch (error: any) {
+      console.error('Error fetching activity approval data:', error)
+      setActivityApprovalData(null)
+    } finally {
+      setActivityApprovalLoading(false)
     }
   }
 
@@ -456,6 +487,26 @@ export function ApplicationTimeline({
     }
   }
 
+  const handleCreateTask = () => {
+    setShowTaskModal(true)
+  }
+
+  const handleTaskSuccess = async () => {
+    setShowTaskModal(false)
+    await handleActionWithRefresh()
+  }
+
+  const handleApproveActivity = () => {
+    if (selectedActivityId) {
+      setShowActivityApprovalModal(true)
+    }
+  }
+
+  const handleActivityApprovalSuccess = async () => {
+    setShowActivityApprovalModal(false)
+    await handleActionWithRefresh()
+  }
+
   return (
     <div className="space-y-6" key={application.id}>
       {/* Timeline Header with Close Button */}
@@ -517,6 +568,20 @@ export function ApplicationTimeline({
             referenceNumber: pendingDisbursement?.referenceNumber || ''
           }}
           loading={false}
+        />
+
+        <DueDiligenceTaskModal
+          isOpen={showTaskModal}
+          onClose={() => setShowTaskModal(false)}
+          applicationId={application.id}
+          onSuccess={handleTaskSuccess}
+        />
+
+        <ActivityApprovalModal
+          isOpen={showActivityApprovalModal}
+          onClose={() => setShowActivityApprovalModal(false)}
+          activityId={selectedActivityId || ''}
+          onSuccess={handleActivityApprovalSuccess}
         />
 
         {stages.map((stage, index) => {
@@ -619,6 +684,7 @@ export function ApplicationTimeline({
                                   loading={dueDiligenceLoading}
                                   error={dueDiligenceError}
                                   currentStage={application.currentStage}
+                                  activityApprovalData={activityApprovalData}
                                   onRefresh={fetchDueDiligenceData}
                                   onInitiate={onInitiateDueDiligence}
                                 />
@@ -709,9 +775,15 @@ export function ApplicationTimeline({
                           <TimelineStageActions
                             stageId={stage.id}
                             application={application}
+                            dueDiligenceData={dueDiligenceData}
+                            dueDiligenceLoading={dueDiligenceLoading}
+                            activityApprovalData={activityApprovalData}
+                            activityApprovalLoading={activityApprovalLoading}
                             onInitiateDueDiligence={handleInitiateDueDiligence}
                             onUpdateDueDiligence={handleUpdateDueDiligence}
                             onCompleteDueDiligence={handleCompleteDueDiligence}
+                            onCreateDueDiligenceTask={handleCreateTask}
+                            onApproveActivity={handleApproveActivity}
                             onInitiateBoardReview={handleInitiateBoardReview}
                             onUpdateBoardReview={handleUpdateBoardReview}
                             onCompleteBoardReview={handleCompleteBoardReview}
