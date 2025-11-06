@@ -41,27 +41,13 @@ export interface TermSheetData {
 export interface TermSheetCreateRequest {
   title: string
   investmentAmount: number
-  equityPercentage: number
-  valuation: number
-  keyTerms: string
-  conditions: string
-  timeline: string
-  documentUrl?: string
-  documentFileName?: string
-  documentSize?: number
+  document?: File
 }
 
 export interface TermSheetUpdateRequest {
   title?: string
   investmentAmount?: number
-  equityPercentage?: number
-  valuation?: number
-  keyTerms?: string
-  conditions?: string
-  timeline?: string
-  documentUrl?: string
-  documentFileName?: string
-  documentSize?: number
+  document?: File
 }
 
 export interface TermSheetResponse {
@@ -72,9 +58,17 @@ export interface TermSheetResponse {
 }
 
 class TermSheetApiService {
-  // Create term sheet
+  // Create term sheet with file upload
   async create(applicationId: string, data: TermSheetCreateRequest): Promise<TermSheetResponse> {
-    return apiClient.post<TermSheetResponse>(`/term-sheets/${applicationId}`, data)
+    const formData = new FormData()
+    formData.append('title', data.title)
+    formData.append('investmentAmount', data.investmentAmount.toString())
+    
+    if (data.document) {
+      formData.append('document', data.document)
+    }
+
+    return apiClient.postFormData<TermSheetResponse>(`/term-sheets/${applicationId}`, formData)
   }
 
   // Get term sheet by application ID
@@ -82,9 +76,18 @@ class TermSheetApiService {
     return apiClient.get<TermSheetResponse>(`/term-sheets/${applicationId}`)
   }
 
-  // Update term sheet
+  // Update term sheet with optional file upload
   async update(applicationId: string, data: TermSheetUpdateRequest): Promise<TermSheetResponse> {
-    return apiClient.put<TermSheetResponse>(`/term-sheets/${applicationId}`, data)
+    const formData = new FormData()
+    
+    if (data.title !== undefined) formData.append('title', data.title)
+    if (data.investmentAmount !== undefined) formData.append('investmentAmount', data.investmentAmount.toString())
+    
+    if (data.document) {
+      formData.append('document', data.document)
+    }
+
+    return apiClient.putFormData<TermSheetResponse>(`/term-sheets/${applicationId}`, formData)
   }
 
   // Finalize term sheet

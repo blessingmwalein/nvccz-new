@@ -41,6 +41,10 @@ class PortfolioCompaniesApiService {
     return apiClient.get<PortfolioCompaniesResponse>('/portfolio-companies')
   }
 
+  async getAllWithInvestments(): Promise<PortfolioCompaniesResponse> {
+    return apiClient.get<PortfolioCompaniesResponse>('/portfolio-companies/with-investments')
+  }
+
   async getById(id: string): Promise<{ success: boolean; data: PortfolioCompany }> {
     return apiClient.get<{ success: boolean; data: PortfolioCompany }>(`/portfolio-companies/${id}`)
   }

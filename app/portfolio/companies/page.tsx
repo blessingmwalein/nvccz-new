@@ -42,7 +42,7 @@ export default function CompaniesPage() {
 
   const totalCompanies = companies.length
   const activeCompanies = companies.filter(c => c.status === 'ACTIVE').length
-  const totalInvestment = companies.reduce((sum, c) => sum + c.totalInvested, 0)
+  const totalInvestment = companies.reduce((sum, c) => sum + (Number(c.totalInvested) || 0), 0)
   const avgPerformance = companies.length > 0 ? (totalInvestment / companies.length) : 0
 
   const handleViewCompany = (company: any) => {
@@ -52,11 +52,30 @@ export default function CompaniesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'bg-green-500/20 text-green-100 border-green-400/30'
-      case 'PENDING': return 'bg-yellow-500/20 text-yellow-100 border-yellow-400/30'
-      case 'INACTIVE': return 'bg-gray-500/20 text-gray-100 border-gray-400/30'
-      case 'CLOSED': return 'bg-red-500/20 text-red-100 border-red-400/30'
-      default: return 'bg-blue-500/20 text-blue-100 border-blue-400/30'
+      case 'ACTIVE': return 'bg-green-500/20 text-green-700 border-green-400/30'
+      case 'PENDING': return 'bg-yellow-500/20 text-yellow-700 border-yellow-400/30'
+      case 'INACTIVE': return 'bg-gray-500/20 text-gray-700 border-gray-400/30'
+      case 'CLOSED': return 'bg-red-500/20 text-red-700 border-red-400/30'
+      default: return 'bg-blue-500/20 text-blue-700 border-blue-400/30'
+    }
+  }
+
+  const getStatusColorLight = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-green-100 text-green-700 border-green-300'
+      case 'PENDING': return 'bg-yellow-100 text-yellow-700 border-yellow-300'
+      case 'INACTIVE': return 'bg-gray-100 text-gray-700 border-gray-300'
+      case 'CLOSED': return 'bg-red-100 text-red-700 border-red-300'
+      default: return 'bg-blue-100 text-blue-700 border-blue-300'
+    }
+  }
+
+  const getDisbursementStatusColor = (status: string) => {
+    switch (status) {
+      case 'DISBURSED': return 'bg-green-100 text-green-700'
+      case 'PENDING': return 'bg-yellow-100 text-yellow-700'
+      case 'APPROVED': return 'bg-blue-100 text-blue-700'
+      default: return 'bg-gray-100 text-gray-700'
     }
   }
 
@@ -224,11 +243,11 @@ export default function CompaniesPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-white/70">Total Invested</p>
-                      <p className="text-lg font-normal text-white">${company.totalInvested.toLocaleString()}</p>
+                      <p className="text-lg font-normal text-white">${(Number(company.totalInvested) || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-white/70">Disbursements</p>
-                      <p className="text-lg font-normal text-white">{company.disbursements.length}</p>
+                      <p className="text-lg font-normal text-white">{company.disbursements?.length || 0}</p>
                     </div>
                     <div>
                       <p className="text-white/70">Fund</p>
@@ -236,7 +255,7 @@ export default function CompaniesPage() {
                     </div>
                     <div>
                       <p className="text-white/70">Owner</p>
-                      <p className="text-sm font-normal text-white truncate">{company.user.firstName}</p>
+                      <p className="text-sm font-normal text-white truncate">{company.user?.firstName || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -245,7 +264,7 @@ export default function CompaniesPage() {
                 <div className="pt-3 border-t border-white/20">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-white/70">Registration</span>
-                    <span className="text-white/90 text-xs font-mono">{company.registrationNumber.slice(0, 15)}...</span>
+                    <span className="text-white/90 text-xs font-mono">{(company.registrationNumber || '').slice(0, 15)}...</span>
                   </div>
                 </div>
               </div>
@@ -308,9 +327,15 @@ export default function CompaniesPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div>
-                      <label className="text-sm text-gray-500">Total Invested</label>
-                      <p className="text-xl font-semibold text-blue-600">${selectedCompany.totalInvested.toLocaleString()}</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-gray-500">Total Invested</label>
+                        <p className="text-xl font-semibold text-blue-600">${(Number(selectedCompany.totalInvested) || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-500">Disbursements Count</label>
+                        <p className="text-xl font-semibold text-emerald-600">{selectedCompany.disbursements?.length || 0}</p>
+                      </div>
                     </div>
                     <div>
                       <label className="text-sm text-gray-500">Fund</label>
@@ -320,6 +345,22 @@ export default function CompaniesPage() {
                       <div>
                         <label className="text-sm text-gray-500">Fund Description</label>
                         <p className="text-sm text-gray-700">{selectedCompany.fund.description}</p>
+                      </div>
+                    )}
+                    {(selectedCompany.startDate || selectedCompany.endDate) && (
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                        {selectedCompany.startDate && (
+                          <div>
+                            <label className="text-sm text-gray-500">Start Date</label>
+                            <p className="text-sm font-medium">{new Date(selectedCompany.startDate).toLocaleDateString()}</p>
+                          </div>
+                        )}
+                        {selectedCompany.endDate && (
+                          <div>
+                            <label className="text-sm text-gray-500">End Date</label>
+                            <p className="text-sm font-medium">{new Date(selectedCompany.endDate).toLocaleDateString()}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -333,11 +374,11 @@ export default function CompaniesPage() {
                   <CardContent className="space-y-3">
                     <div>
                       <label className="text-sm text-gray-500">Name</label>
-                      <p className="text-base font-medium">{selectedCompany.user.firstName} {selectedCompany.user.lastName}</p>
+                      <p className="text-base font-medium">{selectedCompany.user?.firstName} {selectedCompany.user?.lastName}</p>
                     </div>
                     <div>
                       <label className="text-sm text-gray-500">Email</label>
-                      <p className="text-base">{selectedCompany.user.email}</p>
+                      <p className="text-base">{selectedCompany.user?.email}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -347,29 +388,46 @@ export default function CompaniesPage() {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <CreditCard className="w-5 h-5" />
-                      Disbursements ({selectedCompany.disbursements.length})
+                      Disbursements ({selectedCompany.disbursements?.length || 0})
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {selectedCompany.disbursements.length > 0 ? (
+                    {(selectedCompany.disbursements?.length || 0) > 0 ? (
                       <div className="space-y-3">
                         {selectedCompany.disbursements.map((disbursement) => (
-                          <div key={disbursement.id} className="p-4 bg-gray-50 rounded-lg border">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <p className="font-semibold text-lg">${parseFloat(disbursement.amount).toLocaleString()}</p>
-                                <p className="text-sm text-gray-600">{disbursement.disbursementType}</p>
+                          <div key={disbursement.id} className="p-4 bg-gray-50 rounded-lg border hover:border-blue-300 transition-colors">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex-1">
+                                <p className="font-semibold text-xl text-gray-900">${parseFloat(disbursement.amount).toLocaleString()}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="outline" className="text-xs">
+                                    {disbursement.disbursementType}
+                                  </Badge>
+                                  <Badge className={`text-xs ${getDisbursementStatusColor(disbursement.status)}`}>
+                                    {disbursement.status}
+                                  </Badge>
+                                </div>
                               </div>
-                              <Badge className="bg-green-100 text-green-800">{disbursement.status}</Badge>
                             </div>
-                            <p className="text-xs text-gray-500">
-                              {new Date(disbursement.disbursementDate).toLocaleDateString()}
-                            </p>
+                            <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
+                              <span>Disbursement Date</span>
+                              <span className="font-medium text-gray-700">
+                                {new Date(disbursement.disbursementDate).toLocaleDateString(undefined, {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-center py-4">No disbursements yet</p>
+                      <div className="text-center py-8">
+                        <CreditCard className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">No disbursements yet</p>
+                        <p className="text-sm text-gray-400 mt-1">Disbursements will appear here once approved</p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

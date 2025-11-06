@@ -29,6 +29,101 @@ class ApiClient {
     this.baseURL = baseURL || 'https://nvccz-pi.vercel.app/api'
   }
 
+  // Get authentication headers
+  private getAuthHeaders(excludeContentType = false): HeadersInit {
+    const token = getAuthToken()
+    const headers: HeadersInit = {}
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    if (!excludeContentType) {
+      headers['Content-Type'] = 'application/json'
+    }
+    
+    return headers
+  }
+
+  // Handle response and check for authentication errors
+  private async handleResponse<T>(response: Response): Promise<T> {
+    // Handle unauthorized responses - check both status and response body
+    if (response.status === 401) {
+      try {
+        const errorData = await response.json()
+        
+        // Clear authentication data
+        clearAuthCookies()
+        if (typeof window !== 'undefined' && localStorage) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+        }
+
+        // Redirect to login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+
+        throw new ApiError(
+          errorData.message || 'Unauthorized - Please login again',
+          401,
+          errorData
+        )
+      } catch (parseError) {
+        // If JSON parsing fails, still handle as unauthorized
+        clearAuthCookies()
+        if (typeof window !== 'undefined' && localStorage) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+        }
+        
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+
+        throw new ApiError('Unauthorized - Please login again', 401)
+      }
+    }
+
+    // Handle other HTTP errors
+    if (!response.ok) {
+      let errorData: any
+      try {
+        errorData = await response.json()
+      } catch {
+        errorData = { message: `HTTP error! status: ${response.status}` }
+      }
+
+      // Check if error message indicates unauthorized
+      if (errorData.message?.toLowerCase().includes('unauthorized')) {
+        clearAuthCookies()
+        if (typeof window !== 'undefined' && localStorage) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+        }
+        
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+      }
+
+      throw new ApiError(
+        errorData.message || `HTTP error! status: ${response.status}`,
+        response.status,
+        errorData
+      )
+    }
+
+    // Parse successful response
+    try {
+      const data = await response.json()
+      return data
+    } catch (parseError) {
+      console.error('Failed to parse response JSON:', parseError)
+      throw new ApiError('Invalid response format', response.status)
+    }
+  }
+
   // Make authenticated request
   private async makeRequest<T>(
     endpoint: string,
@@ -36,61 +131,21 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
-    // Get token from cookies
-    const token = getAuthToken()
-
-    // Default headers
-    const defaultHeaders: HeadersInit = {
-      'Content-Type': 'application/json',
-    }
-
-    // If body is FormData, don't set Content-Type
-    if (options.body instanceof FormData) {
-      delete defaultHeaders['Content-Type']
-    }
-
-    // Add authorization header if token exists
-    if (token) {
-      defaultHeaders['Authorization'] = `Bearer ${token}`
-    }
+    // Get authentication headers
+    const headers = this.getAuthHeaders(options.body instanceof FormData)
 
     // Merge headers
     const config: RequestInit = {
       ...options,
       headers: {
-        ...defaultHeaders,
+        ...headers,
         ...options.headers,
       },
     }
 
     try {
       const response = await fetch(url, config)
-
-      // Handle unauthorized responses
-      if (response.status === 401) {
-        // Clear invalid token from cookies
-        clearAuthCookies()
-
-        // Redirect to login page
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login'
-        }
-
-        throw new ApiError('Unauthorized - Please login again', 401)
-      }
-
-      // Handle other HTTP errors
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new ApiError(
-          errorData.message || `HTTP error! status: ${response.status}`,
-          response.status,
-          errorData
-        )
-      }
-
-      const data = await response.json()
-      return data
+      return this.handleResponse<T>(response)
     } catch (error) {
       if (error instanceof ApiError) {
         throw error
@@ -110,9 +165,6 @@ class ApiClient {
   }
 
   // POST request
-  // ...existing code...
-
-  // POST request
   async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
     return this.makeRequest<T>(endpoint, {
       ...options,
@@ -121,14 +173,28 @@ class ApiClient {
     })
   }
 
-  // ...existing code...
+  // POST FormData
+  async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.makeRequest<T>(endpoint, {
+      method: 'POST',
+      body: formData,
+    })
+  }
 
   // PUT request
   async put<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
     return this.makeRequest<T>(endpoint, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
+    })
+  }
+
+  // PUT FormData
+  async putFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.makeRequest<T>(endpoint, {
+      method: 'PUT',
+      body: formData,
     })
   }
 
