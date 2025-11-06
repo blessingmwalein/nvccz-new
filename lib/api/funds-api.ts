@@ -11,28 +11,30 @@ export interface Fund {
   focusIndustries: string[]
   applicationStart: string
   applicationEnd: string
-  status: 'OPEN' | 'CLOSED' | 'PAUSED'
+  status: string
   createdById: string
   createdAt: string
   updatedAt: string
-  fundDisbursements?: Array<{
+  fundDisbursements?: FundDisbursement[]
+}
+
+export interface FundDisbursement {
+  id: string
+  amount: string
+  disbursementDate: string
+  disbursementType: string
+  status: string
+  notes: string
+  transactionReference: string
+  approvedAt: string | null
+  disbursedAt: string | null
+  investmentImplementation?: {
     id: string
-    amount: string
-    disbursementDate: string
-    disbursementType: string
-    status: string
-    notes: string
-    transactionReference: string
-    approvedAt: string | null
-    disbursedAt: string | null
-    investmentImplementation: {
+    portfolioCompany: {
       id: string
-      portfolioCompany: {
-        id: string
-        name: string
-      }
+      name: string
     }
-  }>
+  }
 }
 
 export interface FundsListResponse {
