@@ -47,10 +47,14 @@ export function middleware(request: NextRequest) {
       const profile = JSON.parse(decodeURIComponent(userProfile.value))
       const roleName = profile.role?.name?.toLowerCase()
 
-      // Define route access patterns
+      // Admin has access to all routes
+      if (roleName === 'admin') {
+        return NextResponse.next()
+      }
+
+      // Define route access patterns for other roles
       const roleRouteAccess: Record<string, string[]> = {
         'applicant': ['/application-portal', '/profile', '/settings'],
-        'admin': ['/admin', '/users', '/roles', '/settings', '/applications', '/investments', '/portfolio', '/reports'],
         'investment_manager': ['/investments', '/applications', '/portfolio', '/due-diligence', '/board-review', '/term-sheets', '/reports', '/profile', '/settings'],
         'board_member': ['/board', '/applications', '/portfolio', '/reports', '/profile', '/settings'],
         'analyst': ['/analytics', '/applications', '/portfolio', '/reports', '/profile', '/settings'],
@@ -69,7 +73,6 @@ export function middleware(request: NextRequest) {
         // Redirect to their default dashboard if they don't have access
         const roleRedirects: Record<string, string> = {
           'applicant': '/application-portal',
-          'admin': '/admin',
           // 'investment_manager': '/investments/dashboard',
           // 'board_member': '/board/dashboard',
           // 'analyst': '/analytics/dashboard',

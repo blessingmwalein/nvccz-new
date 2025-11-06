@@ -75,8 +75,16 @@ class FundDisbursementApiService {
   }
 
   // Approve disbursement
-  async approveDisbursement(disbursementId: string): Promise<FundDisbursementResponse> {
-    return apiClient.post<FundDisbursementResponse>(`/investment-implementations/disbursements/${disbursementId}/approve`)
+  async approveDisbursement(disbursementId: string): Promise<{ success: boolean; message?: string }> {
+    return apiClient.post<{ success: boolean; message?: string }>(`/investment-implementations/disbursements/${disbursementId}/approve`)
+  }
+
+  // Mark disbursement as disbursed
+  async disburseFund(disbursementId: string, transactionReference: string): Promise<{ success: boolean; message?: string }> {
+    return apiClient.post<{ success: boolean; message?: string }>(
+      `/investment-implementations/disbursements/${disbursementId}/disburse`,
+      { transactionReference }
+    )
   }
 }
 
