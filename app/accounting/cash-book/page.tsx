@@ -110,9 +110,12 @@ export default function CashbookPage() {
   useEffect(() => {
     if (activeTab === 'single') {
       const timeoutId = setTimeout(() => {
-        dispatch(fetchCashbookEntries({ ...filters }))
+        dispatch(fetchCashbookEntries({ 
+          bankId: filters.bankId || '',
+          ...filters 
+        }))
       }, 300) // Debounce to prevent rapid re-fetches
-      
+
       return () => clearTimeout(timeoutId)
     } else if (activeTab === 'batch') {
       const fetchBatches = async () => {
