@@ -2,33 +2,91 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
+  const token = request.cookies.get(process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token')
+  const userProfile = request.cookies.get(process.env.NEXT_PUBLIC_AUTH_PROFILE_KEY || 'userProfile')
+  
   const { pathname } = request.nextUrl
-  
-  // Get token from cookies
-  const tokenKey = process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token'
-  const token = request.cookies.get(tokenKey)?.value
-  
+
   // Public routes that don't require authentication
-  const publicRoutes = [
-    '/login',
-    '/api/auth/login',
-    '/applications/form',
-    '/applications/form/success'
-  ]
-  
-  // Check if the current path is a public route
+  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/applications/form']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
-  
-  // If user is not authenticated and trying to access protected route
-  if (!token && !isPublicRoute) {
-    return NextResponse.redirect(new URL('/login', request.url))
+
+  // If accessing public route and authenticated, redirect to appropriate dashboard
+  if (isPublicRoute && token && userProfile) {
+    try {
+      const profile = JSON.parse(decodeURIComponent(userProfile.value))
+      const roleName = profile.role?.name?.toLowerCase()
+      
+      const roleRedirects: Record<string, string> = {
+        'applicant': '/application-portal',
+        'admin': '/admin',
+        // 'investment_manager': '/investments/dashboard',
+        // 'board_member': '/board/dashboard',
+        // 'analyst': '/analytics/dashboard',
+        // 'finance': '/finance/dashboard',
+        // 'compliance': '/compliance/dashboard'
+      }
+      
+      const redirectPath = roleRedirects[roleName] || '/'
+      return NextResponse.redirect(new URL(redirectPath, request.url))
+    } catch (error) {
+      console.error('Error parsing user profile:', error)
+    }
   }
-  
-  // If user is authenticated and trying to access login page
-  if (token && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
+
+  // If accessing protected route without auth, redirect to login
+  if (!isPublicRoute && !token) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('from', pathname)
+    return NextResponse.redirect(loginUrl)
   }
-  
+
+  // Check role-based access
+  if (!isPublicRoute && token && userProfile) {
+    try {
+      const profile = JSON.parse(decodeURIComponent(userProfile.value))
+      const roleName = profile.role?.name?.toLowerCase()
+
+      // Define route access patterns
+      const roleRouteAccess: Record<string, string[]> = {
+        'applicant': ['/application-portal', '/profile', '/settings'],
+        'admin': ['/admin', '/users', '/roles', '/settings', '/applications', '/investments', '/portfolio', '/reports'],
+        'investment_manager': ['/investments', '/applications', '/portfolio', '/due-diligence', '/board-review', '/term-sheets', '/reports', '/profile', '/settings'],
+        'board_member': ['/board', '/applications', '/portfolio', '/reports', '/profile', '/settings'],
+        'analyst': ['/analytics', '/applications', '/portfolio', '/reports', '/profile', '/settings'],
+        'finance': ['/finance', '/investments', '/portfolio', '/reports', '/profile', '/settings'],
+        'compliance': ['/compliance', '/applications', '/portfolio', '/reports', '/profile', '/settings']
+      }
+
+      const allowedRoutes = roleRouteAccess[roleName] || []
+      const publicAuthRoutes = ['/profile', '/settings', '/help', '/notifications']
+
+      // Check if user has access to the route
+      const hasAccess = allowedRoutes.some(route => pathname.startsWith(route)) || 
+                       publicAuthRoutes.some(route => pathname.startsWith(route))
+
+      if (!hasAccess) {
+        // Redirect to their default dashboard if they don't have access
+        const roleRedirects: Record<string, string> = {
+          'applicant': '/application-portal',
+          'admin': '/admin',
+          // 'investment_manager': '/investments/dashboard',
+          // 'board_member': '/board/dashboard',
+          // 'analyst': '/analytics/dashboard',
+          // 'finance': '/finance/dashboard',
+          // 'compliance': '/compliance/dashboard'
+        }
+        
+        const redirectPath = roleRedirects[roleName] || '/'
+        return NextResponse.redirect(new URL(redirectPath, request.url))
+      }
+    } catch (error) {
+      console.error('Error checking route access:', error)
+      // If there's an error parsing profile, redirect to login
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 
@@ -36,11 +94,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - public files (public folder)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

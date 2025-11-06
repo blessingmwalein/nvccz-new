@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -12,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useAppSelector } from "@/lib/store"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { initiateInvestmentImplementation } from "@/lib/store/slices/applicationPortalSlice"
 import { toast } from "sonner"
 
 interface InitiateFundDisbursementDialogProps {
@@ -20,7 +20,10 @@ interface InitiateFundDisbursementDialogProps {
   onClose: () => void
   applicationId: string
   applicationName: string
+  portfolioCompanyId: string
+  fundId: string | null
   onSuccess: () => void
+  onRefresh?: () => void
 }
 
 export function InitiateFundDisbursementDialog({
@@ -28,10 +31,13 @@ export function InitiateFundDisbursementDialog({
   onClose,
   applicationId,
   applicationName,
+  portfolioCompanyId,
+  fundId,
   onSuccess,
+  onRefresh,
 }: InitiateFundDisbursementDialogProps) {
-  const token = useAppSelector((state) => state.auth.token)
-  const [isLoading, setIsLoading] = useState(false)
+  const dispatch = useAppDispatch()
+  const { loading } = useAppSelector((state) => state.applicationPortal)
   const [formData, setFormData] = useState({
     implementationPlan: "",
     notes: "",
@@ -45,57 +51,33 @@ export function InitiateFundDisbursementDialog({
       return
     }
 
-    setIsLoading(true)
-
     try {
-      // Get application data to get portfolioCompanyId
-      const applicationsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/applications/${applicationId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!applicationsResponse.ok) {
-        throw new Error("Failed to fetch application details")
-      }
-
-      const applicationData = await applicationsResponse.json()
-
-      const payload = {
-        portfolioCompanyId: applicationData.data.portfolioCompanyId,
+      await dispatch(initiateInvestmentImplementation({
+        portfolioCompanyId,
         applicationId,
-        fundId: applicationData.data.fundId || null, // Use null if no fundId
+        fundId,
         implementationPlan: formData.implementationPlan,
-        notes: formData.notes,
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/investment-implementations/initiate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to initiate fund disbursement")
-      }
+        notes: formData.notes || undefined,
+      })).unwrap()
 
       toast.success("Fund disbursement initiated successfully")
+      
+      // Trigger both callbacks
       onSuccess()
+      if (onRefresh) {
+        onRefresh()
+      }
+      
+      // Reset form and close
+      setFormData({ implementationPlan: "", notes: "" })
       onClose()
     } catch (error: any) {
-      console.error("Error initiating fund disbursement:", error)
-      toast.error(error.message || "Failed to initiate fund disbursement")
-    } finally {
-      setIsLoading(false)
+      toast.error(error || "Failed to initiate fund disbursement")
     }
   }
 
   const handleClose = () => {
-    if (!isLoading) {
+    if (!loading) {
       setFormData({ implementationPlan: "", notes: "" })
       onClose()
     }
@@ -126,7 +108,7 @@ export function InitiateFundDisbursementDialog({
               placeholder="Describe the implementation plan (e.g., Phase 1: Final due diligence and contract signing, Phase 2: Initial fund disbursement, Phase 3: Milestone-based disbursements)"
               rows={4}
               required
-              disabled={isLoading}
+              disabled={loading}
             />
           </div>
 
@@ -143,7 +125,7 @@ export function InitiateFundDisbursementDialog({
               }
               placeholder="Any additional notes about the investment implementation"
               rows={3}
-              disabled={isLoading}
+              disabled={loading}
             />
           </div>
 
@@ -152,12 +134,17 @@ export function InitiateFundDisbursementDialog({
               type="button"
               variant="outline"
               onClick={handleClose}
-              disabled={isLoading}
+              disabled={loading}
+              className="rounded-full"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Initiating..." : "Initiate Disbursement"}
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="rounded-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800"
+            >
+              {loading ? "Initiating..." : "Initiate Disbursement"}
             </Button>
           </div>
         </form>

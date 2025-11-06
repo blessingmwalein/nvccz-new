@@ -25,6 +25,7 @@ import { RecentApplications } from "./recent-applications"
 import { ApplicationTimeline } from "./application-timeline"
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, AreaChart, Area } from 'recharts'
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader"
+import { InitiateFundDisbursementDialog } from "./initiate-fund-disbursement-dialog"
 
 export type Application = {
   id: string
@@ -65,6 +66,8 @@ export function ApplicationsDashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [showInitiateFundDisbursementDialog, setShowInitiateFundDisbursementDialog] = useState(false)
+  const [selectedApplicationForDisbursement, setSelectedApplicationForDisbursement] = useState<Application | null>(null)
 
   // Fetch applications data
   useEffect(() => {
@@ -281,9 +284,15 @@ export function ApplicationsDashboard() {
   }
 
   // Handle fund disbursement actions
-  const handleInitiateFundDisbursement = () => {
-    // This will be handled by the ApplicationTimeline component
-    handleRefresh()
+  const handleInitiateFundDisbursement = (application: Application) => {
+    setSelectedApplicationForDisbursement(application)
+    setShowInitiateFundDisbursementDialog(true)
+  }
+
+  const handleFundDisbursementSuccess = () => {
+    setShowInitiateFundDisbursementDialog(false)
+    setSelectedApplicationForDisbursement(null)
+    fetchApplications()
   }
 
   // Calculate real monthly data for the current year
@@ -344,7 +353,7 @@ export function ApplicationsDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -558,6 +567,141 @@ export function ApplicationsDashboard() {
         </CardContent>
       </Card>
 
+      {/* Charts Section - Commented out for now */}
+      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pie Chart */}
+        {/* <Card className="card-shadow hover:card-shadow-hover transition-all duration-300 bg-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
+                <CiCircleCheck size={24} className="text-white" />
+              </div>
+              Applications Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = 25 + innerRadius + (outerRadius - innerRadius);
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="#8884d8"
+                          textAnchor={x > cx ? 'start' : 'end'}
+                          dominantBaseline="central"
+                        >
+                          {`${chartData[index].name} ${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card> */}
+
+        {/* Line Chart - Monthly Money Requested */}
+        {/* <Card className="card-shadow hover:card-shadow-hover transition-all duration-300 bg-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
+                <CiCircleChevUp size={24} className="text-white" />
+              </div>
+              Monthly Money Requested
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData}>
+                  <defs>
+                    <linearGradient id="moneyGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity={0.8} />
+                      <stop offset="50%" stopColor="#059669" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#047857" stopOpacity={0.1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.2)" />
+                  <XAxis dataKey="month" stroke="#000000" fontSize={16} />
+                  <YAxis stroke="#000000" fontSize={16} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "8px",
+                      color: "#374151",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    }}
+                    formatter={(value, name) => [
+                      name === "amount" ? `$${value}K` : value,
+                      name === "amount" ? "Amount Requested" : "Applications"
+                    ]}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="amount" 
+                    stroke="#10B981" 
+                    strokeWidth={4} 
+                    fill="url(#moneyGradient)" 
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div> */}
+
+      {/* Applications Pipeline */}
+      {/* <Card className="card-shadow hover:card-shadow-hover transition-all duration-300 bg-white">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
+                <CiFileOn size={24} className="text-white" />
+              </div>
+              Applications Pipeline
+            </div>
+            <Button 
+              variant="outline" 
+              className="bg-transparent"
+              onClick={() => window.location.href = '/portfolio/applications'}
+            >
+              View More
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApplicationsPipeline 
+            applications={applications?.slice(0, 10) || []} 
+            loading={loading} 
+            onApplicationClick={handleApplicationClick}
+          />
+        </CardContent>
+      </Card> */}
+
       {/* Application Detail Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="w-[50vw] min-w-[1000px] max-w-[1600px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
@@ -586,6 +730,23 @@ export function ApplicationsDashboard() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Initiate Fund Disbursement Dialog */}
+      {selectedApplicationForDisbursement && (
+        <InitiateFundDisbursementDialog
+          isOpen={showInitiateFundDisbursementDialog}
+          onClose={() => {
+            setShowInitiateFundDisbursementDialog(false)
+            setSelectedApplicationForDisbursement(null)
+          }}
+          applicationId={selectedApplicationForDisbursement.id}
+          applicationName={selectedApplicationForDisbursement.businessName}
+          portfolioCompanyId={selectedApplicationForDisbursement.portfolioCompanyId || ''}
+          fundId={selectedApplicationForDisbursement.fundId}
+          onSuccess={handleFundDisbursementSuccess}
+          onRefresh={fetchApplications}
+        />
+      )}
     </div>
   )
 }

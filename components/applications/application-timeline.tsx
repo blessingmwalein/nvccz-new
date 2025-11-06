@@ -1,39 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { 
   CheckCircle, 
   Circle, 
-  Clock, 
   FileText, 
   Users, 
   DollarSign,
-  ChevronRight,
   Eye,
   Edit,
   Play,
-  Building2,
-  Loader2,
-  Banknote,
-  CheckCircle2,
-  AlertCircle,
-  Clock4,
-  RefreshCw
+  X
 } from "lucide-react"
-import { CiUser, CiDollar, CiFileOn, CiCalendar } from "react-icons/ci"
+import { CiFileOn } from "react-icons/ci"
 import { dueDiligenceApi, DueDiligenceData } from "@/lib/api/due-diligence-api"
 import { boardReviewApi, BoardReviewData } from "@/lib/api/board-review-api"
 import { termSheetApi, TermSheetData } from "@/lib/api/term-sheet-api"
 import { fundDisbursementApi, FundDisbursementData } from "@/lib/api/fund-disbursement-api"
-import { DueDiligenceSkeleton, BoardReviewSkeleton, TermSheetSkeleton } from "@/components/ui/skeleton-loader"
 import { FundDisbursementForm } from "./fund-disbursement-form"
 import { FundDisbursementConfirmationDialog } from "./fund-disbursement-confirmation-dialog"
+import { ApplicationDataSection } from "./timeline/application-data-section"
+import { DueDiligenceSection } from "./timeline/due-diligence-section"
+// Import other section components as you create them
 
 import type { Application } from './applications-dashboard'
 
@@ -50,8 +42,9 @@ interface ApplicationTimelineProps {
   onFinalizeTermSheet?: () => void
   onInitiateFundDisbursement?: () => void
   onCreateFundDisbursement?: () => void
-  refreshTrigger?: number // Add refresh trigger prop
-  onRefresh?: () => void // Add onRefresh callback
+  refreshTrigger?: number
+  onRefresh?: () => void
+  onClose?: () => void // Add close callback
 }
 
 const stages = [
@@ -110,7 +103,9 @@ export function ApplicationTimeline({
   onFinalizeTermSheet,
   onInitiateFundDisbursement,
   onCreateFundDisbursement,
-  refreshTrigger
+  refreshTrigger,
+  onRefresh,
+  onClose
 }: ApplicationTimelineProps) {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   const [dueDiligenceData, setDueDiligenceData] = useState<DueDiligenceData | null>(null)
@@ -281,29 +276,23 @@ export function ApplicationTimeline({
         disbursementDate: pendingDisbursement.disbursementDate.toISOString(),
         bankDetails: {
           accountName: application.applicantName,
-          accountNumber: 'N/A', // This would be fetched from the company's bank details
+          accountNumber: 'N/A',
           bankName: 'N/A',
           branchCode: 'N/A'
         },
         notes: pendingDisbursement.notes || undefined
       })
       
-      // Refresh the application data
-      if (onInitiateFundDisbursement) {
-        onInitiateFundDisbursement()
-      }
-      
       // Close the dialogs and reset state
       setShowConfirmationDialog(false)
       setShowFundDisbursementForm(false)
       setPendingDisbursement(null)
       
-      // Refresh the data
-      fetchFundDisbursementData()
+      // Refresh and close drawer
+      await handleActionWithRefresh()
       
     } catch (error) {
       console.error('Error creating fund disbursement:', error)
-      // Handle error (show toast, etc.)
     }
   }
 
@@ -346,10 +335,10 @@ export function ApplicationTimeline({
     }
 
     const statusIcons = {
-      PENDING: <Clock4 className="w-4 h-4 text-amber-500" />,
-      PROCESSING: <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />,
-      COMPLETED: <CheckCircle2 className="w-4 h-4 text-green-500" />,
-      FAILED: <AlertCircle className="w-4 h-4 text-red-500" />
+      PENDING: <CheckCircle className="w-4 h-4 text-amber-500" />,
+      PROCESSING: <CheckCircle className="w-4 h-4 text-blue-500 animate-spin" />,
+      COMPLETED: <CheckCircle className="w-4 h-4 text-green-500" />,
+      FAILED: <CheckCircle className="w-4 h-4 text-red-500" />
     }
 
     const statusText = {
@@ -393,13 +382,104 @@ export function ApplicationTimeline({
     )
   }
 
+  // Wrap action handlers to refresh after completion
+  const handleActionWithRefresh = async (action?: () => void | Promise<void>) => {
+    if (action) {
+      await action()
+    }
+    // Small delay to ensure API updates are complete
+    if (onRefresh) {
+        onRefresh()
+      }
+      // Refresh stage-specific data
+      fetchDueDiligenceData()
+      fetchBoardReviewData()
+      fetchTermSheetData()
+      fetchFundDisbursementData()
+      
+      // Close drawer on success
+      if (onClose) {
+        onClose()
+      }
+  }
+
+  const handleInitiateDueDiligence = async () => {
+    if (onInitiateDueDiligence) {
+      await onInitiateDueDiligence()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleUpdateDueDiligence = async () => {
+    if (onUpdateDueDiligence) {
+      await onUpdateDueDiligence()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleCompleteDueDiligence = async () => {
+    if (onCompleteDueDiligence) {
+      await onCompleteDueDiligence()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleInitiateBoardReview = async () => {
+    if (onInitiateBoardReview) {
+      await onInitiateBoardReview()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleUpdateBoardReview = async () => {
+    if (onUpdateBoardReview) {
+      await onUpdateBoardReview()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleCompleteBoardReview = async () => {
+    if (onCompleteBoardReview) {
+      await onCompleteBoardReview()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleCreateTermSheet = async () => {
+    if (onCreateTermSheet) {
+      await onCreateTermSheet()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleUpdateTermSheet = async () => {
+    if (onUpdateTermSheet) {
+      await onUpdateTermSheet()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleFinalizeTermSheet = async () => {
+    if (onFinalizeTermSheet) {
+      await onFinalizeTermSheet()
+      await handleActionWithRefresh()
+    }
+  }
+
+  const handleInitiateFundDisbursementAction = async () => {
+    if (onInitiateFundDisbursement) {
+      await onInitiateFundDisbursement()
+      await handleActionWithRefresh()
+    }
+  }
+
   const getStageActions = (stageId: string) => {
     // Special handling for BOARD_APPROVED - show TERM_SHEET actions
     if (application.currentStage === "BOARD_APPROVED" && stageId === "TERM_SHEET") {
       return (
         <div className="flex gap-2">
           <Button
-            onClick={onCreateTermSheet}
+            onClick={handleCreateTermSheet}
             className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-full"
           >
             <FileText className="w-4 h-4 mr-2" />
@@ -414,7 +494,7 @@ export function ApplicationTimeline({
       return (
         <div className="flex gap-2">
           <Button
-            onClick={onInitiateBoardReview}
+            onClick={handleInitiateBoardReview}
             className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full"
           >
             <Users className="w-4 h-4 mr-2" />
@@ -434,7 +514,7 @@ export function ApplicationTimeline({
         return (
           <div className="flex gap-2">
             <Button
-              onClick={onInitiateDueDiligence}
+              onClick={handleInitiateDueDiligence}
               className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-full"
             >
               <Play className="w-4 h-4 mr-2" />
@@ -446,7 +526,7 @@ export function ApplicationTimeline({
         return (
           <div className="flex gap-2">
             <Button
-              onClick={onUpdateDueDiligence}
+              onClick={handleUpdateDueDiligence}
               variant="outline"
               className="border-amber-500 text-amber-600 hover:bg-amber-50 rounded-full"
             >
@@ -454,7 +534,7 @@ export function ApplicationTimeline({
               Update Due Diligence
             </Button>
             <Button
-              onClick={onCompleteDueDiligence}
+              onClick={handleCompleteDueDiligence}
               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -466,7 +546,7 @@ export function ApplicationTimeline({
         return (
           <div className="flex gap-2">
             <Button
-              onClick={onUpdateBoardReview}
+              onClick={handleUpdateBoardReview}
               variant="outline"
               className="border-purple-500 text-purple-600 hover:bg-purple-50 rounded-full"
             >
@@ -474,7 +554,7 @@ export function ApplicationTimeline({
               Update Board Review
             </Button>
             <Button
-              onClick={onCompleteBoardReview}
+              onClick={handleCompleteBoardReview}
               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -486,7 +566,7 @@ export function ApplicationTimeline({
         return (
           <div className="flex gap-2">
             <Button
-              onClick={onCreateTermSheet}
+              onClick={handleCreateTermSheet}
               variant="outline"
               className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
             >
@@ -494,7 +574,7 @@ export function ApplicationTimeline({
               Create Term Sheet
             </Button>
             <Button
-              onClick={onUpdateTermSheet}
+              onClick={handleUpdateTermSheet}
               variant="outline"
               className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
             >
@@ -502,7 +582,7 @@ export function ApplicationTimeline({
               Update Term Sheet
             </Button>
             <Button
-              onClick={onFinalizeTermSheet}
+              onClick={handleFinalizeTermSheet}
               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -518,7 +598,7 @@ export function ApplicationTimeline({
               // No investment implementation yet - show initiate button
               <div className="flex gap-2">
                 <Button
-                  onClick={onInitiateFundDisbursement}
+                  onClick={handleInitiateFundDisbursementAction}
                   className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full"
                 >
                   <DollarSign className="w-4 h-4 mr-2" />
@@ -529,10 +609,15 @@ export function ApplicationTimeline({
               // Investment implementation exists - show create disbursement button
               <div className="flex gap-2">
                 <Button
-                  onClick={onCreateFundDisbursement}
+                  onClick={async () => {
+                    if (onCreateFundDisbursement) {
+                      await onCreateFundDisbursement()
+                      await handleActionWithRefresh()
+                    }
+                  }}
                   className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
                 >
-                  <Banknote className="w-4 h-4 mr-2" />
+                  <FileText className="w-4 h-4 mr-2" />
                   Create Fund Disbursement
                 </Button>
               </div>
@@ -548,7 +633,7 @@ export function ApplicationTimeline({
                   onClick={fetchFundDisbursementData}
                   className="text-xs"
                 >
-                  <RefreshCw className="w-3 h-3 mr-1" />
+                  <Eye className="w-3 h-3 mr-1" />
                   Refresh Status
                 </Button>
               </div>
@@ -562,13 +647,12 @@ export function ApplicationTimeline({
 
   const renderDueDiligenceData = () => {
     if (dueDiligenceLoading) {
-      return <DueDiligenceSkeleton />
+      return <div>Loading...</div>
     }
 
     if (dueDiligenceError) {
       return (
         <div className="text-center py-8">
-          <Clock className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-500 mb-2">Failed to load due diligence data</p>
           <p className="text-sm text-gray-500 mb-4">{dueDiligenceError}</p>
           <Button 
@@ -577,7 +661,6 @@ export function ApplicationTimeline({
             size="sm" 
             className="rounded-full"
           >
-            <Clock className="w-4 h-4 mr-2" />
             Retry
           </Button>
         </div>
@@ -587,7 +670,6 @@ export function ApplicationTimeline({
     if (!dueDiligenceData) {
       return (
         <div className="text-center py-8">
-          <Clock className="w-8 h-8 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500 mb-2">No due diligence data available</p>
           <p className="text-sm text-gray-400 mb-4">
             Due diligence has not been initiated for this application yet.
@@ -608,7 +690,6 @@ export function ApplicationTimeline({
               size="sm"
               className="rounded-full"
             >
-              <Clock className="w-4 h-4 mr-2" />
               Refresh
             </Button>
           </div>
@@ -784,13 +865,12 @@ export function ApplicationTimeline({
 
   const renderBoardReviewData = () => {
     if (boardReviewLoading) {
-      return <BoardReviewSkeleton />
+      return <div>Loading...</div>
     }
 
     if (boardReviewError) {
       return (
         <div className="text-center py-8">
-          <Clock className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-500 mb-2">Failed to load board review data</p>
           <p className="text-sm text-gray-500 mb-4">{boardReviewError}</p>
           <Button 
@@ -799,7 +879,6 @@ export function ApplicationTimeline({
             size="sm" 
             className="rounded-full"
           >
-            <Clock className="w-4 h-4 mr-2" />
             Retry
           </Button>
         </div>
@@ -809,7 +888,6 @@ export function ApplicationTimeline({
     if (!boardReviewData) {
       return (
         <div className="text-center py-8">
-          <Clock className="w-8 h-8 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500 mb-2">No board review data available</p>
           <p className="text-sm text-gray-400 mb-4">
             Board review has not been initiated for this application yet.
@@ -830,7 +908,6 @@ export function ApplicationTimeline({
               size="sm"
               className="rounded-full"
             >
-              <Clock className="w-4 h-4 mr-2" />
               Refresh
             </Button>
           </div>
@@ -948,13 +1025,12 @@ export function ApplicationTimeline({
 
   const renderTermSheetData = () => {
     if (termSheetLoading) {
-      return <TermSheetSkeleton />
+      return <div>Loading...</div>
     }
 
     if (termSheetError) {
       return (
         <div className="text-center py-8">
-          <Clock className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-500 mb-2">Failed to load term sheet data</p>
           <p className="text-sm text-gray-500 mb-4">{termSheetError}</p>
           <Button 
@@ -963,7 +1039,6 @@ export function ApplicationTimeline({
             size="sm" 
             className="rounded-full"
           >
-            <Clock className="w-4 h-4 mr-2" />
             Retry
           </Button>
         </div>
@@ -973,7 +1048,6 @@ export function ApplicationTimeline({
     if (!termSheetData) {
       return (
         <div className="text-center py-8">
-          <Clock className="w-8 h-8 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500 mb-2">No term sheet data available</p>
           <p className="text-sm text-gray-400 mb-4">
             Term sheet has not been created for this application yet.
@@ -994,7 +1068,6 @@ export function ApplicationTimeline({
               size="sm"
               className="rounded-full"
             >
-              <Clock className="w-4 h-4 mr-2" />
               Refresh
             </Button>
           </div>
@@ -1152,7 +1225,7 @@ export function ApplicationTimeline({
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-normal flex items-center gap-2">
-              <CiUser className="w-5 h-5 text-blue-500" />
+              <CiFileOn className="w-5 h-5 text-blue-500" />
               Applicant Information
             </CardTitle>
           </CardHeader>
@@ -1182,7 +1255,7 @@ export function ApplicationTimeline({
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-normal flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-green-500" />
+              <FileText className="w-5 h-5 text-green-500" />
               Company Information
             </CardTitle>
           </CardHeader>
@@ -1218,7 +1291,7 @@ export function ApplicationTimeline({
         <Card className="border-l-4 border-l-purple-500">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-normal flex items-center gap-2">
-              <CiDollar className="w-5 h-5 text-purple-500" />
+              <CiFileOn className="w-5 h-5 text-purple-500" />
               Financial Information
             </CardTitle>
           </CardHeader>
@@ -1263,11 +1336,22 @@ export function ApplicationTimeline({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Timeline Header */}
-      <div className="text-center mb-8">
+    <div className="space-y-6" key={application.id}>
+      {/* Timeline Header with Close Button */}
+      <div className="relative text-center mb-8">
         <h2 className="text-xl font-normal text-gray-900 mb-2">Application Timeline</h2>
         <p className="text-sm text-gray-600">Track the progress of this investment application</p>
+        
+        {/* Close Button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute -top-2 right-0 w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 group"
+            aria-label="Close drawer"
+          >
+            <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          </button>
+        )}
       </div>
 
       {/* Timeline Steps */}
@@ -1321,7 +1405,7 @@ export function ApplicationTimeline({
           const Icon = stage.icon
 
           return (
-            <div key={stage.id} className="relative flex items-start">
+            <div key={`${stage.id}-${application.id}`} className="relative flex items-start">
               {/* Timeline Line */}
               {index < stages.length - 1 && (
                 <div className="absolute left-6 top-12 w-0.5 h-full bg-gray-200" />
@@ -1383,7 +1467,7 @@ export function ApplicationTimeline({
 
                   <CardContent>
                     <div className="space-y-4">
-                      {/* Application Data Accordion - Only for Application Review stage */}
+                      {/* Application Data Accordion */}
                       {stage.id === "SHORTLISTED" && !isUpcoming && (
                         <Accordion type="single" collapsible className="w-full">
                           <AccordionItem value="application-data">
@@ -1396,7 +1480,7 @@ export function ApplicationTimeline({
                               </div>
                             </AccordionTrigger>
                             <AccordionContent>
-                              {renderApplicationData()}
+                              <ApplicationDataSection application={application} />
                             </AccordionContent>
                           </AccordionItem>
                         </Accordion>
@@ -1416,7 +1500,14 @@ export function ApplicationTimeline({
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent>
-                                {renderDueDiligenceData()}
+                                <DueDiligenceSection
+                                  data={dueDiligenceData}
+                                  loading={dueDiligenceLoading}
+                                  error={dueDiligenceError}
+                                  currentStage={application.currentStage}
+                                  onRefresh={fetchDueDiligenceData}
+                                  onInitiate={onInitiateDueDiligence}
+                                />
                               </AccordionContent>
                             </AccordionItem>
                           )}
@@ -1465,7 +1556,7 @@ export function ApplicationTimeline({
                               </AccordionTrigger>
                               <AccordionContent>
                                 <div className="text-center py-8">
-                                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                                  <Eye className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                                   <p className="text-gray-500">Fund disbursement data will be loaded from API</p>
                                 </div>
                               </AccordionContent>

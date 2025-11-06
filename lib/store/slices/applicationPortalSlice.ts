@@ -1,0 +1,507 @@
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit"
+import applicationPortalApiService, {
+  ApplicantProfile,
+  Application,
+  ApplicationTimeline,
+  PortfolioCompany,
+  Dashboard,
+  Investment,
+  Valuation,
+  ReportsData,
+  TermSheet,
+  UpdateProfileRequest,
+  UpdateCompanyRequest,
+  InitiateInvestmentImplementationRequest,
+} from "@/lib/api/application-portal-api"
+
+interface ApplicationPortalState {
+  // Profile
+  profile: ApplicantProfile | null
+  profileLoading: boolean
+  profileError: string | null
+
+  // Application
+  application: Application | null
+  applicationLoading: boolean
+  applicationError: string | null
+
+  // Timeline
+  timeline: ApplicationTimeline | null
+  timelineLoading: boolean
+  timelineError: string | null
+
+  // Portfolio Company
+  company: PortfolioCompany | null
+  companyLoading: boolean
+  companyError: string | null
+
+  // Dashboard
+  dashboard: Dashboard | null
+  dashboardLoading: boolean
+  dashboardError: string | null
+
+  // Investment
+  investment: Investment | null
+  investmentLoading: boolean
+  investmentError: string | null
+
+  // Valuations
+  valuations: Valuation[]
+  valuationsLoading: boolean
+  valuationsError: string | null
+
+  // Reports
+  reports: ReportsData | null
+  reportsLoading: boolean
+  reportsError: string | null
+
+  // Term Sheets
+  termSheets: TermSheet[]
+  termSheetsLoading: boolean
+  termSheetsError: string | null
+  termSheetsPagination: {
+    total: number
+    page: number
+    totalPages: number
+  }
+
+  // General
+  loading: boolean
+  error: string | null
+}
+
+const initialState: ApplicationPortalState = {
+  profile: null,
+  profileLoading: false,
+  profileError: null,
+
+  application: null,
+  applicationLoading: false,
+  applicationError: null,
+
+  timeline: null,
+  timelineLoading: false,
+  timelineError: null,
+
+  company: null,
+  companyLoading: false,
+  companyError: null,
+
+  dashboard: null,
+  dashboardLoading: false,
+  dashboardError: null,
+
+  investment: null,
+  investmentLoading: false,
+  investmentError: null,
+
+  valuations: [],
+  valuationsLoading: false,
+  valuationsError: null,
+
+  reports: null,
+  reportsLoading: false,
+  reportsError: null,
+
+  termSheets: [],
+  termSheetsLoading: false,
+  termSheetsError: null,
+  termSheetsPagination: {
+    total: 0,
+    page: 1,
+    totalPages: 1,
+  },
+
+  loading: false,
+  error: null,
+}
+
+// Async thunks
+export const fetchProfile = createAsyncThunk(
+  'applicationPortal/fetchProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getProfile()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch profile')
+    }
+  }
+)
+
+export const updateProfile = createAsyncThunk(
+  'applicationPortal/updateProfile',
+  async (data: UpdateProfileRequest, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.updateProfile(data)
+      dispatch(fetchProfile())
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to update profile')
+    }
+  }
+)
+
+export const fetchApplication = createAsyncThunk(
+  'applicationPortal/fetchApplication',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getApplication()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch application')
+    }
+  }
+)
+
+export const fetchTimeline = createAsyncThunk(
+  'applicationPortal/fetchTimeline',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getApplicationTimeline()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch timeline')
+    }
+  }
+)
+
+export const fetchCompany = createAsyncThunk(
+  'applicationPortal/fetchCompany',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getCompany()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch company')
+    }
+  }
+)
+
+export const updateCompany = createAsyncThunk(
+  'applicationPortal/updateCompany',
+  async (data: UpdateCompanyRequest, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.updateCompany(data)
+      dispatch(fetchCompany())
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to update company')
+    }
+  }
+)
+
+export const fetchDashboard = createAsyncThunk(
+  'applicationPortal/fetchDashboard',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getDashboard()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch dashboard')
+    }
+  }
+)
+
+export const fetchInvestment = createAsyncThunk(
+  'applicationPortal/fetchInvestment',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getInvestment()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch investment')
+    }
+  }
+)
+
+export const fetchValuations = createAsyncThunk(
+  'applicationPortal/fetchValuations',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getValuations()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch valuations')
+    }
+  }
+)
+
+export const fetchReports = createAsyncThunk(
+  'applicationPortal/fetchReports',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getReports()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch reports')
+    }
+  }
+)
+
+export const signTermSheet = createAsyncThunk(
+  'applicationPortal/signTermSheet',
+  async (termSheetId: string, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.signTermSheet(termSheetId)
+      dispatch(fetchTermSheets())
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to sign term sheet')
+    }
+  }
+)
+
+export const fetchTermSheets = createAsyncThunk(
+  'applicationPortal/fetchTermSheets',
+  async (params?: { page?: number; limit?: number }, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getMyTermSheets(params)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch term sheets')
+    }
+  }
+)
+
+export const initiateInvestmentImplementation = createAsyncThunk(
+  'applicationPortal/initiateInvestmentImplementation',
+  async (data: InitiateInvestmentImplementationRequest, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.initiateInvestmentImplementation(data)
+      // Refresh application and timeline after initiating
+      dispatch(fetchApplication())
+      dispatch(fetchTimeline())
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to initiate investment implementation')
+    }
+  }
+)
+
+// Slice
+const applicationPortalSlice = createSlice({
+  name: 'applicationPortal',
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null
+      state.profileError = null
+      state.applicationError = null
+      state.timelineError = null
+      state.companyError = null
+      state.dashboardError = null
+      state.investmentError = null
+      state.valuationsError = null
+      state.reportsError = null
+      state.termSheetsError = null
+    },
+    clearProfile: (state) => {
+      state.profile = null
+    },
+    clearApplication: (state) => {
+      state.application = null
+    },
+    clearTimeline: (state) => {
+      state.timeline = null
+    },
+    clearCompany: (state) => {
+      state.company = null
+    },
+    clearDashboard: (state) => {
+      state.dashboard = null
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch Profile
+      .addCase(fetchProfile.pending, (state) => {
+        state.profileLoading = true
+        state.profileError = null
+      })
+      .addCase(fetchProfile.fulfilled, (state, action) => {
+        state.profileLoading = false
+        state.profile = action.payload.data
+      })
+      .addCase(fetchProfile.rejected, (state, action) => {
+        state.profileLoading = false
+        state.profileError = action.payload as string
+      })
+
+      // Update Profile
+      .addCase(updateProfile.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(updateProfile.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+      // Fetch Application
+      .addCase(fetchApplication.pending, (state) => {
+        state.applicationLoading = true
+        state.applicationError = null
+      })
+      .addCase(fetchApplication.fulfilled, (state, action) => {
+        state.applicationLoading = false
+        state.application = action.payload.data
+      })
+      .addCase(fetchApplication.rejected, (state, action) => {
+        state.applicationLoading = false
+        state.applicationError = action.payload as string
+      })
+
+      // Fetch Timeline
+      .addCase(fetchTimeline.pending, (state) => {
+        state.timelineLoading = true
+        state.timelineError = null
+      })
+      .addCase(fetchTimeline.fulfilled, (state, action) => {
+        state.timelineLoading = false
+        state.timeline = action.payload.data
+      })
+      .addCase(fetchTimeline.rejected, (state, action) => {
+        state.timelineLoading = false
+        state.timelineError = action.payload as string
+      })
+
+      // Fetch Company
+      .addCase(fetchCompany.pending, (state) => {
+        state.companyLoading = true
+        state.companyError = null
+      })
+      .addCase(fetchCompany.fulfilled, (state, action) => {
+        state.companyLoading = false
+        state.company = action.payload.data
+      })
+      .addCase(fetchCompany.rejected, (state, action) => {
+        state.companyLoading = false
+        state.companyError = action.payload as string
+      })
+
+      // Update Company
+      .addCase(updateCompany.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(updateCompany.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(updateCompany.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+      // Fetch Dashboard
+      .addCase(fetchDashboard.pending, (state) => {
+        state.dashboardLoading = true
+        state.dashboardError = null
+      })
+      .addCase(fetchDashboard.fulfilled, (state, action) => {
+        state.dashboardLoading = false
+        state.dashboard = action.payload.data
+      })
+      .addCase(fetchDashboard.rejected, (state, action) => {
+        state.dashboardLoading = false
+        state.dashboardError = action.payload as string
+      })
+
+      // Fetch Investment
+      .addCase(fetchInvestment.pending, (state) => {
+        state.investmentLoading = true
+        state.investmentError = null
+      })
+      .addCase(fetchInvestment.fulfilled, (state, action) => {
+        state.investmentLoading = false
+        state.investment = action.payload.data
+      })
+      .addCase(fetchInvestment.rejected, (state, action) => {
+        state.investmentLoading = false
+        state.investmentError = action.payload as string
+      })
+
+      // Fetch Valuations
+      .addCase(fetchValuations.pending, (state) => {
+        state.valuationsLoading = true
+        state.valuationsError = null
+      })
+      .addCase(fetchValuations.fulfilled, (state, action) => {
+        state.valuationsLoading = false
+        state.valuations = action.payload.data
+      })
+      .addCase(fetchValuations.rejected, (state, action) => {
+        state.valuationsLoading = false
+        state.valuationsError = action.payload as string
+      })
+
+      // Fetch Reports
+      .addCase(fetchReports.pending, (state) => {
+        state.reportsLoading = true
+        state.reportsError = null
+      })
+      .addCase(fetchReports.fulfilled, (state, action) => {
+        state.reportsLoading = false
+        state.reports = action.payload.data
+      })
+      .addCase(fetchReports.rejected, (state, action) => {
+        state.reportsLoading = false
+        state.reportsError = action.payload as string
+      })
+
+      // Sign Term Sheet
+      .addCase(signTermSheet.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(signTermSheet.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(signTermSheet.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+      // Fetch Term Sheets
+      .addCase(fetchTermSheets.pending, (state) => {
+        state.termSheetsLoading = true
+        state.termSheetsError = null
+      })
+      .addCase(fetchTermSheets.fulfilled, (state, action) => {
+        state.termSheetsLoading = false
+        state.termSheets = action.payload.data.termSheets
+        state.termSheetsPagination = {
+          total: action.payload.data.total,
+          page: action.payload.data.page,
+          totalPages: action.payload.data.totalPages,
+        }
+      })
+      .addCase(fetchTermSheets.rejected, (state, action) => {
+        state.termSheetsLoading = false
+        state.termSheetsError = action.payload as string
+      })
+
+      // Initiate Investment Implementation
+      .addCase(initiateInvestmentImplementation.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(initiateInvestmentImplementation.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(initiateInvestmentImplementation.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+  },
+})
+
+export const {
+  clearError,
+  clearProfile,
+  clearApplication,
+  clearTimeline,
+  clearCompany,
+  clearDashboard,
+} = applicationPortalSlice.actions
+
+export default applicationPortalSlice.reducer

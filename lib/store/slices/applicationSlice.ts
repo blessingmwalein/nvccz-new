@@ -64,10 +64,25 @@ export const submitApplication = createAsyncThunk(
   'application/submitApplication',
   async (formData: ApplicationFormData, { rejectWithValue }) => {
     try {
+      // Extract files and document types from documents
+      const files: File[] = []
+      const documentTypes: string[] = []
+      
+      formData.documents.forEach((doc) => {
+        if (doc.file) {
+          files.push(doc.file)
+          documentTypes.push(doc.documentType)
+        }
+      })
+      
+      if (files.length === 0) {
+        return rejectWithValue('Please upload at least one document')
+      }
+
       const payload: ApplicationCreateRequest = {
         applicantName: `${formData.firstName} ${formData.lastName}`.trim(),
         applicantEmail: formData.applicantEmail,
-        applicantPhone: formData.applicantPhone,
+        applicantPhone: `${formData.phoneCountryCode}${formData.applicantPhone}`,
         applicantAddress: formData.applicantAddress,
         businessName: formData.businessName,
         businessDescription: formData.businessDescription,
@@ -75,13 +90,8 @@ export const submitApplication = createAsyncThunk(
         businessStage: formData.businessStage,
         foundingDate: formData.foundingDate,
         requestedAmount: formData.requestedAmount,
-        documents: (formData.documents || []).map((d) => ({
-          documentType: d.documentType,
-          fileName: d.fileName,
-          fileUrl: d.fileUrl,
-          fileSize: d.fileSize,
-          isRequired: d.isRequired,
-        })),
+        files: files,
+        documentTypes: documentTypes,
       }
 
       const response = await applicationsApi.create(payload)

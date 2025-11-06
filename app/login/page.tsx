@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { loginSchema, type LoginFormData } from "@/lib/validations/auth"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { loginUser, clearError } from "@/lib/store/slices/authSlice"
+import { getRoleBasedRedirect } from "@/lib/utils/role-redirect"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 
@@ -18,7 +19,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dispatch = useAppDispatch()
-  const { error } = useAppSelector((state) => state.auth)
+  const { error, isAuthenticated, userDetails, isFetchingDetails } = useAppSelector((state) => state.auth)
   const router = useRouter()
 
   const {
@@ -41,20 +42,36 @@ function LoginForm() {
     }
   }, [dispatch])
 
+  // Handle redirect after user details are fetched
+  useEffect(() => {
+    if (isAuthenticated && userDetails && !isFetchingDetails && isSubmitting) {
+      const redirect = getRoleBasedRedirect(userDetails, userDetails.role.name.toLowerCase() === 'applicant')
+      
+      if (redirect.shouldRedirect) {
+        toast.success('Login successful!', {
+          description: `Welcome back, ${userDetails.firstName}!`
+        })
+        
+        // Small delay to ensure cookies are set
+        setTimeout(() => {
+          window.location.href = redirect.path
+        }, 100)
+      }
+    }
+  }, [isAuthenticated, userDetails, isFetchingDetails, isSubmitting, router])
+
   const onSubmit = async (data: LoginFormData) => {
     if (isSubmitting) return // Prevent double submission
     
     try {
       setIsSubmitting(true)
-      const result = await dispatch(loginUser(data)).unwrap()
       
-      // Success toast
-      toast.success('Login successful! Redirecting...', {
-        description: `Welcome back, ${result.user.firstName}!`
-      })
+      // Login will automatically trigger fetchUserDetails in the authSlice
+      await dispatch(loginUser(data)).unwrap()
       
-      // Redirect to home page using window.location.href
-      window.location.href = '/'
+      // The redirect will be handled by the useEffect above once userDetails are loaded
+      // Don't redirect here, wait for userDetails to be fetched
+      
     } catch (error: any) {
       // Error toast
       toast.error('Login failed', {
@@ -62,10 +79,12 @@ function LoginForm() {
       })
       
       console.error('Login error:', error)
-    } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false) // Reset on error
     }
   }
+
+  // Show loading state while fetching user details after successful login
+  const isLoading = isSubmitting || (isAuthenticated && isFetchingDetails)
 
   return (
     <div className="h-screen bg-white flex overflow-hidden gap-4 p-4">
@@ -101,9 +120,21 @@ function LoginForm() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"
+                className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mx-12"
               >
                 {error}
+              </motion.div>
+            )}
+
+            {/* Loading State - Fetching User Details */}
+            {isAuthenticated && isFetchingDetails && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 text-sm mx-12 flex items-center"
+              >
+                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                Loading your profile...
               </motion.div>
             )}
 
@@ -126,9 +157,10 @@ function LoginForm() {
                       type="email"
                       autoComplete="email"
                       placeholder="you@example.com"
+                      disabled={isLoading}
                       className={`block w-full pl-12 pr-4 py-3 border rounded-full bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                         errors.email ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     />
                   )}
                 />
@@ -154,16 +186,18 @@ function LoginForm() {
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="••••••••"
+                      disabled={isLoading}
                       className={`block w-full pl-12 pr-12 py-3 border rounded-full bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                         errors.password ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     />
                   )}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={isLoading}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -182,7 +216,8 @@ function LoginForm() {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    disabled={isLoading}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
                   />
                   <span className="ml-2 text-sm text-gray-600">Remember me</span>
                 </label>
@@ -202,15 +237,15 @@ function LoginForm() {
               >
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isLoading}
                   variant="gradient"
                   size="lg"
-                  className="w-full rounded-full"
+                  className="w-full rounded-full cursor-pointer"
                 >
-                  {isSubmitting ? (
+                  {isLoading ? (
                     <>
                       <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
-                      Signing in...
+                      {isFetchingDetails ? 'Loading profile...' : 'Signing in...'}
                     </>
                   ) : (
                     'Sign in'
@@ -228,7 +263,8 @@ function LoginForm() {
                   type="button"
                   variant="gradient"
                   size="lg"
-                  className="w-full rounded-full"
+                  className="w-full rounded-full cursor-pointer"
+                  disabled={isLoading}
                   onClick={() => router.push('/applications/form')}
                 >
                   Submit Application

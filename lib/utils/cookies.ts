@@ -73,10 +73,52 @@ export const getAuthUser = (): any | null => {
   return null
 }
 
+export interface CookieOptions {
+  maxAge?: number
+  path?: string
+  domain?: string
+  secure?: boolean
+  sameSite?: 'strict' | 'lax' | 'none'
+}
+
+// Store user profile (full details with role and permissions)
+export const setUserProfile = (profile: any): void => {
+  const profileKey = process.env.NEXT_PUBLIC_AUTH_PROFILE_KEY || 'userProfile'
+  const maxAge = parseInt(process.env.NEXT_PUBLIC_AUTH_COOKIE_MAX_AGE || '604800') // 7 days
+  setCookie(profileKey, encodeURIComponent(JSON.stringify(profile)), { maxAge })
+}
+
+// Get user profile
+export const getUserProfile = (): any | null => {
+  if (typeof document === 'undefined') return null
+  
+  const profileKey = process.env.NEXT_PUBLIC_AUTH_PROFILE_KEY || 'userProfile'
+  const profile = getCookie(profileKey)
+  
+  if (profile) {
+    try {
+      return JSON.parse(decodeURIComponent(profile))
+    } catch {
+      return null
+    }
+  }
+  
+  return null
+}
+
+// Clear user profile
+export const clearUserProfile = (): void => {
+  const profileKey = process.env.NEXT_PUBLIC_AUTH_PROFILE_KEY || 'userProfile'
+  deleteCookie(profileKey)
+}
+
+// Update clearAuthCookies to include profile
 export const clearAuthCookies = (): void => {
   const tokenKey = process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY || 'token'
   const userKey = process.env.NEXT_PUBLIC_AUTH_USER_KEY || 'user'
+  const profileKey = process.env.NEXT_PUBLIC_AUTH_PROFILE_KEY || 'userProfile'
   
   deleteCookie(tokenKey)
   deleteCookie(userKey)
+  deleteCookie(profileKey)
 }

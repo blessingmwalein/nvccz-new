@@ -17,7 +17,15 @@ import {
   CiMoneyCheck1,
   CiCirclePlus,
   CiGift,
-  CiMapPin
+  CiMapPin,
+  CiBoxes,
+  CiReceipt,
+  CiBarcode,
+  CiCoins1,
+  CiMedal,
+  CiText,
+  CiTrophy,
+  CiChart
 } from "react-icons/ci"
 import {
   ShoppingCart,
@@ -134,7 +142,6 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       { id: "user-scorecards", name: "User Scorecards", path: "/performance/user-scorecards", icon: CiViewTable, description: "User performance scorecards" }
     ]
   },
-
   {
     id: "payroll",
     name: "Payroll",
@@ -285,6 +292,69 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       },
     ],
   },
+
+  // application-portal
+  {
+    id: "application-portal",
+    name: "Application Portal",
+    path: "/application-portal",
+    icon: CiGrid41,
+    description: "Manage applications and their lifecycle",
+    color: "oklch(0.68 0.12 240)",
+    subModules: [
+      {
+        id: "application-dashboard",
+        name: "Dashboard",
+        path: "/application-portal",
+        icon: CiViewBoard,
+        description: "Overview of all applications",
+      },
+      {
+        id: "application-details",
+        name: "Application Details",
+        path: "/application-portal/application-details",
+        icon: CiFileOn,
+        description: "Detailed view of a specific application",
+      },
+      {
+        id: "portfolio-company",
+        name: "Portfolio Company",
+        path: "/application-portal/portfolio-company",
+        icon: CiShop,
+        description: "Detailed view of a specific portfolio company",
+      },
+      {
+        id: "term-sheets",
+        name: "Term Sheets",
+        path: "/application-portal/term-sheets",
+        icon: CiReceipt,
+        description: "Detailed view of a specific term sheets",
+      },
+      {
+        id: "investment-details",
+        name: "Investment Details",
+        path: "/application-portal/investments-details",
+        icon: CiCoins1,
+        description: "Detailed view of a specific investment",
+      },
+
+      {
+        id: "valuations",
+        name: "Valuations",
+        path: "/application-portal/valuations",
+        icon: CiTrophy,
+        description: "Detailed view of a specific valuation",
+      },
+      {
+        id: "reports",
+        name: "Reports",
+        path: "/application-portal/reports",
+        icon: CiText,
+        description: "Detailed view of a specific report",
+      },
+    ],
+  },
+
 ]
 
 export const getModuleById = (id: string): ModuleConfig | undefined => {

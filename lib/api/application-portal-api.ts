@@ -1,0 +1,485 @@
+import { apiClient, ApiResponse } from './api-client'
+
+// Profile Interfaces
+export interface ApplicantProfile {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  userDepartment: string | null
+  roleCode: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProfileResponse {
+  success: boolean
+  message: string
+  data: ApplicantProfile
+  timestamp: string
+}
+
+export interface UpdateProfileRequest {
+  firstName?: string
+  lastName?: string
+  email?: string
+}
+
+// Application Interfaces
+export interface ApplicationDocument {
+  id: string
+  documentType: string
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  isRequired: boolean
+  isSubmitted: boolean
+  uploadedAt: string
+}
+
+export interface Reviewer {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+}
+
+export interface DueDiligenceReview {
+  id: string
+  applicationId: string
+  reviewerId: string
+  marketResearchViable: boolean
+  marketResearchComments: string
+  financialViable: boolean
+  financialComments: string
+  competitiveOpportunities: boolean
+  competitiveComments: string
+  managementTeamQualified: boolean
+  managementComments: string
+  legalCompliant: boolean
+  legalComments: string
+  riskTolerable: boolean
+  riskComments: string
+  overallScore: string
+  recommendation: string
+  finalComments: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  completedAt: string
+  reviewer: Reviewer
+}
+
+export interface BoardReview {
+  id: string
+  applicationId: string
+  reviewerId: string
+  investmentApproved: boolean
+  investmentRejected: boolean
+  conditionalApproval: boolean
+  recommendationReport: string
+  additionalInformation: string | null
+  decisionReason: string
+  conditions: string | null
+  nextSteps: string
+  overallScore: string
+  finalComments: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  completedAt: string
+  reviewer: Reviewer
+}
+
+export interface Application {
+  id: string
+  applicantName: string
+  applicantEmail: string
+  applicantPhone: string
+  applicantAddress: string
+  businessName: string
+  businessDescription: string
+  industry: string
+  businessStage: string
+  foundingDate: string
+  requestedAmount: string
+  fundId: string | null
+  currentStage: string
+  submittedAt: string
+  updatedAt: string
+  initialScreeningScore: string | null
+  screeningOutcome: string | null
+  dueDiligenceScore: string
+  boardDecision: string
+  createdAt: string
+  fund: any | null
+  documents: ApplicationDocument[]
+  dueDiligenceReview: DueDiligenceReview | null
+  boardReview: BoardReview | null
+  termSheet: any | null
+}
+
+export interface ApplicationResponse {
+  success: boolean
+  message: string
+  data: Application
+  timestamp: string
+}
+
+// Timeline Interfaces
+export interface TimelineEvent {
+  event: string
+  date: string
+  status: string
+  description: string
+}
+
+export interface ApplicationTimeline {
+  applicationId: string
+  currentStage: string
+  timeline: TimelineEvent[]
+}
+
+export interface TimelineResponse {
+  success: boolean
+  message: string
+  data: ApplicationTimeline
+  timestamp: string
+}
+
+// Portfolio Company Interfaces
+export interface PortfolioCompany {
+  id: string
+  userId: string
+  name: string
+  registrationNumber: string
+  industry: string
+  foundingDate: string
+  address: string
+  website: string | null
+  description: string
+  logoUrl: string | null
+  status: string
+  companySize: string
+  employeeCount: number | null
+  annualRevenue: number | null
+  fundingStage: string
+  contactPerson: string
+  contactPhone: string
+  contactEmail: string
+  socialMedia: any
+  fundId: string | null
+  startDate: string | null
+  endDate: string | null
+  capTable: any | null
+  financialKpis: any | null
+  financialHistoryExcel: string | null
+  eSign: string | null
+  createdAt: string
+  updatedAt: string
+  fund: any | null
+}
+
+export interface PortfolioCompanyResponse {
+  success: boolean
+  message: string
+  data: PortfolioCompany
+  timestamp: string
+}
+
+export interface UpdateCompanyRequest {
+  name?: string
+  industry?: string
+  foundingDate?: string
+  address?: string
+  website?: string
+  description?: string
+  logoUrl?: string
+  companySize?: string
+  employeeCount?: number
+  annualRevenue?: number
+  fundingStage?: string
+  contactPerson?: string
+  contactPhone?: string
+  contactEmail?: string
+  socialMedia?: any
+}
+
+export interface UpdateCompanyResponse {
+  success: boolean
+  message: string
+  data: {
+    id: string
+    name: string
+    industry: string
+    status: string
+    updatedAt: string
+  }
+}
+
+// Dashboard Interfaces
+export interface DashboardApplication {
+  id: string
+  currentStage: string
+  submittedAt: string
+  businessName: string
+  requestedAmount: string
+  industry: string
+  businessStage: string
+}
+
+export interface DashboardPortfolioCompany {
+  id: string
+  name: string
+  status: string
+  industry: string
+  fundingStage: string
+}
+
+export interface DashboardSummary {
+  hasApplication: boolean
+  hasPortfolioCompany: boolean
+  applicationStage: string
+  companyStatus: string
+}
+
+export interface Dashboard {
+  application: DashboardApplication | null
+  portfolioCompany: DashboardPortfolioCompany | null
+  recentActivities: any[]
+  summary: DashboardSummary
+}
+
+export interface DashboardResponse {
+  success: boolean
+  message: string
+  data: Dashboard
+  timestamp: string
+}
+
+// Investment Interfaces
+export interface InvestmentDetails {
+  fund: any | null
+  startDate: string | null
+  endDate: string | null
+  capTable: any | null
+  financialKpis: any | null
+}
+
+export interface Investment {
+  portfolioCompany: PortfolioCompany
+  termSheet: any | null
+  investment: InvestmentDetails
+}
+
+export interface InvestmentResponse {
+  success: boolean
+  message: string
+  data: Investment
+  timestamp: string
+}
+
+// Investment Implementation Interfaces
+export interface InitiateInvestmentImplementationRequest {
+  portfolioCompanyId: string
+  applicationId: string
+  fundId: string | null
+  implementationPlan: string
+  notes?: string
+}
+
+export interface InitiateInvestmentImplementationResponse {
+  success: boolean
+  message: string
+  data: {
+    id: string
+    portfolioCompanyId: string
+    applicationId: string
+    fundId: string | null
+    implementationPlan: string
+    notes: string | null
+    status: string
+    createdAt: string
+  }
+}
+
+// Valuation Interfaces
+export interface ValuationActivity {
+  id: string
+  activityType: string
+  title: string
+  description: string
+  createdAt: string
+}
+
+export interface Valuation {
+  id: string
+  valuationDate: string
+  valuationAmount: number
+  valuationMethod: string
+  status: string
+  assignedTo: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  valuationActivities: ValuationActivity[]
+}
+
+export interface ValuationsResponse {
+  success: boolean
+  message: string
+  data: Valuation[]
+}
+
+// Reports Interfaces
+export interface Report {
+  id: string
+  title: string
+  type: string
+  period: string
+  status: string
+  generatedAt: string
+  downloadUrl: string
+}
+
+export interface ReportsData {
+  portfolioCompany: {
+    id: string
+    name: string
+    industry: string
+  }
+  reports: Report[]
+}
+
+export interface ReportsResponse {
+  success: boolean
+  message: string
+  data: ReportsData
+  timestamp: string
+}
+
+// Term Sheet Interfaces
+export interface TermSheet {
+  id: string
+  applicationId: string
+  title: string
+  version: string
+  status: string
+  investmentAmount: number
+  equityPercentage: number
+  valuation: number
+  isDraft: boolean
+  isFinal: boolean
+  isSigned: boolean
+  signedAt: string | null
+  createdAt: string
+  application?: {
+    id: string
+    businessName: string
+    applicantName: string
+    currentStage: string
+  }
+}
+
+export interface SignTermSheetResponse {
+  success: boolean
+  message: string
+  data: {
+    id: string
+    applicationId: string
+    status: string
+    isSigned: boolean
+    signedAt: string
+    investmentAmount: number
+    equityPercentage: number
+    valuation: number
+  }
+}
+
+export interface MyTermSheetsResponse {
+  success: boolean
+  message: string
+  data: {
+    termSheets: TermSheet[]
+    total: number
+    page: number
+    totalPages: number
+  }
+}
+
+// API Service
+export const applicationPortalApiService = {
+  // Profile endpoints
+  async getProfile(): Promise<ProfileResponse> {
+    return apiClient.get<ProfileResponse>('/applicant/profile')
+  },
+
+  async updateProfile(data: UpdateProfileRequest): Promise<ProfileResponse> {
+    return apiClient.put<ProfileResponse>('/applicant/profile', data)
+  },
+
+  // Application endpoints
+  async getApplication(): Promise<ApplicationResponse> {
+    return apiClient.get<ApplicationResponse>('/applicant/application')
+  },
+
+  async getApplicationTimeline(): Promise<TimelineResponse> {
+    return apiClient.get<TimelineResponse>('/applicant/application/timeline')
+  },
+
+  // Portfolio Company endpoints
+  async getCompany(): Promise<PortfolioCompanyResponse> {
+    return apiClient.get<PortfolioCompanyResponse>('/applicant/company')
+  },
+
+  async updateCompany(data: UpdateCompanyRequest): Promise<UpdateCompanyResponse> {
+    return apiClient.put<UpdateCompanyResponse>('/applicant/company', data)
+  },
+
+  // Dashboard endpoint
+  async getDashboard(): Promise<DashboardResponse> {
+    return apiClient.get<DashboardResponse>('/applicant/dashboard')
+  },
+
+  // Investment endpoint
+  async getInvestment(): Promise<InvestmentResponse> {
+    return apiClient.get<InvestmentResponse>('/applicant/investment')
+  },
+
+  // Investment Implementation endpoints
+  async initiateInvestmentImplementation(data: InitiateInvestmentImplementationRequest): Promise<InitiateInvestmentImplementationResponse> {
+    return apiClient.post<InitiateInvestmentImplementationResponse>('/investment-implementations/initiate', data)
+  },
+
+  // Valuations endpoint
+  async getValuations(): Promise<ValuationsResponse> {
+    return apiClient.get<ValuationsResponse>('/applicant/valuations')
+  },
+
+  // Reports endpoint
+  async getReports(): Promise<ReportsResponse> {
+    return apiClient.get<ReportsResponse>('/applicant/reports')
+  },
+
+  // Term Sheet endpoints
+  async signTermSheet(termSheetId: string): Promise<SignTermSheetResponse> {
+    return apiClient.post<SignTermSheetResponse>(`/term-sheets/${termSheetId}/sign`, {})
+  },
+
+  async getMyTermSheets(params?: { page?: number; limit?: number }): Promise<MyTermSheetsResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    
+    const queryString = queryParams.toString()
+    const url = queryString ? `/term-sheets/my?${queryString}` : '/term-sheets/my'
+    
+    return apiClient.get<MyTermSheetsResponse>(url)
+  },
+}
+
+export const applicationPortalApi = applicationPortalApiService
+
+export default applicationPortalApiService

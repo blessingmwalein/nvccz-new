@@ -36,13 +36,9 @@ export interface ApplicationCreateRequest {
   businessStage: string
   foundingDate: string
   requestedAmount: number
-  documents: Array<{
-    documentType: string
-    fileName: string
-    fileUrl: string
-    fileSize: number
-    isRequired: boolean
-  }>
+  fundId?: string
+  files: File[]
+  documentTypes: string[]
 }
 
 export interface ApplicationsResponse {
@@ -64,9 +60,36 @@ class ApplicationsApiService {
     return apiClient.get<ApplicationsResponse>('/applications')
   }
 
-  // Create a new application
+  // Create a new application with FormData
   async create(applicationData: ApplicationCreateRequest): Promise<ApplicationCreateResponse> {
-    return apiClient.post<ApplicationCreateResponse>('/applications', applicationData)
+    const formData = new FormData()
+    
+    // Append text fields
+    formData.append('applicantName', applicationData.applicantName)
+    formData.append('applicantEmail', applicationData.applicantEmail)
+    formData.append('applicantPhone', applicationData.applicantPhone)
+    formData.append('applicantAddress', applicationData.applicantAddress)
+    formData.append('businessName', applicationData.businessName)
+    formData.append('businessDescription', applicationData.businessDescription)
+    formData.append('industry', applicationData.industry)
+    formData.append('businessStage', applicationData.businessStage)
+    formData.append('foundingDate', applicationData.foundingDate)
+    formData.append('requestedAmount', applicationData.requestedAmount.toString())
+    
+    if (applicationData.fundId) {
+      formData.append('fundId', applicationData.fundId)
+    }
+    
+    // Append files
+    applicationData.files.forEach((file) => {
+      formData.append('files', file)
+    })
+    
+    // Append document types as JSON string
+    formData.append('documentTypes', JSON.stringify(applicationData.documentTypes))
+    
+    // Don't set Content-Type header - let browser set it automatically with boundary
+    return apiClient.post<ApplicationCreateResponse>('/applications', formData)
   }
 
   // Get a single application by ID

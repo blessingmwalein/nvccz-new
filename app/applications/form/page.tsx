@@ -47,9 +47,10 @@ const step2Schema = yup.object({
 })
 
 const step3Schema = yup.object({
-  documents: yup.array().test('required-docs', 'Please upload all required docs', (docs: any) => {
+  documents: yup.array().test('required-docs', 'Please upload all required documents with files', (docs: any) => {
     const required = ['BUSINESS_PLAN','PROOF_OF_CONCEPT','MARKET_RESEARCH','PROJECTED_CASH_FLOWS']
-    const uploadedTypes = new Set((docs || []).filter((d: any) => d && d.documentType).map((d: any) => d.documentType))
+    const uploadedDocs = (docs || []).filter((d: any) => d && d.documentType && d.file)
+    const uploadedTypes = new Set(uploadedDocs.map((d: any) => d.documentType))
     return required.every(t => uploadedTypes.has(t))
   })
 })
@@ -111,7 +112,21 @@ export default function ApplicationFormPage() {
 
   const handleSubmit = async () => {
     const isValid = await validateStep(3)
-    if (!isValid) return
+    if (!isValid) {
+      toast.error('Validation failed', {
+        description: 'Please ensure all required documents are uploaded with files'
+      })
+      return
+    }
+    
+    // Check if files are present
+    const filesPresent = applicationState.documents.some(doc => doc.file)
+    if (!filesPresent) {
+      toast.error('No files uploaded', {
+        description: 'Please upload at least one document file'
+      })
+      return
+    }
     
     try {
       const result = await dispatch(submitApplication(applicationState))

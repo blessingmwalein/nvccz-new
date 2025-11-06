@@ -1,0 +1,104 @@
+import { apiClient } from './api-client'
+
+export interface Permission {
+  name: string
+  value: boolean
+}
+
+export interface RolePermissions {
+  [key: string]: string[]
+}
+
+export interface UserRole {
+  id: string
+  name: string
+  description: string
+  permissions: RolePermissions
+}
+
+export interface UserDetails {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  userDepartment: string | null
+  departmentRole: string | null
+  roleCode: string | null
+  role: UserRole
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LoginUser {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  department: string | null
+  role: string | null
+  isApplicant: boolean
+}
+
+export interface LoginResponse {
+  success: boolean
+  message: string
+  token: string
+  user: LoginUser
+}
+
+export interface UserDetailsResponse {
+  success: boolean
+  message: string
+  data: UserDetails
+}
+
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+export const authApiService = {
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://nvccz-pi.vercel.app/api'}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Login failed')
+    }
+
+    return response.json()
+  },
+
+  async getUserDetails(userId: string): Promise<UserDetailsResponse> {
+    const response = await apiClient.get(`/users/${userId}`)
+    return response
+  },
+
+  async logout(): Promise<void> {
+    // If you have a logout endpoint on the backend
+    try {
+      await apiClient.post('/auth/logout', {})
+    } catch (error) {
+      // Handle error silently as we're logging out anyway
+      console.error('Logout API error:', error)
+    }
+  },
+
+  async refreshToken(): Promise<{ token: string }> {
+    const response = await apiClient.post('/auth/refresh', {})
+    return response
+  },
+
+  async verifyToken(token: string): Promise<{ valid: boolean }> {
+    const response = await apiClient.post('/auth/verify', { token })
+    return response
+  },
+}
+
+export default authApiService
