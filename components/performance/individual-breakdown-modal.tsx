@@ -12,19 +12,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAppSelector, useAppDispatch } from "@/lib/store"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { toast } from "sonner"
-import { fetchUsersForBreakdown } from "@/lib/store/slices/performanceSlice"
+import { breakdownGoalToIndividuals, fetchUsersForBreakdown } from "@/lib/store/slices/performanceSlice"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface IndividualBreakdownModalProps {
   isOpen: boolean
   onClose: () => void
-  parentGoal: any
+  goal: any  // Changed from parentGoal to goal
   onSubmit: (data: any) => void
 }
 
 // Yup validation schema
 const individualBreakdownSchema = yup.object({
-  parentGoalId: yup.string().required("Parent goal ID is required"),
+  departmentGoalId: yup.string().required("Parent goal ID is required"),
   selectedUsers: yup
     .array()
     .of(yup.string())
@@ -45,10 +45,10 @@ const individualBreakdownSchema = yup.object({
   ),
 })
 
-export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit }: IndividualBreakdownModalProps) {
+export function IndividualBreakdownModal({ isOpen, onClose, goal, onSubmit }: IndividualBreakdownModalProps) {
   const dispatch = useAppDispatch()
   const { breakdownUsers, breakdownUsersLoading } = useAppSelector((state) => state.performance)
-  
+
   const {
     handleSubmit,
     control,
@@ -59,8 +59,8 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
   } = useForm({
     resolver: yupResolver(individualBreakdownSchema),
     defaultValues: {
-      parentGoalId: parentGoal?.id || "",
-      departmentName: parentGoal?.department?.name || "",
+      departmentGoalId: goal?.id || "",
+      departmentName: goal?.departmentName || "",
       selectedUsers: [],
       breakdownData: [],
     },
@@ -73,70 +73,57 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
 
   const selectedUsers = watch("selectedUsers", [])
 
-  // Fetch users when modal opens - using department name from parentGoal
+  // Fetch users when modal opens - using departmentName from goal
   useEffect(() => {
-    if (isOpen && parentGoal) {
-      // Try to get department name from various possible locations
-      const departmentName = parentGoal.department?.name || parentGoal.departmentName
-      
-      console.log('Parent Goal:', parentGoal)
-      console.log('Department Name:', departmentName)
-      console.log('Department ID:', parentGoal.departmentId)
-      
-      if (departmentName) {
-        console.log('Fetching users for department:', departmentName)
-        dispatch(fetchUsersForBreakdown(departmentName))
-          .unwrap()
-          .then((users) => {
-            console.log('Fetched users:', users)
-            if (!users || users.length === 0) {
-              toast.info('No users found in this department', {
-                description: 'Please assign users to this department first.'
-              })
-            }
-          })
-          .catch((error) => {
-            console.error('Failed to fetch users:', error)
-            toast.error('Failed to load users', {
-              description: error.message || 'Please try again'
-            })
-          })
-      } else {
-        console.error('No department name available')
-        toast.error('Department information missing', {
-          description: 'Cannot load users without department information'
-        })
-      }
-    }
-  }, [isOpen, parentGoal, dispatch])
+    if (isOpen && goal?.departmentName) {
+      console.log('Fetching users for department:', goal.departmentName)
+      console.log('Goal object:', goal)
 
-  // Update parent goal ID when it changes
-  useEffect(() => {
-    if (parentGoal?.id) {
-      setValue("parentGoalId", parentGoal.id)
-      const departmentName = parentGoal.department?.name || parentGoal.departmentName || ""
-      setValue("departmentName", departmentName)
+      dispatch(fetchUsersForBreakdown(goal.departmentName))
+        .unwrap()
+        .then((users) => {
+          console.log('Fetched users:', users)
+          if (!users || users.length === 0) {
+            toast.info('No users found in this department', {
+              description: `No users found in ${goal.departmentName} department.`
+            })
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch users:', error)
+          toast.error('Failed to load users', {
+            description: error.message || 'Please try again'
+          })
+        })
     }
-  }, [parentGoal, setValue])
+  }, [isOpen, goal, dispatch])
+
+  // Update goal ID and department name when goal changes
+  useEffect(() => {
+    if (goal?.id) {
+      setValue("departmentGoalId", goal.id)
+      setValue("departmentName", goal.departmentName || "")
+    }
+  }, [goal, setValue])
 
   // Generate breakdown data when users are selected
   useEffect(() => {
-    if (!parentGoal) return
-    
+    if (!goal) return
+
     const newFields = selectedUsers.map((userId: string) => {
       const user = breakdownUsers.find((u: any) => u.id === userId)
       const userName = user ? `${user.firstName} ${user.lastName}` : 'User'
-      
+
       return {
-        title: `${userName}: Contribution to ${parentGoal.title}`,
+        title: `${userName}: Contribution to ${goal.title}`,
         targetValue: 0,
-        targetUnit: parentGoal.targetUnit || "USD",
+        targetUnit: goal.targetUnit || "USD",
         description: `Individual goal for ${userName}.`,
         userId: userId,
       }
     })
     replace(newFields)
-  }, [selectedUsers, parentGoal, breakdownUsers, replace])
+  }, [selectedUsers, goal, breakdownUsers, replace])
 
   // Reset form when modal closes
   useEffect(() => {
@@ -158,10 +145,14 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
 
   const handleFormSubmit = async (data: any) => {
     try {
-      await onSubmit(data)
-      toast.success("Individual breakdown goals created successfully", {
-        description: "Goals have been assigned to selected users."
+
+
+      toast.promise(dispatch(breakdownGoalToIndividuals(data)).unwrap(), {
+        loading: "Breaking down goal...",
+        success: "Goal broken down successfully.",
+        error: (err) => `Failed to breakdown goal: ${err.message}`,
       })
+      // setBreakdownGoal(null)
       reset()
       onClose()
     } catch (error: any) {
@@ -176,12 +167,14 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Breakdown Department Goal: {parentGoal?.title || 'Goal'}</DialogTitle>
-          {parentGoal && (
+          <DialogTitle>Breakdown Department Goal: {goal?.title || 'Goal'}</DialogTitle>
+          {goal && (
             <div className="text-sm text-muted-foreground space-y-1">
-              <p>Department: {parentGoal.department?.name || parentGoal.departmentName || 'Unknown'}</p>
-              <p className="text-xs">Department ID: {parentGoal.departmentId || 'Not set'}</p>
-              {parentGoal.type && <p className="text-xs">Goal Type: {parentGoal.type}</p>}
+              <p>Department: {goal.departmentName || 'Unknown'}</p>
+              <p className="text-xs">Goal Type: {goal.type}</p>
+              {goal.parentGoal && (
+                <p className="text-xs">Parent Goal: {goal.parentGoal.title}</p>
+              )}
             </div>
           )}
         </DialogHeader>
@@ -196,7 +189,7 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
                 {breakdownUsersLoading ? (
                   <div className="space-y-2 mt-2">
                     <Skeleton className="h-10 w-full" />
-                    <p className="text-xs text-muted-foreground">Loading users from department...</p>
+                    <p className="text-xs text-muted-foreground">Loading users from {goal?.departmentName} department...</p>
                   </div>
                 ) : (
                   <>
@@ -214,22 +207,21 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
                     {userOptions.length === 0 && !breakdownUsersLoading && (
                       <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
                         <p className="text-xs text-amber-700 font-medium mb-2">
-                          No users available in this department. Please ensure users are assigned to the department.
+                          No users available in this department. Please ensure users are assigned to the {goal?.departmentName} department.
                         </p>
                         <div className="text-xs text-amber-600 space-y-1">
-                          <p>Department: {parentGoal?.department?.name || parentGoal?.departmentName || 'Unknown'}</p>
-                          <p>Department ID: {parentGoal?.departmentId || 'Not set'}</p>
-                          <p>Goal Type: {parentGoal?.type || 'Not set'}</p>
+                          <p>Department: {goal?.departmentName || 'Unknown'}</p>
+                          <p>Goal Type: {goal?.type || 'Not set'}</p>
+                          {goal?.kpi && <p>KPI: {goal.kpi.name}</p>}
                         </div>
-                        {(parentGoal?.department?.name || parentGoal?.departmentName) && (
+                        {goal?.departmentName && (
                           <Button
                             type="button"
                             variant="link"
                             size="sm"
                             onClick={() => {
-                              const deptName = parentGoal.department?.name || parentGoal.departmentName
-                              console.log('Retrying fetch for department:', deptName)
-                              dispatch(fetchUsersForBreakdown(deptName))
+                              console.log('Retrying fetch for department:', goal.departmentName)
+                              dispatch(fetchUsersForBreakdown(goal.departmentName))
                             }}
                             className="h-auto p-0 text-amber-700 underline mt-2"
                           >
@@ -249,11 +241,11 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
             {fields.map((item, index) => {
               const user = breakdownUsers.find((u: any) => u.id === selectedUsers[index])
               const userName = user ? `${user.firstName} ${user.lastName}` : 'User'
-              
+
               return (
                 <div key={item.id} className="p-4 border rounded-lg space-y-4 relative bg-muted/30">
                   <h4 className="font-medium text-lg">Goal for: {userName}</h4>
-                  
+
                   {/* Title */}
                   <Controller
                     name={`breakdownData.${index}.title`}
@@ -261,7 +253,7 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
                     render={({ field }) => (
                       <div className="space-y-2">
                         <Label>Title *</Label>
-                        <Input 
+                        <Input
                           {...field}
                           placeholder="Enter goal title"
                           className={errors.breakdownData?.[index]?.title ? "border-red-500" : ""}
@@ -281,8 +273,8 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
                       render={({ field }) => (
                         <div className="space-y-2">
                           <Label>Target Value *</Label>
-                          <Input 
-                            type="number" 
+                          <Input
+                            type="number"
                             step="0.01"
                             {...field}
                             onChange={(e) => field.onChange(parseFloat(e.target.value))}
@@ -303,7 +295,7 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
                       render={({ field }) => (
                         <div className="space-y-2">
                           <Label>Target Unit *</Label>
-                          <Input 
+                          <Input
                             {...field}
                             placeholder="e.g., USD, %"
                             className={errors.breakdownData?.[index]?.targetUnit ? "border-red-500" : ""}
@@ -323,7 +315,7 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
                     render={({ field }) => (
                       <div className="space-y-2">
                         <Label>Description</Label>
-                        <Textarea 
+                        <Textarea
                           {...field}
                           placeholder="Enter goal description (optional)"
                           rows={3}
@@ -340,22 +332,23 @@ export function IndividualBreakdownModal({ isOpen, onClose, parentGoal, onSubmit
           {selectedUsers.length === 0 && !breakdownUsersLoading && (
             <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/30">
               <p>Please select users to create individual breakdown goals</p>
+              <p className="text-xs mt-2">Users from {goal?.departmentName} department will be available</p>
             </div>
           )}
 
           {/* Footer Buttons */}
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
               className="rounded-full"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={selectedUsers.length === 0 || isSubmitting || breakdownUsersLoading}
               className="rounded-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
             >

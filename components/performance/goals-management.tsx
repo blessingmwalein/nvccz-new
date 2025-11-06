@@ -509,7 +509,7 @@ export function GoalsManagement() {
         <IndividualBreakdownModal
           isOpen={!!breakdownGoal}
           onClose={() => setBreakdownGoal(null)}
-          departmentGoal={breakdownGoal}
+          goal={breakdownGoal}
           onSubmit={handleIndividualBreakdownSubmit}
         />
       )}
@@ -520,7 +520,7 @@ export function GoalsManagement() {
           setIsIndividualBreakdownModalOpen(false)
           setSelectedGoalForIndividualBreakdown(null)
         }}
-        parentGoal={selectedGoalForIndividualBreakdown}
+        goal={selectedGoalForIndividualBreakdown}
         onSubmit={handleIndividualBreakdownSubmit}
       />
     </div>

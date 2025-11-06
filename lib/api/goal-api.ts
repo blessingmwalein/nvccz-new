@@ -127,28 +127,9 @@ export const goalApiService = {
   },
 
   // Get users for a department for breakdown
-  async getUsersForBreakdown(departmentId: string) {
-    try {
-      console.log('API call: getUsersForBreakdown with departmentId:', departmentId)
-      const response = await fetch(`/api/performance/breakdown/users?departmentId=${departmentId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to fetch users')
-      }
-
-      const data = await response.json()
-      console.log('API response:', data)
-      return data
-    } catch (error: any) {
-      console.error('API error:', error)
-      throw error
-    }
+  async getUsersForBreakdown(departmentName: string): Promise<{ success: boolean; users: any[] }> {
+    console.log('API call: getUsersForBreakdown with departmentName:', departmentName)
+    return apiClient.get(`/performance/breakdown/users/${departmentName}`)
   },
 
   // Breakdown department goal to individuals
