@@ -113,6 +113,33 @@ export interface UserDetailsResponse {
   }
 }
 
+export interface BoardVotingMember {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  roleCode: string
+  departmentRole: string
+  votingPower: number
+}
+
+export interface BoardVotingMembersResponse {
+  success: boolean
+  message: string
+  data: BoardVotingMember[]
+  timestamp: string
+}
+
+export interface UpdateVotingPowerRequest {
+  votingPower: number
+}
+
+export interface UpdateVotingPowerResponse {
+  success: boolean
+  message: string
+  data: BoardVotingMember
+}
+
 export const adminApiService = {
   // User Management
   async getUsers(): Promise<UsersResponse> {
@@ -153,6 +180,19 @@ export const adminApiService = {
 
   async getUserDetails(userId: string): Promise<UserDetailsResponse> {
     const response = await apiClient.get(`/users/${userId}`)
+    return response
+  },
+
+  // Board Voting Members Management
+  async getBoardVotingMembers(): Promise<BoardVotingMembersResponse> {
+    const response = await apiClient.get('/board-reviews/voting-members')
+    return response
+  },
+
+  async updateVotingPower(userId: string, votingPower: number): Promise<UpdateVotingPowerResponse> {
+    const response = await apiClient.put(`/board-reviews/voting-members/${userId}/voting-power`, {
+      votingPower
+    })
     return response
   },
 }

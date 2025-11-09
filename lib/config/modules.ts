@@ -25,7 +25,8 @@ import {
   CiMedal,
   CiText,
   CiTrophy,
-  CiChart
+  CiChart,
+  CiLock
 } from "react-icons/ci"
 import {
   ShoppingCart,
@@ -303,9 +304,18 @@ export const MODULE_CONFIG: ModuleConfig[] = [
         id: "role-management",
         name: "Role Management",
         path: "/admin/roles",
-        icon: CiUser,
+        icon: CiLock,
         description: "Manage user roles and permissions",
       },
+      {
+        id: "voting-members",
+        name: "Board Review Voting",
+        path: "/admin/configs/voting-members",
+        icon: CiUser,
+        description: "Manage board review votting members",
+      },
+      // voting memebrs
+
     ],
   },
 

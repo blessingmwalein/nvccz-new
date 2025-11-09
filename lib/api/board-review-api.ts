@@ -4,7 +4,7 @@ export interface BoardReviewData {
   id: string
   applicationId: string
   reviewerId: string
-  investmentApproved: boolean
+  investmentApproved
   investmentRejected: boolean
   conditionalApproval: boolean
   recommendationReport: string
@@ -32,6 +32,41 @@ export interface BoardReviewData {
     currentStage: string
     requestedAmount: string
   }
+}
+
+export interface Vote {
+  id: string
+  userId: string
+  userName: string
+  vote: 'APPROVE' | 'REJECT'
+  comment: string
+  votingPower: number
+  createdAt: string
+}
+
+export interface VoteData {
+  id: string
+  vote: 'APPROVE' | 'REJECT'
+  comment: string
+  reviewer: {
+    id: string
+    firstName: string
+    lastName: string
+  }
+}
+
+export interface VoteSummaryData {
+  boardStatus: 'IN_PROGRESS' | 'COMPLETED'
+  approvePower: number
+  rejectPower: number
+  remainingPower: number
+  totalConfiguredPower: number
+  totalCastPower: number
+  majorityDecision: 'APPROVE' | 'REJECT' | 'PENDING' | null
+  isVotingComplete: boolean
+  votesVisible: boolean
+  votes: Vote[]
+  userVote: Vote | null
 }
 
 export interface BoardReviewCreateRequest {
@@ -79,6 +114,16 @@ class BoardReviewApiService {
   // Complete board review
   async complete(applicationId: string): Promise<BoardReviewResponse> {
     return apiClient.post<BoardReviewResponse>(`/board-reviews/${applicationId}/complete`, {})
+  }
+
+  // Cast a vote on a board review
+  async castVote(applicationId: string, data: { vote: 'APPROVE' | 'REJECT'; comment: string }): Promise<any> {
+    return apiClient.post(`/board-reviews/${applicationId}/votes`, data)
+  }
+
+  // Get vote summary for a board review
+  async getVoteSummary(applicationId: string): Promise<{ data: VoteSummaryData }> {
+    return apiClient.get(`/board-reviews/${applicationId}/votes/summary`)
   }
 }
 

@@ -1,8 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Users, Edit, Play, CheckCircle, DollarSign, UserPlus, Loader2, ThumbsUp } from "lucide-react"
+import { FileText, Users, Edit, Play, CheckCircle, DollarSign, UserPlus, Loader2, ThumbsUp, Vote } from "lucide-react"
 import type { Application } from "../applications-dashboard"
+import { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
 
 interface TimelineStageActionsProps {
   stageId: string
@@ -11,6 +12,8 @@ interface TimelineStageActionsProps {
   dueDiligenceLoading?: boolean
   activityApprovalData?: any
   activityApprovalLoading?: boolean
+  boardReviewData?: BoardReviewData | null
+  voteSummary?: VoteSummaryData | null
   onInitiateDueDiligence?: () => Promise<void>
   onUpdateDueDiligence?: () => Promise<void>
   onCompleteDueDiligence?: () => Promise<void>
@@ -19,6 +22,7 @@ interface TimelineStageActionsProps {
   onInitiateBoardReview?: () => Promise<void>
   onUpdateBoardReview?: () => Promise<void>
   onCompleteBoardReview?: () => Promise<void>
+  onVote?: () => void
   onCreateTermSheet?: () => Promise<void>
   onUpdateTermSheet?: () => Promise<void>
   onFinalizeTermSheet?: () => Promise<void>
@@ -34,6 +38,8 @@ export function TimelineStageActions({
   dueDiligenceLoading,
   activityApprovalData,
   activityApprovalLoading,
+  boardReviewData,
+  voteSummary,
   onInitiateDueDiligence,
   onUpdateDueDiligence,
   onCompleteDueDiligence,
@@ -42,6 +48,7 @@ export function TimelineStageActions({
   onInitiateBoardReview,
   onUpdateBoardReview,
   onCompleteBoardReview,
+  onVote,
   onCreateTermSheet,
   onUpdateTermSheet,
   onFinalizeTermSheet,
@@ -198,23 +205,74 @@ export function TimelineStageActions({
       )
 
     case "UNDER_BOARD_REVIEW":
+      if (dueDiligenceLoading) { // Using dueDiligenceLoading as a proxy for boardReviewLoading
+        return (
+          <div className="flex justify-center">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading board review data...</span>
+            </div>
+          </div>
+        )
+      }
+
+      // If no board review data, show Initiate button
+      if (!boardReviewData) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              onClick={onInitiateBoardReview}
+              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Create Board Review
+            </Button>
+          </div>
+        )
+      }
+
+      const isVotingComplete = voteSummary?.isVotingComplete === true
+      const canVote = voteSummary?.boardStatus === 'IN_PROGRESS' && !voteSummary.userVote
+
+      // If board review exists, show other actions
       return (
-        <div className="flex gap-2">
-          <Button
-            onClick={onUpdateBoardReview}
-            variant="outline"
-            className="border-purple-500 text-purple-600 hover:bg-purple-50 rounded-full"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Update Board Review
-          </Button>
-          <Button
-            onClick={onCompleteBoardReview}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Complete Board Review
-          </Button>
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {canVote && (
+              <Button
+                onClick={onVote}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+              >
+                <Vote className="w-4 h-4 mr-2" />
+                Cast Your Vote
+              </Button>
+            )}
+            
+            <Button
+              onClick={onUpdateBoardReview}
+              variant="outline"
+              className="border-purple-500 text-purple-600 hover:bg-purple-50 rounded-full"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Update Board Review
+            </Button>
+
+            {isVotingComplete && (
+              <Button
+                onClick={onCompleteBoardReview}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Complete Board Review
+              </Button>
+            )}
+          </div>
+
+          {voteSummary?.boardStatus === 'IN_PROGRESS' && !isVotingComplete && !canVote && (
+            <div className="flex justify-center">
+              <p className="text-sm text-gray-500 italic py-2">Voting in progress... You have already voted.</p>
+            </div>
+          )}
         </div>
       )
 

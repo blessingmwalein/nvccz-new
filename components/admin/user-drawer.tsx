@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { User as UserType } from "@/lib/api/admin-api"
 import { CopyText } from "@/components/ui/copy-text"
 import { 
@@ -16,11 +17,21 @@ import {
   Edit,
   X,
   Trash2,
-  CheckCircle
+  CheckCircle,
+  Vote,
+  UserPlus,
+  Users
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
-import { clearUserDetails, fetchUserDetails } from "@/lib/store/slices/adminSlice"
+import { 
+  clearUserDetails, 
+  fetchUserDetails,
+  fetchBoardVotingMembers,
+  updateVotingPower
+} from "@/lib/store/slices/adminSlice"
+import { UpdateVotingPowerDialog } from "./update-voting-power-dialog"
+import { toast } from "sonner"
 
 
 interface UserDrawerProps {
@@ -31,7 +42,7 @@ interface UserDrawerProps {
   onDelete: (user: UserType) => void
 }
 
-type TabType = "overview" | "role" | "permissions"
+type TabType = "overview" | "role" | "permissions" | "voting"
 
 const tabs = [
   {
@@ -48,18 +59,63 @@ const tabs = [
     id: "permissions" as TabType,
     label: "Permissions",
     icon: Shield
+  },
+  {
+    id: "voting" as TabType,
+    label: "Board Voting",
+    icon: Vote,
+    condition: (user: UserType) => user.roleCode === 'BOARD_MEMBER' || user.roleCode === 'BOARD_CHAIR'
   }
 ]
 
+// Skeleton Loaders
+function VotingStatusSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-20 w-full rounded-lg" />
+      <Skeleton className="h-10 w-full rounded-lg" />
+    </div>
+  )
+}
+
+function VotingMembersListSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-1 w-20" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-16 w-full rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
 export function UserDrawer({ isOpen, onClose, user, onEdit, onDelete }: UserDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview")
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  const [selectedMemberForUpdate, setSelectedMemberForUpdate] = useState<any | null>(null)
   const dispatch = useAppDispatch()
-  const { selectedUserDetails, selectedUserDetailsLoading } = useAppSelector(state => state.admin)
+  const { 
+    selectedUserDetails, 
+    selectedUserDetailsLoading,
+    boardVotingMembers,
+    boardVotingMembersLoading,
+    loading
+  } = useAppSelector(state => state.admin)
 
   // Fetch detailed user info when drawer opens
   useEffect(() => {
     if (isOpen && user) {
       dispatch(fetchUserDetails(user.id))
+      
+      // Fetch board voting members if user is board member/chair
+      if (user.roleCode === 'BOARD_MEMBER' || user.roleCode === 'BOARD_CHAIR') {
+        dispatch(fetchBoardVotingMembers())
+      }
     }
     
     return () => {
@@ -167,6 +223,24 @@ export function UserDrawer({ isOpen, onClose, user, onEdit, onDelete }: UserDraw
 
   const permissionMatrix = getPermissions()
 
+  const isBoardMember = user?.roleCode === 'BOARD_MEMBER' || user?.roleCode === 'BOARD_CHAIR'
+  const votingMember = boardVotingMembers.find(member => member.id === user?.id)
+  const isVotingMember = !!votingMember
+  const totalVotingPower = boardVotingMembers.reduce((sum, member) => sum + member.votingPower, 0)
+
+  const handleUpdateVotingPower = async (userId: string, votingPower: number) => {
+    try {
+      await dispatch(updateVotingPower({ userId, votingPower })).unwrap()
+      toast.success('Voting power updated successfully')
+      setShowUpdateDialog(false)
+      setSelectedMemberForUpdate(null)
+    } catch (error: any) {
+      toast.error('Failed to update voting power', {
+        description: error || 'Please try again.'
+      })
+    }
+  }
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="w-[35vw] min-w-[800px] max-w-[1200px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
@@ -241,7 +315,7 @@ export function UserDrawer({ isOpen, onClose, user, onEdit, onDelete }: UserDraw
           {/* Custom Tab Navigation */}
           <div className="border-b border-gray-200">
             <nav className="flex space-x-6">
-              {tabs.map((tab) => (
+              {tabs.filter(tab => !tab.condition || tab.condition(user)).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -454,8 +528,179 @@ export function UserDrawer({ isOpen, onClose, user, onEdit, onDelete }: UserDraw
                 )}
               </div>
             )}
+
+            {/* Board Voting Tab */}
+            {activeTab === "voting" && isBoardMember && (
+              <div className="space-y-4">
+                {/* Current User Voting Status */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-normal text-gray-900 flex items-center gap-2 mb-4">
+                    <Vote className="w-5 h-5" />
+                    Voting Member Status
+                  </h3>
+                  {boardVotingMembersLoading ? (
+                    <VotingStatusSkeleton />
+                  ) : isVotingMember ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium text-green-900">Active Voting Member</p>
+                          <p className="text-xs text-green-700 mt-1">
+                            Voting Power: {votingMember.votingPower}%
+                          </p>
+                        </div>
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setSelectedMemberForUpdate(votingMember)
+                          setShowUpdateDialog(true)
+                        }}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Update Voting Power
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500 mb-3">Not assigned as a voting member</p>
+                      <Button
+                        onClick={() => {
+                          setSelectedMemberForUpdate({
+                            id: user.id,
+                            firstName: user.firstName,
+                            lastName: user.lastName,
+                            email: user.email,
+                            roleCode: user.roleCode,
+                            departmentRole: user.departmentRole || '',
+                            votingPower: 0
+                          })
+                          setShowUpdateDialog(true)
+                        }}
+                        className="gradient-primary"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Assign as Voting Member
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* All Voting Members */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-normal text-gray-900 flex items-center gap-2 mb-4">
+                    <Users className="w-5 h-5" />
+                    All Board Voting Members
+                  </h3>
+                  
+                  {boardVotingMembersLoading ? (
+                    <VotingMembersListSkeleton />
+                  ) : (
+                    <>
+                      {/* Voting Power Progress */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-gray-600">Total Voting Power</span>
+                          <span className="font-medium">{totalVotingPower}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div 
+                            className={`h-full transition-all ${
+                              totalVotingPower === 100 ? 'bg-green-500' : 
+                              totalVotingPower > 100 ? 'bg-red-500' : 
+                              'bg-blue-500'
+                            }`}
+                            style={{ width: `${Math.min(totalVotingPower, 100)}%` }}
+                          />
+                        </div>
+                        {totalVotingPower !== 100 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {totalVotingPower < 100 
+                              ? `${100 - totalVotingPower}% remaining to assign` 
+                              : `Exceeded by ${totalVotingPower - 100}%`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Voting Members List */}
+                      <div className="space-y-2">
+                        {boardVotingMembers.map((member) => (
+                          <div 
+                            key={member.id} 
+                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                              member.id === user?.id ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                                getInitialsGradient(`${member.firstName} ${member.lastName}`)
+                              }`}>
+                                {getInitials(member.firstName, member.lastName)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {member.firstName} {member.lastName}
+                                  {member.id === user?.id && (
+                                    <span className="ml-2 text-xs text-blue-600">(You)</span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-gray-500">{member.email}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                    {member.roleCode}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {member.departmentRole}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-blue-600">{member.votingPower}%</p>
+                                <p className="text-xs text-gray-500">voting power</p>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  setSelectedMemberForUpdate(member)
+                                  setShowUpdateDialog(true)
+                                }}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                        {boardVotingMembers.length === 0 && (
+                          <p className="text-center text-sm text-gray-500 py-4">
+                            No voting members assigned yet
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Update Voting Power Dialog */}
+        {selectedMemberForUpdate && (
+          <UpdateVotingPowerDialog
+            isOpen={showUpdateDialog}
+            onClose={() => {
+              setShowUpdateDialog(false)
+              setSelectedMemberForUpdate(null)
+            }}
+            member={selectedMemberForUpdate}
+            onSubmit={handleUpdateVotingPower}
+          />
+        )}
       </SheetContent>
     </Sheet>
   )

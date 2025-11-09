@@ -3,14 +3,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, FileText, Play } from "lucide-react"
-import type { BoardReviewData } from "@/lib/api/board-review-api"
+import { Users, FileText, Play, ThumbsUp, ThumbsDown, Check, Hourglass, User, MessageSquare, Calendar } from "lucide-react"
+import type { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
+import { Progress } from "@/components/ui/progress"
+import { format } from 'date-fns'
 
 interface BoardReviewSectionProps {
   data: BoardReviewData | null
   loading: boolean
   error: string | null
   currentStage: string
+  voteSummary: VoteSummaryData | null
+  voteSummaryLoading: boolean
   onRefresh: () => void
   onInitiate?: () => void
 }
@@ -20,6 +24,8 @@ export function BoardReviewSection({
   loading,
   error,
   currentStage,
+  voteSummary,
+  voteSummaryLoading,
   onRefresh,
   onInitiate
 }: BoardReviewSectionProps) {
@@ -66,6 +72,95 @@ export function BoardReviewSection({
 
   return (
     <div className="space-y-6">
+      {/* Vote Summary Section */}
+      {voteSummaryLoading ? (
+        <div className="flex items-center justify-center p-4 text-sm text-gray-500">
+          <Hourglass className="w-4 h-4 mr-2 animate-spin" />
+          <span>Loading vote summary...</span>
+        </div>
+      ) : voteSummary && (
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-normal flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                <Users className="w-4 h-4 text-blue-500" />
+              </div>
+              Voting Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <p className="text-sm text-gray-500">Approve Power</p>
+                  <p className="font-bold text-lg text-green-600">{voteSummary.approvePower}%</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Reject Power</p>
+                  <p className="font-bold text-lg text-red-600">{voteSummary.rejectPower}%</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Majority Decision</p>
+                  <Badge className={`mt-1 ${
+                    voteSummary.majorityDecision === 'APPROVE' ? 'bg-green-100 text-green-800' :
+                    voteSummary.majorityDecision === 'REJECT' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {voteSummary.majorityDecision || 'Pending'}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Voting Status</p>
+                  <Badge className={`mt-1 ${
+                    voteSummary.isVotingComplete ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {voteSummary.isVotingComplete ? 'Complete' : 'In Progress'}
+                  </Badge>
+                </div>
+              </div>
+              <Progress value={voteSummary.totalCastPower} className="h-2" />
+              <div className="flex justify-between items-center text-xs text-gray-500">
+                <span>{voteSummary.totalCastPower}% of {voteSummary.totalConfiguredPower}% power cast</span>
+              </div>
+              
+              {voteSummary.votesVisible && voteSummary.votes.length > 0 && (
+                <div className="space-y-3 pt-4 border-t">
+                  <h4 className="text-sm font-medium">Individual Votes</h4>
+                  {voteSummary.votes.map(vote => (
+                    <div key={vote.id} className="p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-sm flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-500" />
+                            {vote.userName}
+                          </p>
+                          <p className="text-xs text-gray-500 flex items-center gap-2 mt-1">
+                            <Calendar className="w-3 h-3" />
+                            {format(new Date(vote.createdAt), "PPP p")}
+                          </p>
+                        </div>
+                        <Badge className={vote.vote === 'APPROVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          {vote.vote} ({vote.votingPower}%)
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-2 pl-6 flex items-start gap-2">
+                        <MessageSquare className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span>{vote.comment}</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {voteSummary.userVote && (
+                <div className="text-center text-sm text-gray-600 pt-2 border-t">
+                  You voted to <span className={`font-semibold ${voteSummary.userVote.vote === 'APPROVE' ? 'text-green-600' : 'text-red-600'}`}>{voteSummary.userVote.vote}</span>.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Board Review Overview */}
       <Card className="border-l-4 border-l-purple-500">
         <CardHeader className="pb-3">

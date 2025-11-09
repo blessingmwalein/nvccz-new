@@ -4,7 +4,9 @@ import adminApiService, {
   HardcodedRole, 
   DepartmentWithRoles, 
   CreateUserRequest, 
-  UpdateUserRequest 
+  UpdateUserRequest,
+  BoardVotingMember,
+  UpdateVotingPowerRequest
 } from "@/lib/api/admin-api"
 
 interface AdminState {
@@ -25,6 +27,10 @@ interface AdminState {
   selectedDepartmentFilter: string
   selectedRoleFilter: string
   searchTerm: string
+  
+  // Board voting members
+  boardVotingMembers: BoardVotingMember[]
+  boardVotingMembersLoading: boolean
 }
 
 const initialState: AdminState = {
@@ -44,6 +50,10 @@ const initialState: AdminState = {
   selectedDepartmentFilter: 'all',
   selectedRoleFilter: 'all',
   searchTerm: '',
+
+  // Board voting members
+  boardVotingMembers: [],
+  boardVotingMembersLoading: false,
 }
 
 // Async thunks - simplified without caching
@@ -142,6 +152,31 @@ export const fetchUserDetails = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch user details')
+    }
+  }
+)
+
+export const fetchBoardVotingMembers = createAsyncThunk(
+  'admin/fetchBoardVotingMembers',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await adminApiService.getBoardVotingMembers()
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch board voting members')
+    }
+  }
+)
+
+export const updateVotingPower = createAsyncThunk(
+  'admin/updateVotingPower',
+  async ({ userId, votingPower }: { userId: string; votingPower: number }, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await adminApiService.updateVotingPower(userId, votingPower)
+      dispatch(fetchBoardVotingMembers())
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to update voting power')
     }
   }
 )
@@ -272,6 +307,31 @@ const adminSlice = createSlice({
       })
       .addCase(fetchUserDetails.rejected, (state, action) => {
         state.selectedUserDetailsLoading = false
+        state.error = action.payload as string
+      })
+      
+      // Fetch board voting members
+      .addCase(fetchBoardVotingMembers.pending, (state) => {
+        state.boardVotingMembersLoading = true
+      })
+      .addCase(fetchBoardVotingMembers.fulfilled, (state, action) => {
+        state.boardVotingMembersLoading = false
+        state.boardVotingMembers = action.payload.data || []
+      })
+      .addCase(fetchBoardVotingMembers.rejected, (state, action) => {
+        state.boardVotingMembersLoading = false
+        state.error = action.payload as string
+      })
+      
+      // Update voting power
+      .addCase(updateVotingPower.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(updateVotingPower.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(updateVotingPower.rejected, (state, action) => {
+        state.loading = false
         state.error = action.payload as string
       })
   },

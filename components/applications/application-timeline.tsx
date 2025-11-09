@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 import { CiFileOn } from "react-icons/ci"
 import { dueDiligenceApi, DueDiligenceData } from "@/lib/api/due-diligence-api"
-import { boardReviewApi, BoardReviewData } from "@/lib/api/board-review-api"
+import { boardReviewApi, BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
 import { termSheetApi, TermSheetData } from "@/lib/api/term-sheet-api"
 import { fundDisbursementApi, FundDisbursementData } from "@/lib/api/fund-disbursement-api"
 import { applicationsApi } from "@/lib/api/applications-api"
@@ -47,6 +47,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DueDiligenceTaskModal } from "./due-diligence-task-modal"
 import { ActivityApprovalModal } from "./activity-approval-modal"
+import { BoardVoteModal } from "./board-voting-modal"
+// import { BoardVoteModal } from "./board-vote-modal"
 
 interface ApplicationTimelineProps {
   application: Application
@@ -156,6 +158,9 @@ export function ApplicationTimeline({
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
   const [activityApprovalData, setActivityApprovalData] = useState<any>(null)
   const [activityApprovalLoading, setActivityApprovalLoading] = useState(false)
+  const [voteSummary, setVoteSummary] = useState<VoteSummaryData | null>(null)
+  const [voteSummaryLoading, setVoteSummaryLoading] = useState(false)
+  const [showVoteModal, setShowVoteModal] = useState(false)
 
   useEffect(() => {
     let stageIndex = stages.findIndex(stage => stage.id === application.currentStage)
@@ -181,7 +186,10 @@ export function ApplicationTimeline({
   // Fetch board review data for all applications when component mounts
   useEffect(() => {
     fetchBoardReviewData()
-  }, [application.id])
+    if (application.currentStage === 'UNDER_BOARD_REVIEW' || application.currentStage === 'BOARD_APPROVED') {
+      fetchVoteSummary()
+    }
+  }, [application.id, application.currentStage])
 
   // Fetch term sheet data for all applications when component mounts
   useEffect(() => {
@@ -241,6 +249,19 @@ export function ApplicationTimeline({
       setActivityApprovalData(null)
     } finally {
       setActivityApprovalLoading(false)
+    }
+  }
+
+  const fetchVoteSummary = async () => {
+    setVoteSummaryLoading(true)
+    try {
+      const response = await boardReviewApi.getVoteSummary(application.id)
+      setVoteSummary(response.data)
+    } catch (error) {
+      console.error('Error fetching vote summary:', error)
+      setVoteSummary(null)
+    } finally {
+      setVoteSummaryLoading(false)
     }
   }
 
@@ -507,6 +528,12 @@ export function ApplicationTimeline({
     await handleActionWithRefresh()
   }
 
+  const handleVoteSuccess = async () => {
+    setShowVoteModal(false)
+    await handleActionWithRefresh()
+    fetchVoteSummary()
+  }
+
   return (
     <div className="space-y-6" key={application.id}>
       {/* Timeline Header with Close Button */}
@@ -584,6 +611,13 @@ export function ApplicationTimeline({
           onSuccess={handleActivityApprovalSuccess}
         />
 
+        <BoardVoteModal
+          isOpen={showVoteModal}
+          onClose={() => setShowVoteModal(false)}
+          applicationId={application.id}
+          onSuccess={handleVoteSuccess}
+        />
+
         {stages.map((stage, index) => {
           const status = getStageStatus(index)
           const isCompleted = status === "completed"
@@ -640,6 +674,11 @@ export function ApplicationTimeline({
                         {isUpcoming && (
                           <Badge variant="secondary">
                             Upcoming
+                          </Badge>
+                        )}
+                        {stage.id === 'UNDER_BOARD_REVIEW' && voteSummary?.boardStatus === 'IN_PROGRESS' && !voteSummary.isVotingComplete && (
+                          <Badge className="bg-yellow-100 text-yellow-800">
+                            Voting in Progress
                           </Badge>
                         )}
                       </div>
@@ -708,6 +747,8 @@ export function ApplicationTimeline({
                                   loading={boardReviewLoading}
                                   error={boardReviewError}
                                   currentStage={application.currentStage}
+                                  voteSummary={voteSummary}
+                                  voteSummaryLoading={voteSummaryLoading}
                                   onRefresh={fetchBoardReviewData}
                                   onInitiate={onInitiateBoardReview}
                                 />
@@ -776,9 +817,11 @@ export function ApplicationTimeline({
                             stageId={stage.id}
                             application={application}
                             dueDiligenceData={dueDiligenceData}
-                            dueDiligenceLoading={dueDiligenceLoading}
+                            dueDiligenceLoading={dueDiligenceLoading || boardReviewLoading}
                             activityApprovalData={activityApprovalData}
                             activityApprovalLoading={activityApprovalLoading}
+                            boardReviewData={boardReviewData}
+                            voteSummary={voteSummary}
                             onInitiateDueDiligence={handleInitiateDueDiligence}
                             onUpdateDueDiligence={handleUpdateDueDiligence}
                             onCompleteDueDiligence={handleCompleteDueDiligence}
@@ -787,6 +830,7 @@ export function ApplicationTimeline({
                             onInitiateBoardReview={handleInitiateBoardReview}
                             onUpdateBoardReview={handleUpdateBoardReview}
                             onCompleteBoardReview={handleCompleteBoardReview}
+                            onVote={() => setShowVoteModal(true)}
                             onCreateTermSheet={handleCreateTermSheet}
                             onUpdateTermSheet={handleUpdateTermSheet}
                             onFinalizeTermSheet={handleFinalizeTermSheet}

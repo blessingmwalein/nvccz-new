@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import { applicationsApi, ApplicationCreateRequest, Application } from '@/lib/api/applications-api'
+import { boardReviewApi } from '@/lib/api/board-review-api'
 
 export interface Document {
   documentType: 'BUSINESS_PLAN' | 'PROOF_OF_CONCEPT' | 'MARKET_RESEARCH' | 'PROJECTED_CASH_FLOWS' | 'HISTORICAL_FINANCIALS'
@@ -192,6 +193,19 @@ export const approveActivity = createAsyncThunk(
   }
 )
 
+// Async thunk for casting a vote
+export const castVote = createAsyncThunk(
+  'application/castVote',
+  async ({ applicationId, voteData }: { applicationId: string, voteData: { vote: 'APPROVE' | 'REJECT', comment: string } }, { rejectWithValue }) => {
+    try {
+      const response = await boardReviewApi.castVote(applicationId, voteData)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to cast vote')
+    }
+  }
+)
+
 const applicationSlice = createSlice({
   name: 'application',
   initialState,
@@ -310,21 +324,7 @@ const applicationSlice = createSlice({
         state.submitError = action.payload as string
       })
       .addCase(createTaskActivity.pending, (state) => {
-        state.isSubmitting = true
-        state.submitError = undefined
-      })
-      .addCase(createTaskActivity.fulfilled, (state, action) => {
-        state.isSubmitting = false
-        state.lastResponse = action.payload
-        state.submitError = undefined
-      })
-      .addCase(createTaskActivity.rejected, (state, action) => {
-        state.isSubmitting = false
-        state.submitError = action.payload as string
-      })
-      .addCase(getActivityForApproval.pending, (state) => {
-        state.isLoading = true
-        state.fetchError = undefined
+        state
       })
       .addCase(getActivityForApproval.fulfilled, (state, action) => {
         state.isLoading = false
@@ -345,6 +345,18 @@ const applicationSlice = createSlice({
         state.submitError = undefined
       })
       .addCase(approveActivity.rejected, (state, action) => {
+        state.isSubmitting = false
+        state.submitError = action.payload as string
+      })
+      .addCase(castVote.pending, (state) => {
+        state.isSubmitting = true
+        state.submitError = undefined
+      })
+      .addCase(castVote.fulfilled, (state, action) => {
+        state.isSubmitting = false
+        state.lastResponse = action.payload
+      })
+      .addCase(castVote.rejected, (state, action) => {
         state.isSubmitting = false
         state.submitError = action.payload as string
       })
