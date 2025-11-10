@@ -108,6 +108,14 @@ const stages = [
     icon: DollarSign,
     color: "bg-emerald-500",
     completedColor: "bg-green-500"
+  },
+  {
+    id: "DISBURSED",
+    title: "Completed",
+    description: "Funds successfully disbursed",
+    icon: CheckCircle,
+    color: "bg-green-500",
+    completedColor: "bg-green-500"
   }
 ]
 
@@ -175,6 +183,11 @@ export function ApplicationTimeline({
       stageIndex = stages.findIndex(stage => stage.id === "UNDER_BOARD_REVIEW")
     }
 
+    // Special handling for DISBURSED - all stages should be completed
+    if (application.currentStage === "DISBURSED") {
+      stageIndex = stages.findIndex(stage => stage.id === "DISBURSED")
+    }
+
     setCurrentStageIndex(stageIndex >= 0 ? stageIndex : 0)
   }, [application.currentStage])
 
@@ -199,7 +212,8 @@ export function ApplicationTimeline({
   // Fetch fund disbursement data when component mounts or application changes
   useEffect(() => {
     if (application.currentStage === 'INVESTMENT_IMPLEMENTATION' ||
-      application.currentStage === 'FUND_DISBURSED') {
+      application.currentStage === 'FUND_DISBURSED' ||
+      application.currentStage === 'DISBURSED') {
       fetchFundDisbursementData()
     }
   }, [application.id, application.currentStage])
@@ -420,6 +434,11 @@ export function ApplicationTimeline({
   }
 
   const getStageStatus = (stageIndex: number) => {
+    // Special handling for DISBURSED stage - mark all as completed
+    if (application.currentStage === "DISBURSED") {
+      return "completed"
+    }
+
     if (application.currentStage === "BOARD_APPROVED") {
       if (stageIndex < 3) return "completed"
       if (stageIndex === 3) return "current"

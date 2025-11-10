@@ -51,7 +51,7 @@ export function PortfolioOverview() {
     },
     {
       title: "Active Companies",
-      value: metrics.activeCompanies.toString(),
+      value: companies.length.toString(),
       change: `of ${companies.length}`,
       trend: "up",
       icon: Building2,
