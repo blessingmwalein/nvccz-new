@@ -12,6 +12,10 @@ import applicationPortalApiService, {
   UpdateProfileRequest,
   UpdateCompanyRequest,
   InitiateInvestmentImplementationRequest,
+  FinancialReport,
+  UploadFinancialReportRequest,
+  SubmitFinancialReportsRequest,
+  FinancialReportType,
 } from "@/lib/api/application-portal-api"
 
 interface ApplicationPortalState {
@@ -65,6 +69,11 @@ interface ApplicationPortalState {
     totalPages: number
   }
 
+  // Financial Reports
+  financialReports: FinancialReport[]
+  financialReportsLoading: boolean
+  financialReportsError: string | null
+
   // General
   loading: boolean
   error: string | null
@@ -111,6 +120,10 @@ const initialState: ApplicationPortalState = {
     page: 1,
     totalPages: 1,
   },
+
+  financialReports: [],
+  financialReportsLoading: false,
+  financialReportsError: null,
 
   loading: false,
   error: null,
@@ -279,6 +292,65 @@ export const initiateInvestmentImplementation = createAsyncThunk(
   }
 )
 
+export const fetchFinancialReports = createAsyncThunk(
+  'applicationPortal/fetchFinancialReports',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.getFinancialReports()
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch financial reports')
+    }
+  }
+)
+
+export const downloadFinancialReportTemplate = createAsyncThunk(
+  'applicationPortal/downloadFinancialReportTemplate',
+  async (reportType: FinancialReportType, { rejectWithValue }) => {
+    try {
+      const csvString = await applicationPortalApiService.downloadFinancialReportTemplate(reportType)
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${reportType.toLowerCase()}_template.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      return { success: true }
+    } catch (error: any) {
+      return rejectWithValue(error.message || `Failed to download ${reportType} template`)
+    }
+  }
+)
+
+export const uploadFinancialReport = createAsyncThunk(
+  'applicationPortal/uploadFinancialReport',
+  async (data: UploadFinancialReportRequest, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.uploadFinancialReport(data)
+      dispatch(fetchFinancialReports())
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to upload financial report')
+    }
+  }
+)
+
+export const submitFinancialReports = createAsyncThunk(
+  'applicationPortal/submitFinancialReports',
+  async (data: SubmitFinancialReportsRequest, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await applicationPortalApiService.submitFinancialReports(data)
+      dispatch(fetchFinancialReports())
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to submit financial reports')
+    }
+  }
+)
+
 // Slice
 const applicationPortalSlice = createSlice({
   name: 'applicationPortal',
@@ -295,6 +367,7 @@ const applicationPortalSlice = createSlice({
       state.valuationsError = null
       state.reportsError = null
       state.termSheetsError = null
+      state.financialReportsError = null
     },
     clearProfile: (state) => {
       state.profile = null
@@ -489,6 +562,40 @@ const applicationPortalSlice = createSlice({
         state.loading = false
       })
       .addCase(initiateInvestmentImplementation.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+      // Financial Reports
+      .addCase(fetchFinancialReports.pending, (state) => {
+        state.financialReportsLoading = true
+        state.financialReportsError = null
+      })
+      .addCase(fetchFinancialReports.fulfilled, (state, action: PayloadAction<FinancialReport[]>) => {
+        state.financialReportsLoading = false
+        state.financialReports = action.payload
+      })
+      .addCase(fetchFinancialReports.rejected, (state, action) => {
+        state.financialReportsLoading = false
+        state.financialReportsError = action.payload as string
+      })
+      .addCase(uploadFinancialReport.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(uploadFinancialReport.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(uploadFinancialReport.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+      .addCase(submitFinancialReports.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(submitFinancialReports.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(submitFinancialReports.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload as string
       })

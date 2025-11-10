@@ -46,7 +46,7 @@ class ApiClient {
   }
 
   // Handle response and check for authentication errors
-  private async handleResponse<T>(response: Response): Promise<T> {
+  private async handleResponse<T>(response: Response, options?: RequestInit & { responseType?: string }): Promise<T> {
     // Handle unauthorized responses - check both status and response body
     if (response.status === 401) {
       try {
@@ -114,7 +114,16 @@ class ApiClient {
       )
     }
 
-    // Parse successful response
+    // Handle different response types for successful responses
+    const responseType = options?.responseType
+    if (responseType === 'text') {
+      return response.text() as Promise<T>
+    }
+    if (responseType === 'blob') {
+      return response.blob() as Promise<T>
+    }
+
+    // Default to JSON parsing
     try {
       const data = await response.json()
       return data
@@ -127,7 +136,7 @@ class ApiClient {
   // Make authenticated request
   private async makeRequest<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit & { responseType?: string } = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
@@ -145,7 +154,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config)
-      return this.handleResponse<T>(response)
+      return this.handleResponse<T>(response, options)
     } catch (error) {
       if (error instanceof ApiError) {
         throw error
@@ -157,7 +166,7 @@ class ApiClient {
   }
 
   // GET request
-  async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  async get<T>(endpoint: string, options?: RequestInit & { responseType?: string }): Promise<T> {
     return this.makeRequest<T>(endpoint, {
       ...options,
       method: 'GET',

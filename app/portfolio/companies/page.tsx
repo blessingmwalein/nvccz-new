@@ -18,15 +18,14 @@ import { Badge } from "@/components/ui/badge"
 import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { fetchPortfolioCompanies, setSelectedCompany } from "@/lib/store/slices/portfolioCompaniesSlice"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CompanyDrawer } from "@/components/portfolio/companies/company-drawer"
 
 export default function CompaniesPage() {
   const dispatch = useAppDispatch()
-  const { companies, selectedCompany, loading, error } = useAppSelector(state => state.portfolioCompanies)
+  const { companies, loading, error } = useAppSelector(state => state.portfolioCompanies)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSector, setSelectedSector] = useState("All")
-  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     dispatch(fetchPortfolioCompanies())
@@ -47,16 +46,15 @@ export default function CompaniesPage() {
 
   const handleViewCompany = (company: any) => {
     dispatch(setSelectedCompany(company))
-    setDrawerOpen(true)
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'bg-green-500/20 text-green-700 border-green-400/30'
-      case 'PENDING': return 'bg-yellow-500/20 text-yellow-700 border-yellow-400/30'
-      case 'INACTIVE': return 'bg-gray-500/20 text-gray-700 border-gray-400/30'
-      case 'CLOSED': return 'bg-red-500/20 text-red-700 border-red-400/30'
-      default: return 'bg-blue-500/20 text-blue-700 border-blue-400/30'
+      case 'ACTIVE': return 'bg-green-500 text-white border-green-400'
+      case 'PENDING': return 'bg-gray-500 text-white border-yellow-400'
+      case 'INACTIVE': return 'bg-gray-500 text-white border-gray-400'
+      case 'CLOSED': return 'bg-red-500 text-white border-red-400'
+      default: return 'bg-blue-500 text-white border-blue-400'
     }
   }
 
@@ -273,185 +271,7 @@ export default function CompaniesPage() {
         )}
 
         {/* View Company Drawer */}
-        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-            <SheetHeader>
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-2xl">Company Details</SheetTitle>
-                <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(false)}>
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-            </SheetHeader>
-
-            {selectedCompany && (
-              <div className="mt-6 space-y-6">
-                {/* Company Info */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Building2 className="w-5 h-5" />
-                      Company Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <label className="text-sm text-gray-500">Name</label>
-                      <p className="text-base font-medium">{selectedCompany.name}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">Registration Number</label>
-                      <p className="text-base font-mono">{selectedCompany.registrationNumber}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">Industry</label>
-                      <p className="text-base font-medium">{selectedCompany.industry}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">Status</label>
-                      <div className="mt-1">
-                        <Badge className={getStatusColor(selectedCompany.status)}>
-                          {selectedCompany.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Investment Info */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <DollarSign className="w-5 h-5" />
-                      Investment Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-gray-500">Total Invested</label>
-                        <p className="text-xl font-semibold text-blue-600">${(Number(selectedCompany.totalInvested) || 0).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-500">Disbursements Count</label>
-                        <p className="text-xl font-semibold text-emerald-600">{selectedCompany.disbursements?.length || 0}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">Fund</label>
-                      <p className="text-base font-medium">{selectedCompany.fund?.name || 'No fund assigned'}</p>
-                    </div>
-                    {selectedCompany.fund?.description && (
-                      <div>
-                        <label className="text-sm text-gray-500">Fund Description</label>
-                        <p className="text-sm text-gray-700">{selectedCompany.fund.description}</p>
-                      </div>
-                    )}
-                    {(selectedCompany.startDate || selectedCompany.endDate) && (
-                      <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                        {selectedCompany.startDate && (
-                          <div>
-                            <label className="text-sm text-gray-500">Start Date</label>
-                            <p className="text-sm font-medium">{new Date(selectedCompany.startDate).toLocaleDateString()}</p>
-                          </div>
-                        )}
-                        {selectedCompany.endDate && (
-                          <div>
-                            <label className="text-sm text-gray-500">End Date</label>
-                            <p className="text-sm font-medium">{new Date(selectedCompany.endDate).toLocaleDateString()}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Owner Info */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Owner Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <label className="text-sm text-gray-500">Name</label>
-                      <p className="text-base font-medium">{selectedCompany.user?.firstName} {selectedCompany.user?.lastName}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">Email</label>
-                      <p className="text-base">{selectedCompany.user?.email}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Disbursements */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CreditCard className="w-5 h-5" />
-                      Disbursements ({selectedCompany.disbursements?.length || 0})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(selectedCompany.disbursements?.length || 0) > 0 ? (
-                      <div className="space-y-3">
-                        {selectedCompany.disbursements.map((disbursement) => (
-                          <div key={disbursement.id} className="p-4 bg-gray-50 rounded-lg border hover:border-blue-300 transition-colors">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex-1">
-                                <p className="font-semibold text-xl text-gray-900">${parseFloat(disbursement.amount).toLocaleString()}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline" className="text-xs">
-                                    {disbursement.disbursementType}
-                                  </Badge>
-                                  <Badge className={`text-xs ${getDisbursementStatusColor(disbursement.status)}`}>
-                                    {disbursement.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
-                              <span>Disbursement Date</span>
-                              <span className="font-medium text-gray-700">
-                                {new Date(disbursement.disbursementDate).toLocaleDateString(undefined, {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <CreditCard className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                        <p className="text-gray-500">No disbursements yet</p>
-                        <p className="text-sm text-gray-400 mt-1">Disbursements will appear here once approved</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Dates */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Timeline</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">Created:</span>
-                      <span className="text-sm font-medium">{new Date(selectedCompany.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">Last Updated:</span>
-                      <span className="text-sm font-medium">{new Date(selectedCompany.updatedAt).toLocaleDateString()}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </SheetContent>
-        </Sheet>
+        <CompanyDrawer />
       </div>
     </PortfolioLayout>
   )

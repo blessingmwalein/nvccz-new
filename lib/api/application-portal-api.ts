@@ -409,6 +409,57 @@ export interface MyTermSheetsResponse {
   }
 }
 
+// Financial Reports Interfaces
+export type FinancialReportType = 'BALANCE_SHEET' | 'INCOME_STATEMENT' | 'CASHFLOW_STATEMENT'
+export type PeriodType = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'
+
+export interface FinancialReport {
+  id: string
+  portfolioCompanyId: string
+  companyName: string
+  reportType: FinancialReportType
+  periodType: PeriodType
+  periodStart: string
+  periodEnd: string
+  title: string
+  description: string
+  reportUrl: string
+  storagePath: string
+  templateVersion: string
+  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED'
+  createdAt: string
+  updatedAt: string
+  isDraft: boolean
+  canSubmit: boolean
+  canDownload: boolean
+}
+
+export interface UploadFinancialReportRequest {
+  file: File
+  reportType: FinancialReportType
+  periodType: PeriodType
+  periodStart: string
+  periodEnd: string
+  title: string
+  description: string
+  templateVersion: string
+}
+
+export interface SubmitFinancialReportsRequest {
+  reportIds: string[]
+}
+
+export interface FinancialReportsResponse extends ApiResponse {
+  data: FinancialReport[]
+}
+
+export interface UploadFinancialReportResponse extends ApiResponse {
+  data: {
+    id: string
+    reportUrl: string
+  }
+}
+
 // API Service
 export const applicationPortalApiService = {
   // Profile endpoints
@@ -477,6 +528,38 @@ export const applicationPortalApiService = {
     const url = queryString ? `/term-sheets/my?${queryString}` : '/term-sheets/my'
     
     return apiClient.get<MyTermSheetsResponse>(url)
+  },
+
+  // Financial Reports endpoints
+  async getFinancialReports(): Promise<FinancialReportsResponse> {
+    return apiClient.get<FinancialReportsResponse>('/applicant/financial-reports')
+  },
+
+  async downloadFinancialReportTemplate(reportType: FinancialReportType): Promise<string> {
+    // The response for this endpoint is a CSV string, not JSON.
+    // We configure the request to handle a text response directly.
+    const response = await apiClient.get<string>(`/applicant/financial-reports/template/${reportType}`, {
+      responseType: 'text',
+    })
+    return response
+  },
+
+  async uploadFinancialReport(data: UploadFinancialReportRequest): Promise<UploadFinancialReportResponse> {
+    const formData = new FormData()
+    formData.append('file', data.file)
+    formData.append('reportType', data.reportType)
+    formData.append('periodType', data.periodType)
+    formData.append('periodStart', data.periodStart)
+    formData.append('periodEnd', data.periodEnd)
+    formData.append('title', data.title)
+    formData.append('description', data.description)
+    formData.append('templateVersion', data.templateVersion)
+    
+    return apiClient.post<UploadFinancialReportResponse>('/applicant/financial-reports', formData)
+  },
+
+  async submitFinancialReports(data: SubmitFinancialReportsRequest): Promise<ApiResponse> {
+    return apiClient.post<ApiResponse>('/applicant/financial-reports/submit', data)
   },
 }
 
