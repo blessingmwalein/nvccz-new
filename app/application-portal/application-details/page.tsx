@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { DocumentPreviewModal } from "@/components/applications/document-preview-modal"
 import {
     Clock,
     CheckCircle,
@@ -91,6 +92,8 @@ export default function ApplicationDetailsPage() {
         (state) => state.applicationPortal
     )
     const [activeTab, setActiveTab] = useState("progress")
+    const [isDocPreviewOpen, setIsDocPreviewOpen] = useState(false)
+    const [selectedDocIndex, setSelectedDocIndex] = useState(0)
 
     useEffect(() => {
         dispatch(fetchApplication())
@@ -130,6 +133,11 @@ export default function ApplicationDetailsPage() {
         ]
         const currentIndex = stages.indexOf(stage)
         return currentIndex
+    }
+
+    const handlePreviewDocument = (index: number) => {
+        setSelectedDocIndex(index)
+        setIsDocPreviewOpen(true)
     }
 
     const renderStageDetails = (stageId: string, index: number, currentStageIndex: number) => {
@@ -228,15 +236,27 @@ export default function ApplicationDetailsPage() {
                                             <h4 className="font-medium text-sm">Submitted Documents</h4>
                                         </div>
                                         <div className="space-y-2">
-                                            {application?.documents?.map((doc) => (
-                                                <div key={doc.id} className="flex items-center justify-between bg-white p-2 rounded">
-                                                    <div>
-                                                        <p className="text-sm font-medium">{doc.documentType.replaceAll('_', ' ')}</p>
-                                                        <p className="text-xs text-gray-500">{doc.fileName}</p>
+                                            {application?.documents?.map((doc, index) => (
+                                                <div 
+                                                    key={doc.id} 
+                                                    className="flex items-center justify-between bg-white p-3 rounded border border-amber-200 hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer group"
+                                                    onClick={() => handlePreviewDocument(index)}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+                                                            <FileText className="w-4 h-4 text-amber-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium">{doc.documentType.replaceAll('_', ' ')}</p>
+                                                            <p className="text-xs text-gray-500">{doc.fileName}</p>
+                                                        </div>
                                                     </div>
-                                                    <Badge variant={doc.isRequired ? 'default' : 'secondary'} className="text-xs">
-                                                        {doc.isRequired ? 'Required' : 'Optional'}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant={doc.isRequired ? 'default' : 'secondary'} className="text-xs">
+                                                            {doc.isRequired ? 'Required' : 'Optional'}
+                                                        </Badge>
+                                                        <Eye className="w-4 h-4 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -487,6 +507,113 @@ export default function ApplicationDetailsPage() {
                     </Accordion>
                 )
 
+            case 'INVESTMENT_IMPLEMENTATION':
+            case 'DISBURSED':
+                return (
+                    <Accordion type="single" collapsible className="mt-4">
+                        <AccordionItem value="disbursement-details" className="border-none">
+                            <AccordionTrigger className="hover:no-underline py-2">
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                    <DollarSign className="w-4 h-4" />
+                                    {stageId === 'DISBURSED' ? 'View Disbursement Details' : 'View Investment Implementation'}
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                {stageId === 'DISBURSED' ? (
+                                    <div className="space-y-4 pt-2">
+                                        {/* Completion Message */}
+                                        <div className="bg-green-50 rounded-lg p-6 text-center">
+                                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <CheckCircle className="w-8 h-8 text-green-600" />
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-green-900 mb-2">
+                                                Investment Successfully Completed
+                                            </h3>
+                                            <p className="text-sm text-green-700 mb-4">
+                                                All funds have been disbursed to your portfolio company.
+                                            </p>
+                                            <Badge className="bg-green-600 text-white">
+                                                Disbursed on {application?.updatedAt && new Date(application.updatedAt).toLocaleDateString()}
+                                            </Badge>
+                                        </div>
+
+                                        {/* Investment Summary */}
+                                        <div className="bg-blue-50 rounded-lg p-4">
+                                            <h4 className="font-medium text-sm mb-3 text-blue-900">Investment Summary</h4>
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div>
+                                                    <label className="text-blue-700">Approved Amount</label>
+                                                    <p className="text-xl font-bold text-blue-900">
+                                                        ${Number(application?.termSheet?.investmentAmount || application?.requestedAmount || 0).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="text-blue-700">Equity Stake</label>
+                                                    <p className="text-xl font-bold text-blue-900">
+                                                        {application?.termSheet?.equityPercentage || 0}%
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="text-blue-700">Valuation</label>
+                                                    <p className="font-medium text-blue-900">
+                                                        ${Number(application?.termSheet?.valuation || 0).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="text-blue-700">Business Name</label>
+                                                    <p className="font-medium text-blue-900">
+                                                        {application?.businessName}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Next Steps */}
+                                        <div className="bg-purple-50 rounded-lg p-4">
+                                            <h4 className="font-medium text-sm mb-2 text-purple-900">What's Next?</h4>
+                                            <ul className="space-y-2 text-sm text-purple-800">
+                                                <li className="flex items-start gap-2">
+                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                    <span>You will receive regular portfolio updates and reports</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                    <span>Your company information is now in our portfolio management system</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                    <span>Our team will contact you for onboarding and support</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                                    <span>Access to mentorship and networking opportunities</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+
+                                        {/* Contact Information */}
+                                        <div className="bg-amber-50 rounded-lg p-4">
+                                            <h4 className="font-medium text-sm mb-2 text-amber-900">Need Help?</h4>
+                                            <p className="text-sm text-amber-800">
+                                                If you have any questions about your investment or disbursement, 
+                                                please contact our portfolio management team.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <TrendingUp className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+                                        <h4 className="font-medium text-emerald-900 mb-2">Investment in Progress</h4>
+                                        <p className="text-sm text-emerald-700">
+                                            Your investment is currently being processed. You'll be notified once funds are disbursed.
+                                        </p>
+                                    </div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                )
+
             default:
                 return null
         }
@@ -504,7 +631,8 @@ export default function ApplicationDetailsPage() {
             { id: 'TERM_SHEET', title: 'Term Sheet', description: 'Investment terms being finalized' },
             { id: 'TERM_SHEET_SIGNED', title: 'Term Sheet Signed', description: 'Terms agreed and signed' },
             { id: 'INVESTMENT_IMPLEMENTATION', title: 'Implementation', description: 'Investment being processed' },
-            { id: 'FUND_DISBURSED', title: 'Funded', description: 'Funds disbursed successfully' }
+            { id: 'FUND_DISBURSED', title: 'Funded', description: 'Funds disbursed successfully' },
+            { id: 'DISBURSED', title: 'Completed', description: 'Investment successfully completed' }
         ]
 
         const currentStageIndex = stages.findIndex(s => s.id === application?.currentStage)
@@ -512,7 +640,9 @@ export default function ApplicationDetailsPage() {
         return (
             <div className="space-y-4">
                 {stages.map((stage, index) => {
-                    const isCompleted = index < currentStageIndex
+                    const isCompleted = application?.currentStage === 'DISBURSED' 
+                        ? true 
+                        : index < currentStageIndex
                     const isCurrent = index === currentStageIndex
                     const isUpcoming = index > currentStageIndex
 
@@ -521,8 +651,11 @@ export default function ApplicationDetailsPage() {
                             {/* Timeline Line */}
                             {index < stages.length - 1 && (
                                 <div
-                                    className={`absolute left-6 top-12 w-0.5 h-full ${isCompleted ? 'bg-green-500' : 'bg-gray-200'
-                                        }`}
+                                    className={`absolute left-6 top-12 w-0.5 h-full ${
+                                        application?.currentStage === 'DISBURSED' || isCompleted 
+                                            ? 'bg-green-500' 
+                                            : 'bg-gray-200'
+                                    }`}
                                 />
                             )}
 
@@ -541,17 +674,19 @@ export default function ApplicationDetailsPage() {
 
                             {/* Stage Content */}
                             <div className="ml-6 flex-1 pb-8">
-                                <Card className={`transition-all duration-300 ${isCurrent
+                                <Card className={`transition-all duration-300 ${
+                                    isCurrent
                                         ? 'border-2 border-blue-500 shadow-lg'
                                         : isCompleted
                                             ? 'border-green-200'
                                             : 'border-gray-200 opacity-60'
-                                    }`}>
+                                }`}>
                                     <CardContent className="pt-6">
                                         <div className="flex items-center justify-between mb-2">
                                             <div>
-                                                <h4 className={`font-medium ${isCurrent ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-600'
-                                                    }`}>
+                                                <h4 className={`font-medium ${
+                                                    isCurrent ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-600'
+                                                }`}>
                                                     {stage.title}
                                                 </h4>
                                                 <p className="text-sm text-gray-500">{stage.description}</p>
@@ -707,6 +842,16 @@ export default function ApplicationDetailsPage() {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Document Preview Modal */}
+            {application?.documents && (
+                <DocumentPreviewModal
+                    isOpen={isDocPreviewOpen}
+                    onClose={() => setIsDocPreviewOpen(false)}
+                    documents={application.documents}
+                    initialDocumentIndex={selectedDocIndex}
+                />
+            )}
         </ApplicationPortalLayout>
     )
 }

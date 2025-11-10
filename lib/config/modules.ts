@@ -373,7 +373,7 @@ export const MODULE_CONFIG: ModuleConfig[] = [
       },
       {
         id: "reports",
-        name: "Reports",
+        name: "Financial Reports",
         path: "/application-portal/reports",
         icon: CiText,
         description: "Detailed view of a specific report",

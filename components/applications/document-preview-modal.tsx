@@ -51,8 +51,41 @@ export function DocumentPreviewModal({
     }
   }, [isOpen, currentIndex, currentDoc])
 
+  // Helper function to check if URL is Google Drive
+  const isGoogleDriveUrl = (url: string) => {
+    return url.includes('drive.google.com') || url.includes('docs.google.com')
+  }
+
+  // Convert Google Drive view URL to embed URL
+  const convertToGoogleDriveEmbed = (url: string) => {
+    if (!isGoogleDriveUrl(url)) return url
+    
+    // Extract file ID from various Google Drive URL formats
+    let fileId = ''
+    
+    if (url.includes('/file/d/')) {
+      fileId = url.split('/file/d/')[1].split('/')[0]
+    } else if (url.includes('id=')) {
+      fileId = url.split('id=')[1].split('&')[0]
+    }
+    
+    if (fileId) {
+      // Return embed URL that can be loaded in iframe
+      return `https://drive.google.com/file/d/${fileId}/preview`
+    }
+    
+    return url
+  }
+
   const loadDocument = async () => {
     if (!currentDoc) return
+
+    // Check if URL is Google Drive - use iframe directly
+    if (isGoogleDriveUrl(currentDoc.fileUrl)) {
+      setLoading(false)
+      setBlobUrl(convertToGoogleDriveEmbed(currentDoc.fileUrl))
+      return
+    }
 
     // Check if already cached
     if (blobCache.has(currentDoc.id)) {
@@ -113,6 +146,13 @@ export function DocumentPreviewModal({
   const handleDownload = async () => {
     if (!currentDoc) return
     
+    // For Google Drive links, open in new tab instead of downloading
+    if (isGoogleDriveUrl(currentDoc.fileUrl)) {
+      window.open(currentDoc.fileUrl, '_blank')
+      toast.info('Opening document in Google Drive')
+      return
+    }
+    
     try {
       let blob: Blob
       
@@ -169,6 +209,8 @@ export function DocumentPreviewModal({
   }
 
   if (!currentDoc) return null
+
+  const isGoogleDoc = isGoogleDriveUrl(currentDoc.fileUrl)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -258,9 +300,14 @@ export function DocumentPreviewModal({
                 Loading {downloadProgress > 0 && `${Math.round(downloadProgress)}%`}
               </Badge>
             )}
+            {isGoogleDoc && (
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                Google Drive
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-gray-500">
-            Click and drag to navigate • Use mouse wheel to zoom
+            {isGoogleDoc ? 'Loading from Google Drive' : 'Click and drag to navigate • Use mouse wheel to zoom'}
           </p>
         </div>
 
@@ -281,23 +328,39 @@ export function DocumentPreviewModal({
             </div>
           ) : blobUrl ? (
             <iframe
-              src={`${blobUrl}#view=FitH`}
+              src={isGoogleDoc ? blobUrl : `${blobUrl}#view=FitH`}
               className="w-full h-full border-0"
               title={currentDoc.fileName}
+              allow="autoplay"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600">Failed to load document</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadDocument}
-                  className="mt-4 rounded-full"
-                >
-                  Retry
-                </Button>
+                <p className="text-gray-600 mb-2">Failed to load document</p>
+                <p className="text-sm text-gray-500 mb-4">
+                  {isGoogleDoc ? 'Google Drive document may require authentication' : 'Unable to load the file'}
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={loadDocument}
+                    className="rounded-full"
+                  >
+                    Retry
+                  </Button>
+                  {isGoogleDoc && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={() => window.open(currentDoc.fileUrl, '_blank')}
+                      className="rounded-full"
+                    >
+                      Open in Google Drive
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}

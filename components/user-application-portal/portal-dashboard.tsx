@@ -35,7 +35,7 @@ export function ApplicationPortalDashboard() {
       'UNDER_DUE_DILIGENCE', 'DUE_DILIGENCE_COMPLETED',
       'UNDER_BOARD_REVIEW', 'BOARD_APPROVED',
       'TERM_SHEET', 'TERM_SHEET_SIGNED',
-      'INVESTMENT_IMPLEMENTATION', 'FUND_DISBURSED'
+      'INVESTMENT_IMPLEMENTATION', 'DISBURSED'
     ]
     const currentIndex = stageOrder.indexOf(stage)
     if (currentIndex === -1) return 0
@@ -43,7 +43,7 @@ export function ApplicationPortalDashboard() {
   }
 
   const getStageColor = (stage: string) => {
-    if (stage.includes('FUND_DISBURSED')) return 'bg-green-100 text-green-800'
+    if (stage.includes('DISBURSED')) return 'bg-green-100 text-green-800'
     if (stage.includes('BOARD')) return 'bg-purple-100 text-purple-800'
     if (stage.includes('DILIGENCE')) return 'bg-blue-100 text-blue-800'
     if (stage.includes('SCREEN')) return 'bg-amber-100 text-amber-800'
@@ -136,11 +136,11 @@ export function ApplicationPortalDashboard() {
               <div className="text-3xl">
                 {dashboard.summary.hasPortfolioCompany ? 'Registered' : 'Pending'}
               </div>
-              {dashboard.summary.hasPortfolioCompany && (
+              {/* {dashboard.summary.hasPortfolioCompany && (
                 <Badge variant="outline">
                   {dashboard.summary.companyStatus}
                 </Badge>
-              )}
+              )} */}
             </div>
           </CardContent>
         </Card>
