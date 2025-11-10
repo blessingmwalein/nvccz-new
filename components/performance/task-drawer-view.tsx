@@ -4,14 +4,15 @@ import { useState, useEffect } from "react"
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CiViewList as List, CiCircleCheck as Activity } from "react-icons/ci"
-import { DollarSign, X } from "lucide-react"
+import { CiViewList as List, CiCircleCheck as Activity, CiFileOn } from "react-icons/ci"
+import { DollarSign, X, Eye, User, Mail, Phone, Building2, FileText } from "lucide-react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { fetchTaskActivities } from "@/lib/store/slices/taskSlice"
 import { TaskCard } from "./task-card"
 import { ActivityCard } from "./activity-card"
 import { CreateActivityModal } from "./create-activity-modal"
 import { TaskActivityModal } from "@/components/applications/task-activity-modal"
+import { DocumentPreviewModal } from "@/components/applications/document-preview-modal"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "../ui/card"
@@ -76,6 +77,8 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
   const [activeDrawerTab, setActiveDrawerTab] = useState<DrawerTab>("details")
   const [isCreateActivityModalOpen, setCreateActivityModalOpen] = useState(false)
   const [isTaskActivityModalOpen, setTaskActivityModalOpen] = useState(false)
+  const [selectedDocumentIndex, setSelectedDocumentIndex] = useState<number | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
     if (activeDrawerTab === "activity" && task?.id) {
@@ -99,6 +102,11 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
   ]
 
   const isInvestmentTask = task?.department === "Investments"
+
+  const handlePreviewDocument = (index: number) => {
+    setSelectedDocumentIndex(index)
+    setPreviewOpen(true)
+  }
 
   return (
     <>
@@ -163,7 +171,138 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
 
       {/* Tab Content */}
       <div className="mt-6 space-y-6">
-        {activeDrawerTab === "details" && <TaskCard task={task} isDrawerVersion />}
+        {activeDrawerTab === "details" && (
+          <>
+            <TaskCard task={task} isDrawerVersion />
+            
+            {/* Application Information Section */}
+            {task?.application && (
+              <div className="space-y-4 mt-6">
+                {/* Applicant Information */}
+                <Card className="border-l-4 border-l-blue-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <User className="w-5 h-5 text-blue-500" />
+                      <h3 className="text-base font-semibold">Applicant Information</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600">Full Name</p>
+                          <p className="text-sm font-medium">{task.application.applicantName || 'N/A'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <Mail className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600">Email</p>
+                          <p className="text-sm font-medium">{task.application.applicantEmail || 'N/A'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                          <Phone className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600">Phone</p>
+                          <p className="text-sm font-medium">{task.application.applicantPhone || 'N/A'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600">Business Name</p>
+                          <p className="text-sm font-medium">{task.application.businessName || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {task.application.description && (
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-start gap-2">
+                          <FileText className="w-4 h-4 text-gray-500 mt-1" />
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Description</p>
+                            <p className="text-sm text-gray-700">{task.application.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Documents Section */}
+                <Card className="border-l-4 border-l-amber-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <CiFileOn className="w-5 h-5 text-amber-500" />
+                      <h3 className="text-base font-semibold">
+                        Submitted Documents ({task.application.documents?.length || 0})
+                      </h3>
+                    </div>
+                    
+                    {!task.application.documents || task.application.documents.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <CiFileOn className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p>No documents submitted yet</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {task.application.documents.map((doc: any, index: number) => (
+                          <div 
+                            key={doc.id} 
+                            className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-all cursor-pointer group"
+                            onClick={() => handlePreviewDocument(index)}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex-1 min-w-0 mr-3">
+                                <p className="text-sm font-medium truncate">
+                                  {doc.documentType?.replaceAll('_', ' ') || 'Document'}
+                                </p>
+                                <p className="text-xs text-gray-600 truncate">{doc.fileName}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full bg-amber-100 text-amber-600 group-hover:bg-amber-200 flex-shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePreviewDocument(index)
+                                }}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={doc.isRequired ? 'destructive' : 'secondary'} className="text-xs">
+                                {doc.isRequired ? 'Required' : 'Optional'}
+                              </Badge>
+                              {doc.isSubmitted && (
+                                <Badge variant="default" className="text-xs bg-green-100 text-green-700">
+                                  Submitted
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
         {activeDrawerTab === "activity" && (
           <div>
             {activitiesLoading ? (
@@ -246,6 +385,16 @@ export function TaskDrawerView({ task, onClose }: TaskDrawerViewProps) {
           toast.success('Activity logged successfully')
         }}
       />
+
+      {/* Document Preview Modal */}
+      {task?.application?.documents && (
+        <DocumentPreviewModal
+          isOpen={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          documents={task.application.documents || []}
+          initialDocumentIndex={selectedDocumentIndex || 0}
+        />
+      )}
     </>
   )
 }

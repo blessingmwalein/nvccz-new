@@ -93,10 +93,19 @@ export default function CashbookPage() {
 
   const [filters, setFilters] = useState(() => {
     const { startDate, endDate } = getWeekRange()
-    return { type: "", status: "", startDate, endDate }
+    return { type: "", status: "", startDate, endDate, bankId: "" }
   })
 
   const isFetchingRef = useRef(false)
+
+  // Sync date states with filters
+  useEffect(() => {
+    setFilters(f => ({
+      ...f,
+      startDate: entriesStartDate ? format(entriesStartDate, "yyyy-MM-dd") : "",
+      endDate: entriesEndDate ? format(entriesEndDate, "yyyy-MM-dd") : ""
+    }))
+  }, [entriesStartDate, entriesEndDate])
 
   useEffect(() => {
     if (isFetchingRef.current) return
@@ -112,7 +121,10 @@ export default function CashbookPage() {
       const timeoutId = setTimeout(() => {
         dispatch(fetchCashbookEntries({ 
           bankId: filters.bankId || '',
-          ...filters 
+          type: filters.type,
+          status: filters.status,
+          startDate: filters.startDate,
+          endDate: filters.endDate
         }))
       }, 300) // Debounce to prevent rapid re-fetches
 
@@ -350,16 +362,20 @@ export default function CashbookPage() {
                   <SelectItem value="PENDING">Pending</SelectItem>
                 </SelectContent>
               </Select>
-              <DatePicker
-                value={entriesStartDate}
-                onChange={setEntriesStartDate}
-                className="rounded-full"
-              />
-              <DatePicker
-                value={entriesEndDate}
-                onChange={setEntriesEndDate}
-                className="rounded-full"
-              />
+              <div className="w-48">
+                <DatePicker
+                  value={entriesStartDate}
+                  onChange={setEntriesStartDate}
+                  className="rounded-full w-full"
+                />
+              </div>
+              <div className="w-48">
+                <DatePicker
+                  value={entriesEndDate}
+                  onChange={setEntriesEndDate}
+                  className="rounded-full w-full"
+                />
+              </div>
             </div>
 
             {/* Cashbook Table */}

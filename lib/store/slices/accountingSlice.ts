@@ -1750,7 +1750,7 @@ const accountingSlice = createSlice({
       })
       .addCase(fetchCashbookEntries.fulfilled, (state, action) => {
         state.cashbookEntriesLoading = false
-        state.cashbookEntries = Array.isArray(action.payload) ? action.payload : []
+        state.cashbookEntries = Array.isArray(action.payload?.entries) ? action.payload?.entries : []
       })
       .addCase(fetchCashbookEntries.rejected, (state, action) => {
         state.cashbookEntriesLoading = false
