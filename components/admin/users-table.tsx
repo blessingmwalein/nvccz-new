@@ -368,6 +368,14 @@ export function UsersTable() {
       ),
     },
     {
+      key: 'roleCode' as keyof User,
+      label: 'Role Code',
+      sortable: true,
+      render: (value: string | null) => (
+        value ? <Badge variant="outline" className="bg-purple-50 text-purple-700">{value}</Badge> : <span className="text-sm text-gray-500">N/A</span>
+      ),
+    },
+    {
       key: 'role' as keyof User,
       label: 'System Role',
       sortable: true,

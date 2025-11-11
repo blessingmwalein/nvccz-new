@@ -241,6 +241,23 @@ export function DueDiligenceSection({
                         </div>
                       </div>
 
+                      {/* Assigned Team Members */}
+                      {firstTask.team && firstTask.team.length > 0 && (
+                        <div className="pt-3 border-t">
+                          <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <User className="w-4 h-4" />
+                            Assigned Team ({firstTask.team.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {firstTask.team.map((member: any) => (
+                              <Badge key={member.id} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                {member.firstName} {member.lastName}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {firstTask.monetaryValueAchieved && parseFloat(firstTask.monetaryValueAchieved) > 0 && (
                         <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
                           <DollarSign className="w-5 h-5 text-green-600" />
