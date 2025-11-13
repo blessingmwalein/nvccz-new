@@ -1030,13 +1030,26 @@ class AccountingApiService {
     limit?: number
     status?: 'DRAFT' | 'SENT' | 'PAID' | 'VOID'
     search?: string
+    customerId?: string
+    currencyId?: string
+    startDate?: string
+    endDate?: string
     isActive?: boolean
   }): Promise<AccountingResponse<InvoicesResponse>> {
-    const queryString = params ? `?${new URLSearchParams(
-      Object.entries(params).filter(([_, value]) => value !== undefined).map(([key, value]) => [key, String(value)])
-    ).toString()}` : ''
+    const queryParams = new URLSearchParams()
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, String(value))
+        }
+      })
+    }
 
-    return apiClient.get<AccountingResponse<InvoicesResponse>>(`/accounting/invoices${queryString}`)
+    const queryString = queryParams.toString()
+    const url = queryString ? `/accounting/invoices?${queryString}` : '/accounting/invoices'
+
+    return apiClient.get<AccountingResponse<InvoicesResponse>>(url)
   }
 
   async getInvoiceById(id: string): Promise<AccountingResponse<Invoice>> {

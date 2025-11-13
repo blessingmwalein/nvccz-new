@@ -31,6 +31,8 @@ const styles = StyleSheet.create({
   summaryTotalLabel: { fontSize: 12, fontWeight: "bold", color: "#111827" },
   summaryTotalValue: { fontSize: 12, fontWeight: "bold", color: "#10b981" },
   notes: { marginTop: 24, padding: 12, borderRadius: 8, backgroundColor: "#eef2ff" },
+  footer: { marginTop: 24, fontSize: 10, color: "#6b7280", textAlign: "center" },
+  paidStamp: { marginTop: 8, fontSize: 10, color: "#10b981", fontWeight: "bold", textAlign: "center" },
 })
 
 const formatCurrency = (symbol: string, value: unknown) => {
@@ -56,8 +58,12 @@ const InvoicePDF = ({ invoice }: { invoice: Invoice }) => {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Invoice</Text>
-            <Text style={styles.subtitle}>{invoice.invoiceNumber}</Text>
+            <Text style={styles.title}>
+              {invoice.status === 'PAID' ? 'PAYMENT RECEIPT' : 'INVOICE'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {invoice.status === 'PAID' ? `Receipt #: ${invoice.invoiceNumber}` : `Invoice #: ${invoice.invoiceNumber}`}
+            </Text>
           </View>
           <View style={styles.statusPill}>
             <Text style={styles.statusText}>{invoice.status}</Text>
@@ -74,7 +80,9 @@ const InvoicePDF = ({ invoice }: { invoice: Invoice }) => {
             {!!invoice.customer?.address && <Text style={styles.text}>{invoice.customer.address}</Text>}
           </View>
           <View style={[styles.sectionColumn, styles.sectionColumnRight]}>
-            <Text style={styles.sectionTitle}>Invoice Details</Text>
+            <Text style={styles.sectionTitle}>
+              {invoice.status === 'PAID' ? 'Receipt' : 'Invoice'} Details
+            </Text>
             <Text style={styles.text}>Date: {new Date(invoice.transactionDate).toLocaleDateString()}</Text>
             {invoice.paymentDate && (
               <Text style={styles.text}>Payment Date: {new Date(invoice.paymentDate).toLocaleDateString()}</Text>
@@ -145,6 +153,17 @@ const InvoicePDF = ({ invoice }: { invoice: Invoice }) => {
             <Text style={styles.text}>{invoice.description}</Text>
           </View>
         )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            {invoice.status === 'PAID' 
+              ? 'Thank you for your payment. This receipt confirms your transaction.'
+              : 'Thank you for your business. Payment is due upon receipt.'}
+          </Text>
+          {invoice.status === 'PAID' && (
+            <Text style={styles.paidStamp}>PAID</Text>
+          )}
+        </View>
       </Page>
     </Document>
   )

@@ -57,6 +57,16 @@ export interface ProcurementDataTableProps<T> {
   showSearch?: boolean
   showFilters?: boolean
   showActions?: boolean
+  // Backend pagination props
+  usePagination?: 'frontend' | 'backend'
+  paginationData?: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
 }
 
 export function ProcurementDataTable<T extends { id: string }>({
@@ -78,19 +88,34 @@ export function ProcurementDataTable<T extends { id: string }>({
   onExport,
   emptyMessage = "No data available",
   showSearch = true,
-  showFilters = true
-  , showActions = true
+  showFilters = true,
+  showActions = true,
+  usePagination = 'frontend',
+  paginationData,
+  onPageChange,
+  onPageSizeChange
 }: ProcurementDataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterValue, setFilterValue] = useState("all")
   const [sortConfig, setSortConfig] = useState<{ key: keyof T; direction: 'asc' | 'desc' } | null>(null)
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [currentPageSize, setCurrentPageSize] = useState(pageSize)
 
-  // Filter and search data
+  const pageSizeOptions = [5, 10, 20, 50, 100]
+
+  // Use backend pagination data if available, otherwise calculate frontend pagination
+  const isBackendPagination = usePagination === 'backend' && paginationData
+  const totalEntries = isBackendPagination ? paginationData.total : data.length
+  const currentPageNumber = isBackendPagination ? paginationData.page : currentPage
+  const currentLimit = isBackendPagination ? paginationData.limit : currentPageSize
+  const totalPages = isBackendPagination ? paginationData.totalPages : Math.ceil(data.length / currentPageSize)
+
+  // Filter and search data (only for frontend pagination)
   const filteredData = useMemo(() => {
-    let filtered = data
+    if (isBackendPagination) return data // Backend handles filtering
 
+    let filtered = data
     // Apply search
     if (searchTerm) {
       filtered = filtered.filter(row =>
@@ -134,10 +159,12 @@ export function ProcurementDataTable<T extends { id: string }>({
     }
 
     return filtered
-  }, [data, searchTerm, filterValue, columns, filterOptions])
+  }, [data, searchTerm, filterValue, columns, filterOptions, isBackendPagination])
 
-  // Sort data
+  // Sort data (only for frontend pagination)
   const sortedData = useMemo(() => {
+    if (isBackendPagination) return filteredData // Backend handles sorting
+
     if (!sortConfig) return filteredData
 
     return [...filteredData].sort((a, b) => {
@@ -156,15 +183,17 @@ export function ProcurementDataTable<T extends { id: string }>({
       }
       return 0
     })
-  }, [filteredData, sortConfig])
+  }, [filteredData, sortConfig, isBackendPagination])
 
-  // Paginate data
+  // Paginate data (only for frontend pagination)
   const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize
-    return sortedData.slice(startIndex, startIndex + pageSize)
-  }, [sortedData, currentPage, pageSize])
+    if (isBackendPagination) return sortedData // Backend handles pagination
 
-  const totalPages = Math.ceil(sortedData.length / pageSize)
+    const startIndex = (currentPage - 1) * currentPageSize
+    return sortedData.slice(startIndex, startIndex + currentPageSize)
+  }, [sortedData, currentPage, currentPageSize, isBackendPagination])
+
+  const displayData = isBackendPagination ? data : paginatedData
 
   const handleSort = (key: keyof T) => {
     setSortConfig(current => {
@@ -179,7 +208,7 @@ export function ProcurementDataTable<T extends { id: string }>({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRows(paginatedData.map(row => row.id))
+      setSelectedRows(displayData.map(row => row.id))
     } else {
       setSelectedRows([])
     }
@@ -200,7 +229,33 @@ export function ProcurementDataTable<T extends { id: string }>({
   }
 
   const handleExport = () => {
-    onExport?.(sortedData)
+    onExport?.(isBackendPagination ? data : sortedData)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    if (isBackendPagination) {
+      onPageChange?.(newPage)
+    } else {
+      setCurrentPage(newPage)
+    }
+    setSelectedRows([]) // Clear selections on page change
+  }
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    if (isBackendPagination) {
+      onPageSizeChange?.(newPageSize)
+      onPageChange?.(1) // Reset to first page
+    } else {
+      setCurrentPageSize(newPageSize)
+      setCurrentPage(1) // Reset to first page
+    }
+    setSelectedRows([]) // Clear selections
+  }
+
+  const handleGoToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      handlePageChange(page)
+    }
   }
 
   if (loading) {
@@ -225,6 +280,9 @@ export function ProcurementDataTable<T extends { id: string }>({
       </Card>
     )
   }
+
+  const startEntry = ((currentPageNumber - 1) * currentLimit) + 1
+  const endEntry = Math.min(currentPageNumber * currentLimit, totalEntries)
 
   return (
     <Card>
@@ -304,7 +362,7 @@ export function ProcurementDataTable<T extends { id: string }>({
       </CardHeader>
 
       <CardContent>
-        {sortedData.length === 0 ? (
+        {totalEntries === 0 ? (
           <div className="text-center py-12 text-gray-500">
             {emptyMessage}
           </div>
@@ -317,7 +375,7 @@ export function ProcurementDataTable<T extends { id: string }>({
                     {(bulkActions.length > 0 || onBulkAction) && (
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={selectedRows.length === paginatedData.length && paginatedData.length > 0}
+                          checked={selectedRows.length === displayData.length && displayData.length > 0}
                           onCheckedChange={handleSelectAll}
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
@@ -347,7 +405,7 @@ export function ProcurementDataTable<T extends { id: string }>({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedData.map((row) => (
+                  {displayData.map((row) => (
                     <TableRow
                       key={row.id}
                       onClick={() => onView?.(row)}
@@ -425,30 +483,67 @@ export function ProcurementDataTable<T extends { id: string }>({
               </Table>
             </div>
 
-            {/* Pagination */}
+            {/* Enhanced Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-500">
-                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} entries
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-gray-500">
+                    Showing {startEntry} to {endEntry} of {totalEntries} entries
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Show:</label>
+                    <Select 
+                      value={currentLimit.toString()} 
+                      onValueChange={(value) => handlePageSizeChange(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-20 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pageSizeOptions.map((size) => (
+                          <SelectItem key={size} value={size.toString()}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPageNumber - 1)}
+                    disabled={currentPageNumber === 1}
                   >
                     <ChevronLeft className="w-4 h-4" />
                     Previous
                   </Button>
-                  <span className="text-sm">
-                    Page {currentPage} of {totalPages}
-                  </span>
+                  
+                  {/* Page number input */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Page</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={currentPageNumber}
+                      onChange={(e) => {
+                        const page = parseInt(e.target.value)
+                        if (!isNaN(page)) {
+                          handleGoToPage(page)
+                        }
+                      }}
+                      className="w-16 h-8 text-center"
+                    />
+                    <span className="text-sm text-gray-600">of {totalPages}</span>
+                  </div>
+
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPageNumber + 1)}
+                    disabled={currentPageNumber === totalPages}
                   >
                     Next
                     <ChevronRight className="w-4 h-4" />

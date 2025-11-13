@@ -29,17 +29,20 @@ export const useInvoices = () => {
     customersLoading,
     error,
     filters,
-    stats
+    stats,
+    pagination
   } = useSelector((state: RootState) => state.invoices)
 
   // Load invoices with filters
   const loadInvoices = useCallback(async (newFilters?: any) => {
     try {
-      await dispatch(fetchInvoices(newFilters)).unwrap()
+      const result = await dispatch(fetchInvoices(newFilters)).unwrap()
+      return result
     } catch (error: any) {
       toast.error('Failed to load invoices', {
         description: error.message || 'Unknown error occurred'
       })
+      throw error
     }
   }, [dispatch])
 
@@ -176,6 +179,7 @@ export const useInvoices = () => {
     error,
     filters,
     stats,
+    pagination,
     
     // Actions
     loadInvoices,

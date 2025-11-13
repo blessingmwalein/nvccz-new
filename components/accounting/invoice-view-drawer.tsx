@@ -266,7 +266,7 @@ export function InvoiceViewDrawer({
                 {isClient && currentInvoice && PDFComponents && (
                   <PDFComponents.PDFDownloadLink
                     document={<PDFComponents.InvoicePDF invoice={currentInvoice} />}
-                    fileName={`${currentInvoice.invoiceNumber}.pdf`}
+                    fileName={`${currentInvoice.status === 'PAID' ? 'RECEIPT' : currentInvoice.invoiceNumber}.pdf`}
                   >
                     {({ loading: pdfLoading }: any) => (
                       <Button
@@ -276,7 +276,7 @@ export function InvoiceViewDrawer({
                         disabled={pdfLoading}
                       >
                         <FileText className={`w-4 h-4 mr-1 ${pdfLoading ? "animate-spin" : ""}`} />
-                        {pdfLoading ? "Generating..." : "Download PDF"}
+                        {pdfLoading ? "Generating..." : `Download ${currentInvoice.status === 'PAID' ? 'Receipt' : 'PDF'}`}
                       </Button>
                     )}
                   </PDFComponents.PDFDownloadLink>

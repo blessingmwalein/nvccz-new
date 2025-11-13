@@ -52,7 +52,7 @@ export function IncomeStatementView() {
     const endDateString = format(endDate, 'yyyy-MM-dd')
     
     try {
-      await dispatch(fetchIncomeStatement({ 
+      await dispatch(fetchIncomeStatement({
         startDate: startDateString, 
         endDate: endDateString 
       }))
@@ -75,7 +75,7 @@ export function IncomeStatementView() {
       doc.text("Income Statement", 14, 18)
       doc.setFontSize(11)
       doc.text(
-        `For the period ${format(startDate, "MMMM d, yyyy")} to ${format(endDate, "MMMM d, yyyy")}`,
+        `For the period ${format(new Date(incomeStatement.period.startDate), "MMMM d, yyyy")} to ${format(new Date(incomeStatement.period.endDate), "MMMM d, yyyy")}`,
         14, 26
       )
       doc.text(
@@ -94,23 +94,41 @@ export function IncomeStatementView() {
 
       // Revenue
       pushSection("Revenue")
-      pushItem("Sales Revenue", incomeStatement.revenue.total)
-      pushItem("Other Revenue", null)
-      pushTotal("Total Revenue", incomeStatement.revenue.total, "#15803d")
+      incomeStatement.sections.revenue.accounts.forEach(acc => {
+        pushItem(acc.accountName, acc.amount)
+      })
+      pushTotal("Total Revenue", incomeStatement.sections.revenue.total, "#15803d")
 
-      // Expenses
-      pushSection("Expenses")
-      pushItem("Cost of Goods Sold", incomeStatement.expenses.total > 0 ? incomeStatement.expenses.total / 2 : null)
-      pushItem("Operating Expenses", incomeStatement.expenses.total > 0 ? incomeStatement.expenses.total / 2 : null)
-      pushItem("Administrative Expenses", null)
-      pushItem("Depreciation", null)
-      pushTotal("Total Expenses", incomeStatement.expenses.total, "#dc2626")
+      // Operating Expenses
+      pushSection("Operating Expenses")
+      incomeStatement.sections.operatingExpenses.accounts.forEach(acc => {
+        pushItem(acc.accountName, acc.amount)
+      })
+      pushTotal("Total Operating Expenses", incomeStatement.sections.operatingExpenses.total, "#dc2626")
+
+      // Income Tax
+      if (incomeStatement.sections.incomeTax.total > 0) {
+        pushSection("Income Tax Expense")
+        incomeStatement.sections.incomeTax.accounts.forEach(acc => {
+          pushItem(acc.accountName, acc.amount)
+        })
+        pushTotal("Total Income Tax Expense", incomeStatement.sections.incomeTax.total, "#dc2626")
+      }
+
+      // Below the Line Items
+      if (incomeStatement.sections.belowTheLine.total !== 0) {
+        pushSection("Below-the-Line Items")
+        incomeStatement.sections.belowTheLine.accounts.forEach(acc => {
+          pushItem(acc.accountName, acc.amount)
+        })
+        pushTotal("Total Below-the-Line", incomeStatement.sections.belowTheLine.total)
+      }
 
       // Net Income
       pushTotal(
-        `Net ${incomeStatement.netIncome >= 0 ? "Income" : "Loss"}`,
-        incomeStatement.netIncome,
-        incomeStatement.netIncome >= 0 ? "#15803d" : "#dc2626"
+        `Net ${incomeStatement.totals.netIncome >= 0 ? "Income" : "Loss"}`,
+        incomeStatement.totals.netIncome,
+        incomeStatement.totals.netIncome >= 0 ? "#15803d" : "#dc2626"
       )
 
       autoTable(doc, {
@@ -122,7 +140,7 @@ export function IncomeStatementView() {
         columnStyles: { 1: { halign: 'right' } }
       })
 
-      doc.save(`IncomeStatement_${format(startDate, "yyyyMMdd")}_${format(endDate, "yyyyMMdd")}.pdf`)
+      doc.save(`IncomeStatement_${format(new Date(incomeStatement.period.startDate), "yyyyMMdd")}_${format(new Date(incomeStatement.period.endDate), "yyyyMMdd")}.pdf`)
       toast.success("Income statement PDF generated successfully")
     } catch (error) {
       toast.error("Failed to generate income statement PDF")
@@ -252,11 +270,11 @@ export function IncomeStatementView() {
               {incomeStatement && (
                 <Badge className={cn(
                   "text-sm",
-                  incomeStatement.netIncome >= 0 
+                  incomeStatement.totals.netIncome >= 0 
                     ? "bg-green-100 text-green-800" 
                     : "bg-red-100 text-red-800"
                 )}>
-                  {incomeStatement.netIncome >= 0 ? "Profitable" : "Loss"}
+                  {incomeStatement.totals.netIncome >= 0 ? "Profitable" : "Loss"}
                 </Badge>
               )}
               
@@ -288,7 +306,7 @@ export function IncomeStatementView() {
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">Income Statement</h2>
                 <p className="text-gray-600">
-                  For the Period Ended {format(endDate, 'MMMM d, yyyy')}
+                  For the Period from {format(new Date(incomeStatement.period.startDate), 'MMMM d, yyyy')} to {format(new Date(incomeStatement.period.endDate), 'MMMM d, yyyy')}
                 </p>
               </div>
 
@@ -297,96 +315,155 @@ export function IncomeStatementView() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center py-2">
                     <h3 className="text-lg font-semibold text-gray-900 uppercase tracking-wide">
-                      Revenue
+                      {incomeStatement.sections.revenue.label}
                     </h3>
-                    <div className="text-right"></div>
                   </div>
                   
                   <div className="ml-8 space-y-1">
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-700">Sales Revenue</span>
-                      <span className="font-mono text-right w-32">
-                        {formatCurrency(Math.abs(incomeStatement.revenue.total))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-700">Other Revenue</span>
-                      <span className="font-mono text-right w-32">
-                        -
-                      </span>
-                    </div>
+                    {incomeStatement.sections.revenue.accounts.map((account) => (
+                      <div key={account.accountId} className="flex justify-between py-1">
+                        <span className="text-gray-700">{account.accountName}</span>
+                        <span className="font-mono text-right w-32">
+                          {formatCurrency(account.amount)}
+                        </span>
+                      </div>
+                    ))}
+                    {incomeStatement.sections.revenue.accounts.length === 0 && (
+                      <div className="flex justify-between py-1">
+                        <span className="text-gray-500 italic">No revenue accounts</span>
+                        <span className="font-mono text-right w-32">-</span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Total Revenue with underline */}
                   <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
                     <span className="text-gray-900">Total Revenue</span>
                     <span className="font-mono text-right w-32 text-green-700">
-                      {formatCurrency(Math.abs(incomeStatement.revenue.total))}
+                      {formatCurrency(incomeStatement.sections.revenue.total)}
                     </span>
                   </div>
                 </div>
 
-                {/* Expenses Section */}
+                {/* Operating Expenses Section */}
                 <div className="space-y-2 mt-8">
                   <div className="flex justify-between items-center py-2">
                     <h3 className="text-lg font-semibold text-gray-900 uppercase tracking-wide">
-                      Expenses
+                      {incomeStatement.sections.operatingExpenses.label}
                     </h3>
-                    <div className="text-right"></div>
                   </div>
                   
                   <div className="ml-8 space-y-1">
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-700">Cost of Goods Sold</span>
-                      <span className="font-mono text-right w-32">
-                        {incomeStatement.expenses.total > 0 ? formatCurrency(incomeStatement.expenses.total / 2) : '-'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-700">Operating Expenses</span>
-                      <span className="font-mono text-right w-32">
-                        {incomeStatement.expenses.total > 0 ? formatCurrency(incomeStatement.expenses.total / 2) : '-'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-700">Administrative Expenses</span>
-                      <span className="font-mono text-right w-32">
-                        -
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-700">Depreciation</span>
-                      <span className="font-mono text-right w-32">
-                        -
-                      </span>
-                    </div>
+                    {incomeStatement.sections.operatingExpenses.accounts.map((account) => (
+                      <div key={account.accountId} className="flex justify-between py-1">
+                        <span className="text-gray-700">{account.accountName}</span>
+                        <span className="font-mono text-right w-32">
+                          {formatCurrency(account.amount)}
+                        </span>
+                      </div>
+                    ))}
+                    {incomeStatement.sections.operatingExpenses.accounts.length === 0 && (
+                      <div className="flex justify-between py-1">
+                        <span className="text-gray-500 italic">No operating expenses</span>
+                        <span className="font-mono text-right w-32">-</span>
+                      </div>
+                    )}
                   </div>
                   
-                  {/* Total Expenses with underline */}
+                  {/* Total Operating Expenses with underline */}
                   <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
-                    <span className="text-gray-900">Total Expenses</span>
+                    <span className="text-gray-900">Total Operating Expenses</span>
                     <span className="font-mono text-right w-32 text-red-700">
-                      {formatCurrency(incomeStatement.expenses.total)}
+                      {formatCurrency(incomeStatement.sections.operatingExpenses.total)}
                     </span>
                   </div>
                 </div>
+
+                {/* Net Income Before Taxes */}
+                <div className="flex justify-between py-2 border-t ml-8 font-semibold">
+                  <span className="text-gray-900">Net Income Before Taxes</span>
+                  <span className={cn(
+                    "font-mono text-right w-32",
+                    incomeStatement.totals.netIncomeBeforeTaxes >= 0 ? "text-green-700" : "text-red-700"
+                  )}>
+                    {formatCurrency(Math.abs(incomeStatement.totals.netIncomeBeforeTaxes))}
+                  </span>
+                </div>
+
+                {/* Income Tax Section (if any) */}
+                {incomeStatement.sections.incomeTax.total > 0 && (
+                  <div className="space-y-2 mt-8">
+                    <div className="flex justify-between items-center py-2">
+                      <h3 className="text-lg font-semibold text-gray-900 uppercase tracking-wide">
+                        {incomeStatement.sections.incomeTax.label}
+                      </h3>
+                    </div>
+                    
+                    <div className="ml-8 space-y-1">
+                      {incomeStatement.sections.incomeTax.accounts.map((account) => (
+                        <div key={account.accountId} className="flex justify-between py-1">
+                          <span className="text-gray-700">{account.accountName}</span>
+                          <span className="font-mono text-right w-32">
+                            {formatCurrency(account.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
+                      <span className="text-gray-900">Total Income Tax Expense</span>
+                      <span className="font-mono text-right w-32 text-red-700">
+                        {formatCurrency(incomeStatement.sections.incomeTax.total)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Below-the-Line Items (if any) */}
+                {incomeStatement.sections.belowTheLine.total !== 0 && (
+                  <div className="space-y-2 mt-8">
+                    <div className="flex justify-between items-center py-2">
+                      <h3 className="text-lg font-semibold text-gray-900 uppercase tracking-wide">
+                        {incomeStatement.sections.belowTheLine.label}
+                      </h3>
+                    </div>
+                    
+                    <div className="ml-8 space-y-1">
+                      {incomeStatement.sections.belowTheLine.accounts.map((account) => (
+                        <div key={account.accountId} className="flex justify-between py-1">
+                          <span className="text-gray-700">{account.accountName}</span>
+                          <span className="font-mono text-right w-32">
+                            {formatCurrency(account.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
+                      <span className="text-gray-900">Total Below-the-Line</span>
+                      <span className="font-mono text-right w-32">
+                        {formatCurrency(incomeStatement.sections.belowTheLine.total)}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Net Income Section */}
                 <div className="mt-8 pt-4">
                   <div className="flex justify-between py-3 border-t-2 border-b-4 border-gray-900 font-bold text-lg">
                     <span className={cn(
                       "text-gray-900 uppercase tracking-wide",
-                      incomeStatement.netIncome >= 0 ? "text-green-800" : "text-red-800"
+                      incomeStatement.totals.netIncome >= 0 ? "text-green-800" : "text-red-800"
                     )}>
-                      Net {incomeStatement.netIncome >= 0 ? "Income" : "Loss"}
+                      Net {incomeStatement.totals.netIncome >= 0 ? "Income" : "Loss"}
                     </span>
                     <span className={cn(
                       "font-mono text-right w-32 text-xl",
-                      incomeStatement.netIncome >= 0 ? "text-green-700" : "text-red-700"
+                      incomeStatement.totals.netIncome >= 0 ? "text-green-700" : "text-red-700"
                     )}>
-                      {incomeStatement.netIncome < 0 ? '(' : ''}
-                      {formatCurrency(Math.abs(incomeStatement.netIncome))}
-                      {incomeStatement.netIncome < 0 ? ')' : ''}
+                      {incomeStatement.totals.netIncome < 0 ? '(' : ''}
+                      {formatCurrency(Math.abs(incomeStatement.totals.netIncome))}
+                      {incomeStatement.totals.netIncome < 0 ? ')' : ''}
                     </span>
                   </div>
                 </div>
@@ -396,28 +473,32 @@ export function IncomeStatementView() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                     <div className="bg-green-50 rounded-lg p-4">
                       <div className="text-sm text-green-600 font-medium">Revenue Accounts</div>
-                      <div className="text-2xl font-bold text-green-700">{incomeStatement.revenue.accountCount}</div>
+                      <div className="text-2xl font-bold text-green-700">
+                        {incomeStatement.sections.revenue.accounts.length}
+                      </div>
                     </div>
                     <div className="bg-red-50 rounded-lg p-4">
                       <div className="text-sm text-red-600 font-medium">Expense Accounts</div>
-                      <div className="text-2xl font-bold text-red-700">{incomeStatement.expenses.accountCount}</div>
+                      <div className="text-2xl font-bold text-red-700">
+                        {incomeStatement.sections.operatingExpenses.accounts.length}
+                      </div>
                     </div>
                     <div className={cn(
                       "rounded-lg p-4",
-                      incomeStatement.netIncome >= 0 ? "bg-green-50" : "bg-red-50"
+                      incomeStatement.totals.netIncome >= 0 ? "bg-green-50" : "bg-red-50"
                     )}>
                       <div className={cn(
                         "text-sm font-medium",
-                        incomeStatement.netIncome >= 0 ? "text-green-600" : "text-red-600"
+                        incomeStatement.totals.netIncome >= 0 ? "text-green-600" : "text-red-600"
                       )}>
                         Profit Margin
                       </div>
                       <div className={cn(
                         "text-2xl font-bold",
-                        incomeStatement.netIncome >= 0 ? "text-green-700" : "text-red-700"
+                        incomeStatement.totals.netIncome >= 0 ? "text-green-700" : "text-red-700"
                       )}>
-                        {Math.abs(incomeStatement.revenue.total) > 0 
-                          ? `${((incomeStatement.netIncome / Math.abs(incomeStatement.revenue.total)) * 100).toFixed(1)}%`
+                        {incomeStatement.sections.revenue.total > 0 
+                          ? `${((incomeStatement.totals.netIncome / incomeStatement.sections.revenue.total) * 100).toFixed(1)}%`
                           : '0%'
                         }
                       </div>

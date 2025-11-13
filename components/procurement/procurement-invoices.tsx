@@ -370,7 +370,7 @@ export function ProcurementInvoices() {
             </Card>
 
             {/* Processing Actions */}
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle>Processing Actions</CardTitle>
               </CardHeader>
@@ -400,7 +400,7 @@ export function ProcurementInvoices() {
                   </Button>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Items */}
             <Card>

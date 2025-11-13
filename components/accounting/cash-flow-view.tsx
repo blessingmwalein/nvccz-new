@@ -30,7 +30,7 @@ function formatMoney(v: number | string) {
 
 function CashFlowSkeleton() {
   return (
-    <div className="max-w-2xl mx-auto animate-pulse">
+    <div className="max-w-3xl mx-auto animate-pulse">
       <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
         <div className="h-6 w-48 bg-gray-200 rounded mx-auto mb-2"></div>
         <div className="h-5 w-32 bg-gray-100 rounded mx-auto mb-2"></div>
@@ -45,21 +45,18 @@ function CashFlowSkeleton() {
             </tr>
           </thead>
           <tbody>
-            {[...Array(12)].map((_, i) => (
+            {[...Array(20)].map((_, i) => (
               <tr key={i}>
-                <td className={cn("py-1 pl-2", i % 4 === 0 && "pt-4 pb-1")}>
-                  <div className={cn("h-4 rounded", i % 4 === 0 ? "w-32 bg-gray-100" : "w-48 bg-gray-200")}></div>
+                <td className={cn("py-1 pl-2", i % 6 === 0 && "pt-4 pb-1")}>
+                  <div className={cn("h-4 rounded", i % 6 === 0 ? "w-32 bg-gray-100" : "w-56 bg-gray-200")}></div>
                 </td>
                 <td className="py-1 pr-2 text-right">
-                  <div className="h-4 w-20 bg-gray-200 rounded ml-auto"></div>
+                  <div className="h-4 w-24 bg-gray-200 rounded ml-auto"></div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="mt-6 text-center text-xs">
-          <div className="h-4 w-24 bg-gray-200 rounded mx-auto"></div>
-        </div>
       </div>
     </div>
   )
@@ -68,12 +65,12 @@ function CashFlowSkeleton() {
 export function CashFlowView() {
   const dispatch = useDispatch<AppDispatch>()
   const { cashFlow, cashFlowLoading, cashFlowError, currencies } = useSelector((s: RootState) => s.accounting)
-  // Default to current year
+  
   const now = new Date()
   const startOfYear = new Date(now.getFullYear(), 0, 1)
   const endOfYear = new Date(now.getFullYear(), 11, 31)
-  // Default to USD if available
   const defaultCurrencyId = currencies.find(c => c.code === "USD")?.id || currencies[0]?.id || ""
+  
   const [startDate, setStartDate] = useState<Date>(startOfYear)
   const [endDate, setEndDate] = useState<Date>(endOfYear)
   const [currencyId, setCurrencyId] = useState(defaultCurrencyId)
@@ -91,7 +88,6 @@ export function CashFlowView() {
         currencyId
       }) as any)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currencyId])
 
   const handleGenerate = async () => {
@@ -139,13 +135,15 @@ export function CashFlowView() {
 
   // Export to PDF implementation
   const handleExportPDF = async () => {
-    if (!cashFlow) {
+    if (!cashFlow || !cashFlow.presentation) {
       toast.error("No cash flow data to export")
       return
     }
     setGeneratingPDF(true)
     try {
       const doc = new jsPDF()
+      const { presentation } = cashFlow
+      
       doc.setFontSize(16)
       doc.text("Cash Flow Statement", 14, 18)
       doc.setFontSize(11)
@@ -153,35 +151,37 @@ export function CashFlowView() {
         `For the period ${format(new Date(cashFlow.period.startDate), "MMMM d, yyyy")} to ${format(new Date(cashFlow.period.endDate), "MMMM d, yyyy")}`,
         14, 26
       )
-      // Use currency name
-      const currencyObj = currencies.find(c => c.code === cashFlow.currency.code) || currencies.find(c => c.id === currencyId)
-      doc.text(`Currency: ${currencyObj?.name || cashFlow.currency.code}`, 14, 32)
+      doc.text(`Currency: ${cashFlow.currency.name}`, 14, 32)
 
-      // Prepare rows for PDF
       const rows: any[] = []
       const pushSection = (label: string) => rows.push([{ content: label, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [240,240,240] } }])
-      const pushItem = (label: string, value: number | null) => rows.push([label, value !== null ? Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""])
-      const pushTotal = (label: string, value: number | null) => rows.push([{ content: label, styles: { fontStyle: 'bold' } }, { content: value !== null ? Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", styles: { fontStyle: 'bold' } }])
+      const pushItem = (label: string, value: number) => rows.push([`  ${label}`, value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })])
+      const pushTotal = (label: string, value: number) => rows.push([{ content: label, styles: { fontStyle: 'bold' } }, { content: value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } }])
 
       // Operating Activities
-      pushSection("Operating Activities")
-      cashFlow.operatingActivities.accounts.forEach(a => pushItem(a.accountName, a.netAmount))
-      pushTotal("Total Operating Activities", cashFlow.operatingActivities.total)
+      pushSection(presentation.operating.label)
+      presentation.operating.cashReceipts?.forEach(item => pushItem(item.label, item.amount))
+      presentation.operating.cashPayments?.forEach(item => pushItem(item.label, item.amount))
+      presentation.operating.additions?.forEach(item => pushItem(item.label, item.amount))
+      presentation.operating.adjustments?.forEach(item => pushItem(item.label, item.amount))
+      pushTotal(`Total ${presentation.operating.label}`, presentation.operating.total)
 
       // Investing Activities
-      pushSection("Investing Activities")
-      cashFlow.investingActivities.accounts.forEach(a => pushItem(a.accountName, a.netAmount))
-      pushTotal("Total Investing Activities", cashFlow.investingActivities.total)
+      pushSection(presentation.investing.label)
+      presentation.investing.cashReceipts?.forEach(item => pushItem(item.label, item.amount))
+      presentation.investing.cashPayments?.forEach(item => pushItem(item.label, item.amount))
+      pushTotal(`Total ${presentation.investing.label}`, presentation.investing.total)
 
       // Financing Activities
-      pushSection("Financing Activities")
-      cashFlow.financingActivities.accounts.forEach(a => pushItem(a.accountName, a.netAmount))
-      pushTotal("Total Financing Activities", cashFlow.financingActivities.total)
+      pushSection(presentation.financing.label)
+      presentation.financing.cashReceipts?.forEach(item => pushItem(item.label, item.amount))
+      presentation.financing.cashPayments?.forEach(item => pushItem(item.label, item.amount))
+      pushTotal(`Total ${presentation.financing.label}`, presentation.financing.total)
 
-      // Net Cash Flow and Balances
-      pushTotal("Net Cash Flow", cashFlow.netCashFlow)
-      pushItem("Beginning Cash Balance", cashFlow.beginningCashBalance)
-      pushItem("Ending Cash Balance", cashFlow.endingCashBalance)
+      // Summary
+      pushTotal("Net Change in Cash", presentation.netChangeInCash)
+      pushItem("Beginning Cash Balance", presentation.beginningCashBalance)
+      pushItem("Ending Cash Balance", presentation.endingCashBalance)
 
       autoTable(doc, {
         head: [["Description", "Amount"]],
@@ -217,27 +217,116 @@ export function CashFlowView() {
     )
   }
 
-  // Helper to flatten cash flow sections for vertical display
-  function verticalRows() {
-    if (!cashFlow) return []
-    const rows: { label: string; value: number | null; type: "section" | "item" | "total" }[] = []
-    // Operating
-    rows.push({ label: "Operating Activities", value: null, type: "section" })
-    cashFlow.operatingActivities.accounts.forEach(a => rows.push({ label: a.accountName, value: a.netAmount, type: "item" }))
-    rows.push({ label: "Total Operating Activities", value: cashFlow.operatingActivities.total, type: "total" })
-    // Investing
-    rows.push({ label: "Investing Activities", value: null, type: "section" })
-    cashFlow.investingActivities.accounts.forEach(a => rows.push({ label: a.accountName, value: a.netAmount, type: "item" }))
-    rows.push({ label: "Total Investing Activities", value: cashFlow.investingActivities.total, type: "total" })
-    // Financing
-    rows.push({ label: "Financing Activities", value: null, type: "section" })
-    cashFlow.financingActivities.accounts.forEach(a => rows.push({ label: a.accountName, value: a.netAmount, type: "item" }))
-    rows.push({ label: "Total Financing Activities", value: cashFlow.financingActivities.total, type: "total" })
-    // Net Cash Flow and Balances
-    rows.push({ label: "Net Cash Flow", value: cashFlow.netCashFlow, type: "total" })
-    rows.push({ label: "Beginning Cash Balance", value: cashFlow.beginningCashBalance, type: "item" })
-    rows.push({ label: "Ending Cash Balance", value: cashFlow.endingCashBalance, type: "total" })
-    return rows
+  function renderTraditionalCashFlow() {
+    if (!cashFlow || !cashFlow.presentation) return null
+    const { presentation } = cashFlow
+
+    const rows: { label: string; value: number | null; type: "section" | "item" | "total" | "subtotal" }[] = []
+    
+    // Operating Activities
+    rows.push({ label: presentation.operating.label, value: null, type: "section" })
+    presentation.operating.cashReceipts?.forEach(item => {
+      rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    presentation.operating.cashPayments?.forEach(item => {
+      rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    presentation.operating.additions?.forEach(item => {
+      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    presentation.operating.adjustments?.forEach(item => {
+      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    rows.push({ label: `Total ${presentation.operating.label}`, value: presentation.operating.total, type: "subtotal" })
+
+    // Investing Activities
+    rows.push({ label: presentation.investing.label, value: null, type: "section" })
+    presentation.investing.cashReceipts?.forEach(item => {
+      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    presentation.investing.cashPayments?.forEach(item => {
+      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    rows.push({ label: `Total ${presentation.investing.label}`, value: presentation.investing.total, type: "subtotal" })
+
+    // Financing Activities
+    rows.push({ label: presentation.financing.label, value: null, type: "section" })
+    presentation.financing.cashReceipts?.forEach(item => {
+      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    presentation.financing.cashPayments?.forEach(item => {
+      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
+    })
+    rows.push({ label: `Total ${presentation.financing.label}`, value: presentation.financing.total, type: "subtotal" })
+
+    // Summary
+    rows.push({ label: "Net Change in Cash", value: presentation.netChangeInCash, type: "total" })
+    rows.push({ label: "Beginning Cash Balance", value: presentation.beginningCashBalance, type: "item" })
+    rows.push({ label: "Ending Cash Balance", value: presentation.endingCashBalance, type: "total" })
+
+    return (
+      <div className="max-w-3xl mx-auto">
+        {/* Company Header */}
+        <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">Cash Flow Statement</h2>
+          <p className="text-gray-600">
+            For the period {format(new Date(cashFlow.period.startDate), "MMMM d, yyyy")} to {format(new Date(cashFlow.period.endDate), "MMMM d, yyyy")}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">Currency: {cashFlow.currency.name} ({cashFlow.currency.code})</p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b-2 border-gray-400">
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Description</th>
+                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={idx}
+                  className={cn(
+                    row.type === "section" && "bg-gray-100 border-t-2 border-gray-300",
+                    row.type === "subtotal" && "border-t border-gray-300 font-semibold bg-gray-50",
+                    row.type === "total" && "border-t-2 border-gray-400 font-bold"
+                  )}
+                >
+                  <td className={cn(
+                    "py-2",
+                    row.type === "section" && "pl-2 font-bold text-sm text-gray-700 uppercase",
+                    row.type === "item" && "pl-6 text-sm",
+                    row.type === "subtotal" && "pl-4 text-sm",
+                    row.type === "total" && "pl-2 text-base"
+                  )}>
+                    {row.label}
+                  </td>
+                  <td className={cn(
+                    "py-2 pr-2 text-right",
+                    row.type === "total" && "text-blue-700 text-base font-bold",
+                    row.type === "subtotal" && "font-semibold",
+                    row.type === "section" && "text-sm"
+                  )}>
+                    {row.value !== null ? (
+                      <span className={cn(
+                        row.value < 0 && "text-red-600"
+                      )}>
+                        {formatMoney(row.value)}
+                      </span>
+                    ) : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="mt-6 text-center text-xs text-gray-500">
+          Generated on {format(new Date(cashFlow.generatedAt), "PPP 'at' p")}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -305,7 +394,7 @@ export function CashFlowView() {
             onClick={handleExportPDF}
             variant="outline"
             className="rounded-full"
-            disabled={generatingPDF}
+            disabled={generatingPDF || !cashFlow}
           >
             {generatingPDF ? (
               <>
@@ -334,51 +423,7 @@ export function CashFlowView() {
           {cashFlowLoading ? (
             <CashFlowSkeleton />
           ) : cashFlow ? (
-            <div className="max-w-2xl mx-auto">
-              {/* Company Header */}
-              <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Cash Flow Statement</h2>
-                <p className="text-gray-600">
-                  For the period {format(new Date(cashFlow.period.startDate), "MMMM d, yyyy")} to {format(new Date(cashFlow.period.endDate), "MMMM d, yyyy")}
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Description</th>
-                      <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {verticalRows().map((row, idx) => (
-                      <tr key={idx}
-                        className={cn(
-                          row.type === "section" && "bg-gray-50",
-                          row.type === "total" && "border-t-2 border-gray-400 font-bold",
-                        )}
-                      >
-                        <td className={cn(
-                          "py-1 pl-2",
-                          row.type === "section" && "pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase",
-                          row.type === "total" && "pt-2"
-                        )}>
-                          {row.label}
-                        </td>
-                        <td className={cn(
-                          "py-1 pr-2 text-right",
-                          row.type === "total" && "text-blue-700 text-base",
-                          row.type === "section" && "text-xs"
-                        )}>
-                          {row.value !== null ? formatMoney(row.value) : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            renderTraditionalCashFlow()
           ) : (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />

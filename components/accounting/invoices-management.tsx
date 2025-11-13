@@ -186,6 +186,7 @@ export function InvoicesManagement() {
     error,
     filters,
     stats,
+    pagination,
     loadInvoices,
     loadCustomers,
     handleCreateInvoice,
@@ -229,11 +230,16 @@ export function InvoicesManagement() {
           dispatch(fetchCurrencies())
         }
 
-        // Load customers and invoices
-        await Promise.all([
-          loadCustomers(),
-          loadInvoices({ status: activeTab !== 'all' ? tabs.find(t => t.id === activeTab)?.status : undefined })
-        ])
+        // Load customers
+        await loadCustomers()
+
+        // Load invoices with pagination
+        const statusFilter = activeTab !== 'all' ? tabs.find(t => t.id === activeTab)?.status : undefined
+        await loadInvoices({ 
+          status: statusFilter,
+          page: 1,
+          limit: 10
+        })
 
         // Load credit notes when on credit notes tab
         if (activeMainTab === 'credit-notes') {
@@ -260,7 +266,10 @@ export function InvoicesManagement() {
     const statusFilter = tabId !== 'all' ? 
       tabs.find(t => t.id === tabId)?.status : undefined
     
-    loadInvoices({ status: statusFilter })
+    loadInvoices({ 
+      status: statusFilter,
+      page: 1 // Reset to first page on tab change
+    })
   }
 
   // Handle advanced filtering from filter form
@@ -276,7 +285,10 @@ export function InvoicesManagement() {
     
     setCurrentFilters(updatedFilters)
     updateFilters(updatedFilters)
-    loadInvoices(updatedFilters)
+    loadInvoices({ 
+      ...updatedFilters,
+      page: 1 // Reset to first page on filter change
+    })
   }
 
   // Handle search from data table
@@ -288,7 +300,35 @@ export function InvoicesManagement() {
     
     setCurrentFilters(updatedFilters)
     updateFilters(updatedFilters)
-    loadInvoices(updatedFilters)
+    loadInvoices({ 
+      ...updatedFilters,
+      page: 1 // Reset to first page on search
+    })
+  }
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    const statusFilter = activeTab !== 'all' ? 
+      tabs.find(t => t.id === activeTab)?.status : undefined
+    
+    loadInvoices({ 
+      ...currentFilters,
+      status: statusFilter,
+      page
+    })
+  }
+
+  // Handle page size change
+  const handlePageSizeChange = (pageSize: number) => {
+    const statusFilter = activeTab !== 'all' ? 
+      tabs.find(t => t.id === activeTab)?.status : undefined
+    
+    loadInvoices({ 
+      ...currentFilters,
+      status: statusFilter,
+      limit: pageSize,
+      page: 1
+    })
   }
 
   const handleCreateInvoiceClick = () => {
@@ -304,7 +344,10 @@ export function InvoicesManagement() {
   const handleCreateModalSuccess = async () => {
     closeCreateModal()
     // Refresh invoices list
-    await loadInvoices(currentFilters)
+    await loadInvoices({ 
+      page: 1,
+      limit: 10
+    })
   }
 
   const handleViewInvoice = (invoice: Invoice) => {
@@ -779,7 +822,7 @@ export function InvoicesManagement() {
         {activeMainTab === "invoices" && (
           <>
             {/* Stats Cards - now using stats from the hook */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 const count = tab.id === 'all' ? stats.total :
@@ -827,7 +870,7 @@ export function InvoicesManagement() {
                   </Card>
                 )
               })}
-            </div>
+            </div> */}
 
             {/* Invoice Tab Navigation */}
             <div>
@@ -1045,6 +1088,10 @@ export function InvoicesManagement() {
                   showSearch={false}
                   showFilters={false}
                   emptyMessage="No invoices found. Create your first invoice to get started."
+                  usePagination="backend"
+                  paginationData={pagination}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
                 />
               </CardContent>
             </div>
