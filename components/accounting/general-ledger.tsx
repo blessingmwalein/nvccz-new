@@ -25,7 +25,8 @@ import {
   AlertTriangle,
   BarChart3,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -44,6 +45,73 @@ const cleanString = (value: any): string => {
 const cleanNumber = (value: any, defaultValue: number = 0): number => {
   const parsed = parseFloat(value);
   return isNaN(parsed) ? defaultValue : parsed;
+}
+
+// CSV Export utility function
+const exportToCSV = (journalEntries: JournalEntry[]) => {
+  // Prepare CSV headers
+  const headers = [
+    "Transaction Date",
+    "Reference Number",
+    "Journal Entry Description",
+    "Account Number",
+    "Account Name",
+    "Account Type",
+    "Line Description",
+    "Debit Amount",
+    "Credit Amount",
+    "Status",
+    "Created By",
+    "Total Amount"
+  ]
+
+  // Prepare CSV rows
+  const rows = journalEntries.flatMap(entry => 
+    entry.journalEntryLines.map((line, index) => [
+      format(new Date(entry.transactionDate), 'yyyy-MM-dd'),
+      cleanString(entry.referenceNumber),
+      index === 0 ? cleanString(entry.description) : "", // Only show on first line
+      cleanString(line.chartOfAccount.accountNo),
+      cleanString(line.chartOfAccount.accountName),
+      cleanString(line.chartOfAccount.accountType),
+      cleanString(line.description),
+      cleanNumber(line.debitAmount).toFixed(2),
+      cleanNumber(line.creditAmount).toFixed(2),
+      index === 0 ? entry.status : "", // Only show on first line
+      index === 0 ? `${entry.createdBy.firstName} ${entry.createdBy.lastName}` : "", // Only show on first line
+      index === 0 ? cleanNumber(entry.totalAmount).toFixed(2) : "" // Only show on first line
+    ])
+  )
+
+  // Combine headers and rows
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => 
+      row.map(cell => {
+        // Escape quotes and wrap in quotes if contains comma, quote, or newline
+        const cellStr = String(cell)
+        if (cellStr.includes(",") || cellStr.includes('"') || cellStr.includes("\n")) {
+          return `"${cellStr.replace(/"/g, '""')}"`
+        }
+        return cellStr
+      }).join(",")
+    )
+  ].join("\n")
+
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const link = document.createElement("a")
+  const url = URL.createObjectURL(blob)
+  
+  link.setAttribute("href", url)
+  link.setAttribute("download", `journal_entries_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.csv`)
+  link.style.visibility = "hidden"
+  
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  
+  toast.success(`Exported ${journalEntries.length} journal entries to CSV`)
 }
 
 interface JournalEntry {
@@ -269,6 +337,14 @@ export function GeneralLedger() {
   // Check if filters are active
   const hasActiveFilters = debouncedSearch !== "" || statusFilter !== "all"
 
+  const handleExportCSV = () => {
+    if (journalEntries.length === 0) {
+      toast.error("No journal entries to export")
+      return
+    }
+    exportToCSV(journalEntries)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -286,6 +362,14 @@ export function GeneralLedger() {
             <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
             Refresh
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleExportCSV}
+            disabled={loading || journalEntries.length === 0}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Journal Entry
@@ -293,68 +377,7 @@ export function GeneralLedger() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Total Entries</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalEntries}</p>
-              </div>
-              <FileText className="w-8 h-8 text-blue-500 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pendingEntries}</p>
-              </div>
-              <Clock className="w-8 h-8 text-yellow-500 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Posted</p>
-                <p className="text-2xl font-bold text-green-600">{stats.postedEntries}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-500 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Void</p>
-                <p className="text-2xl font-bold text-red-600">{stats.voidEntries}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-red-500 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Total Value</p>
-                <p className="text-xl font-bold text-purple-600">{formatCurrency(stats.totalValue)}</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-purple-500 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-      </div> */}
+   
 
       {/* Tab Navigation */}
       <Card>
