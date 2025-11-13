@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,8 @@ import { Plus, Trash2, Save, X, Building, FileText, Calendar } from "lucide-reac
 import { toast } from "sonner"
 import { procurementApi, PurchaseRequisition } from "@/lib/api/procurement-api"
 import { accountingApi, Vendor } from "@/lib/api/accounting-api"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { fetchAvailableDepartments } from "@/lib/store/slices/performanceSlice"
 
 interface CreatePurchaseOrderModalProps {
   isOpen: boolean
@@ -36,7 +38,8 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
   const [loadingData, setLoadingData] = useState(false)
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([])
-  
+  const { availableDepartments, loading: perfomanceLoading, error } = useAppSelector((state) => state.performance)
+
   const [formData, setFormData] = useState({
     requisitionId: "",
     vendorId: "",
@@ -47,9 +50,12 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
     deliveryTerms: "",
     notes: ""
   })
-  
+
+ 
+
+
   const [deliveryDate, setDeliveryDate] = useState<Date | undefined>(new Date())
-  
+
   const [items, setItems] = useState<POItem[]>([
     { itemName: "", description: "", quantity: 1, unit: "pcs", unitPrice: 0, totalPrice: 0 }
   ])
@@ -69,7 +75,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
   const loadInitialData = async () => {
     try {
       setLoadingData(true)
-      
+
       // Load vendors
       const vendorsResponse = await accountingApi.vendors.getAll()
       if (vendorsResponse.success && vendorsResponse.data) {
@@ -99,7 +105,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
       const response = await procurementApi.getRequisitionById(requisitionId)
       if (response.success && response.data) {
         const requisition = response.data
-        
+
         // Update form data with requisition details
         setFormData(prev => ({
           ...prev,
@@ -150,12 +156,12 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
   const handleItemChange = (index: number, field: keyof POItem, value: string | number) => {
     const updatedItems = [...items]
     updatedItems[index] = { ...updatedItems[index], [field]: value }
-    
+
     // Recalculate total price for this item
     if (field === 'quantity' || field === 'unitPrice') {
       updatedItems[index].totalPrice = updatedItems[index].quantity * updatedItems[index].unitPrice
     }
-    
+
     setItems(updatedItems)
   }
 
@@ -175,7 +181,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.vendorId || items.some(item => !item.itemName || item.quantity <= 0)) {
       toast.error("Please fill in all required fields")
       return
@@ -192,7 +198,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
       }
 
       const response = await procurementApi.createPurchaseOrder(purchaseOrderData)
-      
+
       if (response.success) {
         toast.success("Purchase Order created successfully!")
         onSuccess()
@@ -226,8 +232,8 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="requisitionId">Requisition ID (Optional)</Label>
-                <Select 
-                  value={formData.requisitionId} 
+                <Select
+                  value={formData.requisitionId}
                   onValueChange={(value) => handleInputChange("requisitionId", value)}
                   disabled={loadingData || !!preSelectedRequisitionId}
                 >
@@ -246,11 +252,11 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="vendorId">Vendor *</Label>
-                <Select 
-                  value={formData.vendorId} 
+                <Select
+                  value={formData.vendorId}
                   onValueChange={(value) => handleInputChange("vendorId", value)}
                   disabled={loadingData}
                 >
@@ -291,9 +297,9 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                   value={deliveryDate}
                   onChange={(date) => {
                     setDeliveryDate(date)
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      expectedDeliveryDate: date ? date.toISOString().split('T')[0] : "" 
+                    setFormData(prev => ({
+                      ...prev,
+                      expectedDeliveryDate: date ? date.toISOString().split('T')[0] : ""
                     }))
                   }}
                   placeholder="Select delivery date"
@@ -360,7 +366,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                       </Button>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <div className="lg:col-span-2">
                       <Label>Item Name *</Label>
@@ -370,7 +376,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                         placeholder="Enter item name"
                       />
                     </div>
-                    
+
                     <div className="lg:col-span-2">
                       <Label>Description</Label>
                       <Input
@@ -379,7 +385,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                         placeholder="Item description"
                       />
                     </div>
-                    
+
                     <div>
                       <Label>Quantity *</Label>
                       <Input
@@ -389,7 +395,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                         onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
                       />
                     </div>
-                    
+
                     <div>
                       <Label>Unit</Label>
                       <Select value={item.unit} onValueChange={(value) => handleItemChange(index, "unit", value)}>
@@ -405,7 +411,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div>
                       <Label>Unit Price ($)</Label>
                       <Input
@@ -416,7 +422,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                         onChange={(e) => handleItemChange(index, "unitPrice", parseFloat(e.target.value) || 0)}
                       />
                     </div>
-                    
+
                     <div>
                       <Label>Total Price</Label>
                       <div className="flex items-center h-10 px-3 border rounded-md bg-gray-50">
@@ -426,7 +432,7 @@ export function CreatePurchaseOrderModal({ isOpen, onClose, onSuccess, preSelect
                   </div>
                 </div>
               ))}
-              
+
               <div className="flex justify-end pt-4 border-t">
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Total Amount</p>

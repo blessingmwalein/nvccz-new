@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,18 @@ import { format } from "date-fns"
 import { CreateJournalEntryModal } from "./create-journal-entry-modal"
 import { JournalEntryViewDrawer } from "./journal-entry-view-drawer"
 import { TrialBalanceView } from "./trial-balance-view"
-import { accountingApi } from "@/lib/api/accounting-api"
+import { accountingApi, JournalEntryFilters } from "@/lib/api/accounting-api"
+
+// Helper function to trim spaces
+const cleanString = (value: any): string => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+const cleanNumber = (value: any, defaultValue: number = 0): number => {
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? defaultValue : parsed;
+}
 
 interface JournalEntry {
   id: string
@@ -85,6 +96,13 @@ const tabs = [
   }
 ]
 
+const statusOptions = [
+  { label: 'All Statuses', value: 'all' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Posted', value: 'POSTED' },
+  { label: 'Void', value: 'VOID' }
+]
+
 export function GeneralLedger() {
   const [activeTab, setActiveTab] = useState("journal")
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
@@ -97,32 +115,65 @@ export function GeneralLedger() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  
+  // Debounced search
+  const [debouncedSearch, setDebouncedSearch] = useState("")
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 500) // 500ms delay
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Load entries when filters change
   useEffect(() => {
     if (activeTab === "journal") {
       loadJournalEntries()
     }
-  }, [activeTab, searchQuery, statusFilter])
+  }, [activeTab, debouncedSearch, statusFilter])
 
-  const loadJournalEntries = async () => {
+  const loadJournalEntries = useCallback(async () => {
     setLoading(true)
     try {
-      const params: any = {}
-      if (searchQuery) params.search = searchQuery
-      if (statusFilter !== "all") params.status = statusFilter
+      // Build filters object
+      const filters: JournalEntryFilters = {}
+      
+      // Only add search if it has a value after trimming
+      const trimmedSearch = cleanString(debouncedSearch)
+      if (trimmedSearch) {
+        filters.search = trimmedSearch
+      }
+      
+      // Only add status if it's not "all"
+      if (statusFilter !== "all") {
+        filters.status = statusFilter as 'PENDING' | 'POSTED' | 'VOID'
+      }
 
-      const response = await accountingApi.getJournalEntries(params)
+      console.log('Loading journal entries with filters:', filters)
+
+      const response = await accountingApi.getJournalEntries(filters)
+      
       if (response.success) {
         setJournalEntries(response.data || [])
+        // toast.success(`Loaded ${response.data?.length || 0} journal entries`)
+      } else {
+        toast.error("Failed to load journal entries", {
+          description: response.message || "Unknown error"
+        })
       }
     } catch (error: any) {
+      console.error('Error loading journal entries:', error)
       toast.error("Failed to load journal entries", {
-        description: error.message
+        description: error.message || "An unexpected error occurred"
       })
+      setJournalEntries([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [debouncedSearch, statusFilter])
 
   // Group entries by date
   const groupedEntries = journalEntries.reduce((groups: GroupedEntry[], entry) => {
@@ -132,17 +183,17 @@ export function GeneralLedger() {
     if (existingGroup) {
       existingGroup.entries.push(entry)
       existingGroup.totalDebit += entry.journalEntryLines.reduce((sum, line) => 
-        sum + parseFloat(line.debitAmount || '0'), 0)
+        sum + cleanNumber(line.debitAmount), 0)
       existingGroup.totalCredit += entry.journalEntryLines.reduce((sum, line) => 
-        sum + parseFloat(line.creditAmount || '0'), 0)
+        sum + cleanNumber(line.creditAmount), 0)
     } else {
       groups.push({
         date,
         entries: [entry],
         totalDebit: entry.journalEntryLines.reduce((sum, line) => 
-          sum + parseFloat(line.debitAmount || '0'), 0),
+          sum + cleanNumber(line.debitAmount), 0),
         totalCredit: entry.journalEntryLines.reduce((sum, line) => 
-          sum + parseFloat(line.creditAmount || '0'), 0)
+          sum + cleanNumber(line.creditAmount), 0)
       })
     }
     
@@ -176,16 +227,23 @@ export function GeneralLedger() {
   }
 
   const formatCurrency = (amount: string | number) => {
+    const numAmount = cleanNumber(amount)
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
-    }).format(typeof amount === 'string' ? parseFloat(amount) : amount)
+    }).format(numAmount)
   }
 
   const handleViewEntry = (entry: JournalEntry) => {
     setSelectedEntry(entry)
     setIsViewDrawerOpen(true)
+  }
+
+  const handleClearFilters = () => {
+    setSearchQuery("")
+    setStatusFilter("all")
+    setDebouncedSearch("")
   }
 
   const getStats = () => {
@@ -195,7 +253,7 @@ export function GeneralLedger() {
     const voidEntries = journalEntries.filter(e => e.status === 'VOID').length
     
     const totalValue = journalEntries.reduce((sum, entry) => 
-      sum + parseFloat(entry.totalAmount || '0'), 0)
+      sum + cleanNumber(entry.totalAmount), 0)
 
     return {
       totalEntries,
@@ -208,6 +266,9 @@ export function GeneralLedger() {
 
   const stats = getStats()
 
+  // Check if filters are active
+  const hasActiveFilters = debouncedSearch !== "" || statusFilter !== "all"
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -217,8 +278,12 @@ export function GeneralLedger() {
           <p className="text-muted-foreground">Manage journal entries and view trial balance</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => loadJournalEntries()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={() => loadJournalEntries()}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
             Refresh
           </Button>
           <Button onClick={() => setIsCreateModalOpen(true)}>
@@ -228,7 +293,68 @@ export function GeneralLedger() {
         </div>
       </div>
 
-  
+      {/* Stats Cards */}
+      {/* <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card className="border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Total Entries</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.totalEntries}</p>
+              </div>
+              <FileText className="w-8 h-8 text-blue-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pendingEntries}</p>
+              </div>
+              <Clock className="w-8 h-8 text-yellow-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Posted</p>
+                <p className="text-2xl font-bold text-green-600">{stats.postedEntries}</p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Void</p>
+                <p className="text-2xl font-bold text-red-600">{stats.voidEntries}</p>
+              </div>
+              <XCircle className="w-8 h-8 text-red-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Total Value</p>
+                <p className="text-xl font-bold text-purple-600">{formatCurrency(stats.totalValue)}</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-purple-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+      </div> */}
 
       {/* Tab Navigation */}
       <Card>
@@ -276,6 +402,11 @@ export function GeneralLedger() {
                         <div className="flex items-center gap-2">
                           <Filter className="w-4 h-4 text-blue-600" />
                           <h3 className="text-sm font-medium text-gray-900">Advanced Filters</h3>
+                          {hasActiveFilters && (
+                            <Badge className="bg-blue-100 text-blue-800 text-xs">
+                              Active
+                            </Badge>
+                          )}
                         </div>
                         <ChevronDown className={cn(
                           "w-4 h-4 text-gray-500 transition-transform duration-200",
@@ -287,10 +418,12 @@ export function GeneralLedger() {
 
                   <CollapsibleContent>
                     <CardContent className="pt-0">
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Search Input */}
                         <div className="space-y-2">
-                          <Label className="text-xs font-medium text-gray-700">Search</Label>
+                          <Label className="text-xs font-medium text-gray-700">
+                            Search Reference Number
+                          </Label>
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <Input
@@ -300,6 +433,11 @@ export function GeneralLedger() {
                               onChange={(e) => setSearchQuery(e.target.value)}
                             />
                           </div>
+                          {searchQuery && (
+                            <p className="text-xs text-gray-500">
+                              Searching: "{cleanString(searchQuery)}"
+                            </p>
+                          )}
                         </div>
 
                         {/* Status Filter */}
@@ -310,10 +448,11 @@ export function GeneralLedger() {
                               <SelectValue placeholder="All Statuses" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">All Statuses</SelectItem>
-                              <SelectItem value="PENDING">Pending</SelectItem>
-                              <SelectItem value="POSTED">Posted</SelectItem>
-                              <SelectItem value="VOID">Void</SelectItem>
+                              {statusOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -323,16 +462,31 @@ export function GeneralLedger() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSearchQuery("")
-                              setStatusFilter("all")
-                            }}
+                            onClick={handleClearFilters}
+                            disabled={!hasActiveFilters}
                             className="rounded-full text-xs"
                           >
                             Clear Filters
                           </Button>
                         </div>
                       </div>
+
+                      {/* Active Filters Display */}
+                      {hasActiveFilters && (
+                        <div className="mt-4 flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-gray-600">Active filters:</span>
+                          {debouncedSearch && (
+                            <Badge variant="outline" className="text-xs">
+                              Search: {cleanString(debouncedSearch)}
+                            </Badge>
+                          )}
+                          {statusFilter !== "all" && (
+                            <Badge variant="outline" className="text-xs">
+                              Status: {statusOptions.find(o => o.value === statusFilter)?.label}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </CollapsibleContent>
                 </Card>
@@ -345,24 +499,45 @@ export function GeneralLedger() {
                 ) : groupedEntries.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No journal entries found</h3>
-                    <p className="text-gray-600 mb-4">Create your first journal entry to get started</p>
-                    <Button onClick={() => setIsCreateModalOpen(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Journal Entry
-                    </Button>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {hasActiveFilters ? "No journal entries match your filters" : "No journal entries found"}
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      {hasActiveFilters 
+                        ? "Try adjusting your filters or clear them to see all entries" 
+                        : "Create your first journal entry to get started"}
+                    </p>
+                    {hasActiveFilters ? (
+                      <Button variant="outline" onClick={handleClearFilters}>
+                        Clear Filters
+                      </Button>
+                    ) : (
+                      <Button onClick={() => setIsCreateModalOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Journal Entry
+                      </Button>
+                    )}
                   </div>
                 ) : (
-                  groupedEntries.map((group) => (
-                    <GroupedJournalEntries
-                      key={group.date}
-                      group={group}
-                      onViewEntry={handleViewEntry}
-                      formatCurrency={formatCurrency}
-                      getStatusIcon={getStatusIcon}
-                      getStatusColor={getStatusColor}
-                    />
-                  ))
+                  <>
+                    {/* Results count */}
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm text-gray-600">
+                        Showing {groupedEntries.length} date group{groupedEntries.length !== 1 ? 's' : ''} with {journalEntries.length} entr{journalEntries.length !== 1 ? 'ies' : 'y'}
+                      </p>
+                    </div>
+                    
+                    {groupedEntries.map((group) => (
+                      <GroupedJournalEntries
+                        key={group.date}
+                        group={group}
+                        onViewEntry={handleViewEntry}
+                        formatCurrency={formatCurrency}
+                        getStatusIcon={getStatusIcon}
+                        getStatusColor={getStatusColor}
+                      />
+                    ))}
+                  </>
                 )}
               </div>
             </>
@@ -613,30 +788,32 @@ function GroupedJournalEntries({
                           <td className="p-3">
                             {lineIndex === 0 && (
                               <span className="font-mono text-sm text-blue-600 group-hover:text-blue-800 transition-colors font-semibold">
-                                {entry.referenceNumber}
+                                {cleanString(entry.referenceNumber)}
                               </span>
                             )}
                           </td>
                           <td className="p-3">
                             <div>
                               <div className="font-medium text-sm group-hover:text-blue-700 transition-colors">
-                                {line.chartOfAccount.accountNo} - {line.chartOfAccount.accountName}
+                                {cleanString(line.chartOfAccount.accountNo)} - {cleanString(line.chartOfAccount.accountName)}
                               </div>
-                              <div className="text-xs text-gray-500">{line.chartOfAccount.accountType}</div>
+                              <div className="text-xs text-gray-500">{cleanString(line.chartOfAccount.accountType)}</div>
                             </div>
                           </td>
                           <td className="p-3">
-                            <span className="text-sm group-hover:text-blue-700 transition-colors">{line.description}</span>
+                            <span className="text-sm group-hover:text-blue-700 transition-colors">
+                              {cleanString(line.description)}
+                            </span>
                           </td>
                           <td className="p-3 text-right">
-                            {line.debitAmount && parseFloat(line.debitAmount) > 0 && (
+                            {line.debitAmount && cleanNumber(line.debitAmount) > 0 && (
                               <span className="font-semibold text-green-600 group-hover:text-green-700 transition-colors">
                                 {formatCurrency(line.debitAmount)}
                               </span>
                             )}
                           </td>
                           <td className="p-3 text-right">
-                            {line.creditAmount && parseFloat(line.creditAmount) > 0 && (
+                            {line.creditAmount && cleanNumber(line.creditAmount) > 0 && (
                               <span className="font-semibold text-red-600 group-hover:text-red-700 transition-colors">
                                 {formatCurrency(line.creditAmount)}
                               </span>

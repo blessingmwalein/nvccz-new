@@ -357,7 +357,7 @@ export function TrialBalanceView() {
                     <th className="text-left p-4 font-semibold text-gray-700">Type</th>
                     <th className="text-right p-4 font-semibold text-gray-700">Debit Balance</th>
                     <th className="text-right p-4 font-semibold text-gray-700">Credit Balance</th>
-                    <th className="text-right p-4 font-semibold text-gray-700">Net Balance</th>
+                    {/* <th className="text-right p-4 font-semibold text-gray-700">Net Balance</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -398,7 +398,7 @@ export function TrialBalanceView() {
                           </span>
                         )}
                       </td>
-                      <td className="p-4 text-right">
+                      {/* <td className="p-4 text-right">
                         <span className={cn(
                           "font-bold",
                           account.netBalance >= 0 ? "text-green-700" : "text-red-700"
@@ -406,7 +406,7 @@ export function TrialBalanceView() {
                           {formatCurrency(Math.abs(account.netBalance))}
                           {account.netBalance < 0 && " (CR)"}
                         </span>
-                      </td>
+                      </td> */}
                     </tr>
                   ))}
                 </tbody>
@@ -421,7 +421,7 @@ export function TrialBalanceView() {
                     <td className="p-4 text-right font-bold text-red-700 text-lg">
                       {formatCurrency(trialBalance.totals.totalCredits)}
                     </td>
-                    <td className="p-4 text-right">
+                    {/* <td className="p-4 text-right">
                       <Badge className={cn(
                         "text-sm font-semibold",
                         trialBalance.totals.isBalanced 
@@ -430,7 +430,7 @@ export function TrialBalanceView() {
                       )}>
                         {trialBalance.totals.isBalanced ? "BALANCED" : "UNBALANCED"}
                       </Badge>
-                    </td>
+                    </td> */}
                   </tr>
                 </tfoot>
               </table>

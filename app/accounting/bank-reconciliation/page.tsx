@@ -101,8 +101,8 @@ export default function BankReconciliationPage() {
   // DataTable columns for reconciliation records
   const columns: Column<any>[] = [
     {
-      key: 'fileName',
-      label: 'File Name',
+      key: 'bankName',
+      label: 'Bank Name',
       sortable: true,
       render: (value, row) => (
         <div className="flex items-center gap-2 min-w-0">
@@ -110,57 +110,59 @@ export default function BankReconciliationPage() {
         </div>
       )
     },
+    // {
+    //   key: 'createdBy',
+    //   label: 'Created By',
+    //   sortable: false,
+    //   render: (_v, row) => (
+    //     <div className="flex items-center gap-2">
+    //       <Avatar className="h-8 w-8">
+    //         <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white text-xs">
+    //           {row.createdBy.firstName.charAt(0)}{row.createdBy.lastName.charAt(0)}
+    //         </AvatarFallback>
+    //       </Avatar>
+    //       <span className="truncate">{row.createdBy.firstName} {row.createdBy.lastName}</span>
+    //     </div>
+    //   )
+    // },
     {
-      key: 'createdBy',
-      label: 'Created By',
-      sortable: false,
-      render: (_v, row) => (
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white text-xs">
-              {row.createdBy.firstName.charAt(0)}{row.createdBy.lastName.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="truncate">{row.createdBy.firstName} {row.createdBy.lastName}</span>
-        </div>
-      )
-    },
-    {
-      key: 'status',
-      label: 'Status',
+      key: 'accountNumber',
+      label: 'Account Number',
       sortable: true,
       render: (value) => <Badge>{value}</Badge>
     },
     {
-      key: 'totalTransactions',
-      label: 'Total Txns',
+      key: 'isReconciled',
+      label: 'Is Reconciled',
+      sortable: true,
+      render: (value) => <Badge>{value ?'Yes':'No'}</Badge>
+    },
+    {
+      key: 'pendingTransactions',
+      label: 'Pending Transactions',
       sortable: true,
       render: (value) => <span>{value}</span>
     },
     {
-      key: 'matchedCount',
-      label: 'Matched',
+      key: 'matchedTransactions',
+      label: 'Matched Transaction',
       sortable: true,
       render: (value) => <span>{value}</span>
     },
     {
-      key: 'unmatchedCount',
-      label: 'Unmatched',
+      key: 'discrepancies',
+      label: 'Discrepancies',
       sortable: true,
       render: (value) => <span>{value}</span>
     },
     {
-      key: 'overallAccuracy',
-      label: 'Accuracy',
+      key: 'unreconciledEntries',
+      label: 'Unreconciled Entries',
       sortable: true,
-      render: (value) => value ? `${value}%` : '—'
-    },
-    {
-      key: 'createdAt',
-      label: 'Created',
-      sortable: true,
-      render: (value) => <span>{format(new Date(value), 'MMM dd, yyyy')}</span>
+          render: (value,row) => <span>{row.unreconciledEntries?.length}</span>
+
     }
+    
   ]
 
   const handleView = (row: any) => {

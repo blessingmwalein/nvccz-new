@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { setCurrencies, setCurrenciesError, setCurrenciesLoading } from "@/lib/store/slices/currenciesSlice"
 import { Calendar, AlertCircle, Loader2, Play } from "lucide-react"
 import { toast } from "sonner"
+import { fetchCurrencies } from "@/lib/store/slices/accountingSlice"
 
 interface PayrollRunFormProps {
   isOpen: boolean
@@ -40,7 +41,7 @@ export function PayrollRunForm({
 }: PayrollRunFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dispatch = useAppDispatch()
-  const { items: currencies, loading: currenciesLoading } = useAppSelector(state => state.currencies)
+  const { currencies, currenciesLoading: currenciesLoading } = useAppSelector(state => state.accounting)
 
   const {
     control,
@@ -65,6 +66,11 @@ export function PayrollRunForm({
     }
   })
 
+    useEffect(() => {
+      // Load initial data
+      dispatch(fetchCurrencies())
+    }, [dispatch])
+
   // Reset form when editingRun changes
   useEffect(() => {
     if (editingRun) {
@@ -88,33 +94,7 @@ export function PayrollRunForm({
     }
   }, [editingRun, reset])
 
-  // Load currencies once
-  useEffect(() => {
-    const loadCurrencies = async () => {
-      try {
-        dispatch(setCurrenciesLoading(true))
-        dispatch(setCurrenciesError(null))
-        const res = await accountingApi.currencies.getAll()
-        const list = res.data || []
-        dispatch(setCurrencies(list))
-        // set default currency if none selected
-        if (!editingRun) {
-          reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(list) }))
-        }
-      } catch (e: any) {
-        dispatch(setCurrenciesError(e?.message || 'Failed to load currencies'))
-      } finally {
-        dispatch(setCurrenciesLoading(false))
-      }
-    }
-    if (!currencies || currencies.length === 0) {
-      loadCurrencies()
-    } else if (!editingRun) {
-      // ensure default set when items already present
-      reset(prev => ({ ...prev, currencyId: getDefaultCurrencyId(currencies) }))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  
 
   const handleFormSubmit = async (data: PayrollRunFormData) => {
     setIsSubmitting(true)

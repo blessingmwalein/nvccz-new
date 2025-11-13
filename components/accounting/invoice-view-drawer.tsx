@@ -59,11 +59,25 @@ export function InvoiceViewDrawer({
   const [isLoading, setIsLoading] = useState(false)
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(invoice)
   const [isCreateCreditNoteOpen, setIsCreateCreditNoteOpen] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+  const [PDFComponents, setPDFComponents] = useState<any>(null)
 
   // Update current invoice when prop changes
   useEffect(() => {
     setCurrentInvoice(invoice)
   }, [invoice])
+
+  useEffect(() => {
+    setIsClient(true)
+    import("@react-pdf/renderer").then((pdfModule) => {
+      import("./invoice-pdf").then((pdfComponent) => {
+        setPDFComponents({
+          PDFDownloadLink: pdfModule.PDFDownloadLink,
+          InvoicePDF: pdfComponent.default,
+        })
+      })
+    })
+  }, [])
 
   if (!currentInvoice) return null
 
@@ -172,7 +186,7 @@ export function InvoiceViewDrawer({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
           <SheetHeader className="p-6 border-b bg-gradient-to-r from-blue-50 to-blue-100">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-3">
@@ -180,7 +194,7 @@ export function InvoiceViewDrawer({
                   <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <span className="text-xl">Invoice Details</span>
+                  <span className="text-xl">Details</span>
                   <p className="text-sm text-gray-600 font-normal">
                     {currentInvoice.invoiceNumber}
                   </p>
@@ -247,6 +261,25 @@ export function InvoiceViewDrawer({
                     <CreditCard className="w-4 h-4 mr-2" />
                     Create Credit Note
                   </Button>
+                )}
+
+                {isClient && currentInvoice && PDFComponents && (
+                  <PDFComponents.PDFDownloadLink
+                    document={<PDFComponents.InvoicePDF invoice={currentInvoice} />}
+                    fileName={`${currentInvoice.invoiceNumber}.pdf`}
+                  >
+                    {({ loading: pdfLoading }: any) => (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={pdfLoading}
+                      >
+                        <FileText className={`w-4 h-4 mr-1 ${pdfLoading ? "animate-spin" : ""}`} />
+                        {pdfLoading ? "Generating..." : "Download PDF"}
+                      </Button>
+                    )}
+                  </PDFComponents.PDFDownloadLink>
                 )}
               </div>
             </div>

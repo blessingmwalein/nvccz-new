@@ -1,11 +1,11 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Download, AlertTriangle, Clock, User, FileText, List, Search } from "lucide-react"
+import { Download, AlertTriangle, Clock, User, FileText, List, Search, CheckCircle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
@@ -16,79 +16,110 @@ import { BankTransactionMatchesModal } from "./bank-transaction-matches-modal"
 
 const tabs = [
     { id: "info", label: "Info", icon: FileText },
-    { id: "transactions", label: "Bank Transactions", icon: List },
-    { id: "unmatched", label: "Unmatched Transactions", icon: AlertTriangle }
+    { id: "transactions", label: "Unreconciled Entries", icon: List },
+    { id: "summary", label: "Summary", icon: CheckCircle }
 ]
 
-export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }: { isOpen: boolean, onClose: () => void, reconciliation: any }) {
+// Helper function to trim spaces
+const cleanString = (value: any): string => {
+    if (value === null || value === undefined) return "";
+    return String(value).trim();
+}
+
+const cleanNumber = (value: any, defaultValue: number = 0): number => {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? defaultValue : parsed;
+}
+
+export function BankReconciliationViewDrawer({ 
+    isOpen, 
+    onClose, 
+    reconciliation 
+}: { 
+    isOpen: boolean, 
+    onClose: () => void, 
+    reconciliation: any 
+}) {
     const dispatch = useDispatch()
     const { bankTransactionMatches, bankTransactionMatchesLoading } = useSelector((state: any) => state.accounting)
     const [activeTab, setActiveTab] = useState("info")
     const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
     const [matchesModalOpen, setMatchesModalOpen] = useState(false)
 
+    // Reset tab when drawer opens
+    useEffect(() => {
+        if (isOpen) {
+            setActiveTab("info")
+        }
+    }, [isOpen])
+
     if (!reconciliation) return null
 
-    // Columns for bank transactions
+    // Format amount with proper currency
+    const formatAmount = (amount: any) => {
+        const numAmount = cleanNumber(amount)
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+        }).format(numAmount)
+    }
+
+    // Columns for unreconciled entries
     const transactionColumns: Column<any>[] = [
         {
+            key: 'transactionDate',
+            label: 'Date',
+            render: (value) => (
+                <span className="text-sm">
+                    {format(new Date(value), 'MMM dd, yyyy')}
+                </span>
+            )
+        },
+        {
             key: 'description',
             label: 'Description',
             render: (value, row) => (
-                <div>
-                    <span className="font-medium">{value}</span>
-                    <div className="text-xs text-gray-500">{row.reference}</div>
+                <div className="max-w-xs">
+                    <span className="font-medium text-sm">{cleanString(value)}</span>
+                    <div className="text-xs text-gray-500 mt-1">
+                        Ref: {cleanString(row.reference)}
+                    </div>
                 </div>
+            )
+        },
+        {
+            key: 'type',
+            label: 'Type',
+            render: (value) => (
+                <Badge className={cn(
+                    "text-xs",
+                    value === 'RECEIPT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                )}>
+                    {value}
+                </Badge>
+            )
+        },
+        {
+            key: 'counterpartyType',
+            label: 'Counterparty',
+            render: (value) => (
+                <Badge variant="outline" className="text-xs">
+                    {cleanString(value)}
+                </Badge>
             )
         },
         {
             key: 'amount',
             label: 'Amount',
-            render: (value) => <span className="font-bold text-green-600">{value}</span>
-        },
-        {
-            key: 'transactionDate',
-            label: 'Date',
-            render: (value) => <span>{format(new Date(value), 'MMM dd, yyyy')}</span>
-        },
-        {
-            key: 'isMatched',
-            label: 'Matched',
-            render: (value) => value ? <Badge className="bg-green-100 text-green-800">Matched</Badge> : <Badge className="bg-yellow-100 text-yellow-800">Unmatched</Badge>
-        },
-        {
-            key: 'confidenceScore',
-            label: 'Confidence',
-            render: (value) => value ? `${value}%` : '—'
-        }
-    ]
-
-    // Columns for unmatched transactions
-    const unmatchedColumns: Column<any>[] = [
-        {
-            key: 'description',
-            label: 'Description',
             render: (value, row) => (
-                <div>
-                    <span className="font-medium">{value}</span>
-                    <div className="text-xs text-gray-500">{row.reference}</div>
-                </div>
+                <span className={cn(
+                    "font-bold text-sm",
+                    row.type === 'RECEIPT' ? 'text-green-600' : 'text-red-600'
+                )}>
+                    {row.type === 'RECEIPT' ? '+' : '-'}{formatAmount(value)}
+                </span>
             )
-        },
-        {
-            key: 'amount',
-            label: 'Amount',
-            render: (value) => <span className="font-bold text-red-600">{value}</span>
-        },
-        {
-            key: 'transactionDate',
-            label: 'Date',
-            render: (value) => <span>{format(new Date(value), 'MMM dd, yyyy')}</span>
-        },
-        {
-            key: 'confidenceScore',
-            label: 'Confidence',
-            render: (value) => value ? `${value}%` : '—'
         }
     ]
 
@@ -99,22 +130,45 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
         dispatch(fetchBankTransactionMatches(transaction.id))
     }
 
+    // Calculate totals
+    const totalReceipts = reconciliation.unreconciledEntries
+        ?.filter((t: any) => t.type === 'RECEIPT')
+        .reduce((sum: number, t: any) => sum + cleanNumber(t.amount), 0) || 0
+
+    const totalPayments = reconciliation.unreconciledEntries
+        ?.filter((t: any) => t.type === 'PAYMENT')
+        .reduce((sum: number, t: any) => sum + cleanNumber(t.amount), 0) || 0
+
+    const netAmount = totalReceipts - totalPayments
+
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
             <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
                 <SheetHeader>
                     <SheetTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Download className="w-6 h-6" />
-                            <span className="truncate max-w-[220px]" title={reconciliation.fileName}>{reconciliation.fileName}</span>
+                            <Download className="w-6 h-6 text-blue-600" />
+                            <div>
+                                <div className="text-lg font-semibold" title={cleanString(reconciliation.bankName)}>
+                                    {cleanString(reconciliation.bankName)}
+                                </div>
+                                <div className="text-xs text-gray-500 font-normal">
+                                    {cleanString(reconciliation.accountNumber)}
+                                </div>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <Badge className={cn(
-                                reconciliation.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                    reconciliation.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                                        'bg-yellow-100 text-yellow-800'
+                                "text-xs",
+                                reconciliation.isReconciled 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-yellow-100 text-yellow-800'
                             )}>
-                                {reconciliation.status}
+                                {reconciliation.isReconciled ? (
+                                    <><CheckCircle className="w-3 h-3 mr-1" />Reconciled</>
+                                ) : (
+                                    <><Clock className="w-3 h-3 mr-1" />Pending</>
+                                )}
                             </Badge>
                         </div>
                     </SheetTitle>
@@ -125,20 +179,21 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
                     <Button
                         className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-sm"
                         size="sm"
-                        onClick={() => toast.info("Download not implemented")}
+                        onClick={() => toast.info("Download statement feature coming soon")}
                     >
                         <Download className="w-4 h-4 mr-2" />
-                        Download Statement
+                        Export
                     </Button>
-                    <Button
-                        variant="outline"
-                        className="rounded-full shadow-sm"
-                        size="sm"
-                        onClick={() => toast.info("Delete not implemented")}
-                    >
-                        <AlertTriangle className="w-4 h-4 mr-2" />
-                        Reject
-                    </Button>
+                    {/* {!reconciliation.isReconciled && (
+                        <Button
+                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-sm"
+                            size="sm"
+                            onClick={() => toast.success("Reconciliation feature coming soon")}
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Reconcile All
+                        </Button>
+                    )} */}
                 </div>
 
                 {/* Tab Navigation */}
@@ -154,12 +209,17 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
                                     className={cn(
                                         "flex items-center gap-2 px-4 py-2 text-sm transition-all",
                                         isActive
-                                            ? "text-blue-600 border-b-2 border-blue-600"
+                                            ? "text-blue-600 border-b-2 border-blue-600 font-medium"
                                             : "text-gray-600 border-b-2 border-transparent hover:text-gray-900"
                                     )}
                                 >
                                     <Icon className="w-4 h-4" />
                                     {tab.label}
+                                    {tab.id === "transactions" && reconciliation.pendingTransactions > 0 && (
+                                        <Badge className="ml-1 bg-red-100 text-red-800 text-xs">
+                                            {reconciliation.pendingTransactions}
+                                        </Badge>
+                                    )}
                                 </button>
                             )
                         })}
@@ -169,79 +229,216 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
                 {/* Tab Content */}
                 <div className="mt-6 space-y-6">
                     {activeTab === "info" && (
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle>Reconciliation Info</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="text-gray-900">File Name</h4>
-                                        <p className="font-mono text-blue-600 truncate max-w-[220px]" title={reconciliation.fileName}>{reconciliation.fileName}</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Created By</h4>
-                                        <div className="flex items-center gap-2">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white text-xs">
-                                                    {reconciliation.createdBy.firstName.charAt(0)}{reconciliation.createdBy.lastName.charAt(0)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <span>{reconciliation.createdBy.firstName} {reconciliation.createdBy.lastName}</span>
+                        <div className="space-y-4">
+                            {/* Bank Account Info */}
+                            <Card className="shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-base">Bank Account Information</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-500 mb-1">Bank Name</h4>
+                                            <p className="text-sm font-semibold text-gray-900">
+                                                {cleanString(reconciliation.bankName)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-500 mb-1">Account Number</h4>
+                                            <p className="text-sm font-mono text-blue-600">
+                                                {cleanString(reconciliation.accountNumber)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-500 mb-1">Bank ID</h4>
+                                            <p className="text-xs font-mono text-gray-600 truncate" title={reconciliation.bankId}>
+                                                {cleanString(reconciliation.bankId)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-500 mb-1">Status</h4>
+                                            <Badge className={cn(
+                                                reconciliation.isReconciled 
+                                                    ? 'bg-green-100 text-green-800' 
+                                                    : 'bg-yellow-100 text-yellow-800'
+                                            )}>
+                                                {reconciliation.isReconciled ? 'Reconciled' : 'Pending'}
+                                            </Badge>
                                         </div>
                                     </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Status</h4>
-                                        <Badge>{reconciliation.status}</Badge>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Created At</h4>
-                                        <p>{format(new Date(reconciliation.createdAt), 'MMM dd, yyyy')}</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Total Transactions</h4>
-                                        <p>{reconciliation.totalTransactions}</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Matched</h4>
-                                        <p>{reconciliation.matchedCount}</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Unmatched</h4>
-                                        <p>{reconciliation.unmatchedCount}</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-gray-900">Accuracy</h4>
-                                        <p>{reconciliation.overallAccuracy ? `${reconciliation.overallAccuracy}%` : '—'}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+
+                            {/* Statistics Cards */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <Card className="shadow-sm">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs text-gray-500">Pending</p>
+                                                <p className="text-2xl font-bold text-yellow-600">
+                                                    {reconciliation.pendingTransactions || 0}
+                                                </p>
+                                            </div>
+                                            <Clock className="w-8 h-8 text-yellow-500 opacity-20" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="shadow-sm">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs text-gray-500">Matched</p>
+                                                <p className="text-2xl font-bold text-green-600">
+                                                    {reconciliation.matchedTransactions || 0}
+                                                </p>
+                                            </div>
+                                            <CheckCircle className="w-8 h-8 text-green-500 opacity-20" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="shadow-sm">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs text-gray-500">Discrepancies</p>
+                                                <p className="text-2xl font-bold text-red-600">
+                                                    {reconciliation.discrepancies || 0}
+                                                </p>
+                                            </div>
+                                            <XCircle className="w-8 h-8 text-red-500 opacity-20" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
                     )}
 
                     {activeTab === "transactions" && (
                         <ProcurementDataTable
-                            data={reconciliation.bankTransactions || []}
+                            data={reconciliation.unreconciledEntries || []}
                             columns={transactionColumns}
-                            title="Bank Transactions"
+                            title="Unreconciled Entries"
                             loading={false}
                             showSearch={true}
                             showFilters={false}
-                            emptyMessage="No transactions found."
+                            emptyMessage="No unreconciled transactions found. All transactions are matched!"
                             onView={handleTransactionClick}
                         />
                     )}
 
-                    {activeTab === "unmatched" && (
-                        <ProcurementDataTable
-                            data={(reconciliation.bankTransactions || []).filter((t: any) => !t.isMatched)}
-                            columns={unmatchedColumns}
-                            title="Unmatched Transactions"
-                            loading={false}
-                            showSearch={true}
-                            showFilters={false}
-                            emptyMessage="No unmatched transactions found."
-                        />
+                    {activeTab === "summary" && (
+                        <div className="space-y-4">
+                            {/* Summary Card */}
+                            <Card className="shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-base">Reconciliation Summary</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center py-2 border-b">
+                                            <span className="text-sm text-gray-600">Total Receipts</span>
+                                            <span className="text-sm font-bold text-green-600">
+                                                {formatAmount(totalReceipts)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 border-b">
+                                            <span className="text-sm text-gray-600">Total Payments</span>
+                                            <span className="text-sm font-bold text-red-600">
+                                                {formatAmount(totalPayments)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 border-b">
+                                            <span className="text-sm font-medium text-gray-900">Net Amount</span>
+                                            <span className={cn(
+                                                "text-lg font-bold",
+                                                netAmount >= 0 ? "text-green-600" : "text-red-600"
+                                            )}>
+                                                {formatAmount(netAmount)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2">
+                                            <span className="text-sm text-gray-600">Unreconciled Entries</span>
+                                            <span className="text-sm font-bold text-yellow-600">
+                                                {reconciliation.unreconciledEntries?.length || 0}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Breakdown by Type */}
+                            <Card className="shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-base">Transaction Breakdown</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3">
+                                        {['RECEIPT', 'PAYMENT'].map(type => {
+                                            const entries = reconciliation.unreconciledEntries?.filter(
+                                                (t: any) => t.type === type
+                                            ) || []
+                                            const total = entries.reduce(
+                                                (sum: number, t: any) => sum + cleanNumber(t.amount), 
+                                                0
+                                            )
+                                            return (
+                                                <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge className={cn(
+                                                            type === 'RECEIPT' 
+                                                                ? 'bg-green-100 text-green-800' 
+                                                                : 'bg-red-100 text-red-800'
+                                                        )}>
+                                                            {type}
+                                                        </Badge>
+                                                        <span className="text-sm text-gray-600">
+                                                            {entries.length} transaction{entries.length !== 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                    <span className={cn(
+                                                        "text-sm font-bold",
+                                                        type === 'RECEIPT' ? 'text-green-600' : 'text-red-600'
+                                                    )}>
+                                                        {formatAmount(total)}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Counterparty Breakdown */}
+                            <Card className="shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-base">Counterparty Breakdown</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2">
+                                        {Array.from(new Set(
+                                            reconciliation.unreconciledEntries?.map((t: any) => t.counterpartyType) || []
+                                        )).map((counterparty: any) => {
+                                            const entries = reconciliation.unreconciledEntries?.filter(
+                                                (t: any) => t.counterpartyType === counterparty
+                                            ) || []
+                                            return (
+                                                <div key={counterparty} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {cleanString(counterparty)}
+                                                    </Badge>
+                                                    <span className="text-xs text-gray-600">
+                                                        {entries.length} transaction{entries.length !== 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     )}
                 </div>
 
@@ -256,7 +453,7 @@ export function BankReconciliationViewDrawer({ isOpen, onClose, reconciliation }
                     transaction={selectedTransaction}
                     matches={bankTransactionMatches}
                     loading={bankTransactionMatchesLoading}
-                    reconciliationId={reconciliation?.id || ""} // <-- Pass reconciliationId here
+                    reconciliationId={reconciliation?.bankId || ""}
                 />
             </SheetContent>
         </Sheet>

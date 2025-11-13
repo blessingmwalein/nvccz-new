@@ -411,9 +411,16 @@ export function InvoicesManagement() {
             <span className="font-medium truncate block" title={value}>
               {value}
             </span>
-            <p className="text-xs text-gray-500 truncate" title={row.description}>
-              {row.description}
-            </p>
+            {/* <p
+              className="text-xs text-gray-500 truncate"
+              title={row.description || "No description"}
+            >
+              {row.description
+                ? row.description.length > 80
+                  ? `${row.description.slice(0, 80)}…`
+                  : row.description
+                : "No description"}
+            </p> */}
           </div>
         </div>
       )
@@ -823,7 +830,7 @@ export function InvoicesManagement() {
             </div>
 
             {/* Invoice Tab Navigation */}
-            <Card>
+            <div>
               <CardHeader className="pb-0">
                 <div className="flex items-center overflow-x-auto border-b">
                   <div className="flex space-x-1 min-w-max">
@@ -1040,7 +1047,7 @@ export function InvoicesManagement() {
                   emptyMessage="No invoices found. Create your first invoice to get started."
                 />
               </CardContent>
-            </Card>
+            </div>
           </>
         )}
 

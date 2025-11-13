@@ -58,11 +58,26 @@ const initialState: InvoicesState = {
 }
 
 // Async thunks
+// export const fetchInvoices = createAsyncThunk(
+//   'invoices/fetchInvoices',
+//   async (filters?: Partial<InvoicesState['filters']>) => {
+//     const response = await accountingApi.getInvoices(filters || {})
+//     return response.data
+//   }
+// )
+
 export const fetchInvoices = createAsyncThunk(
   'invoices/fetchInvoices',
-  async (filters?: Partial<InvoicesState['filters']>) => {
-    const response = await accountingApi.getInvoices(filters || {})
-    return response.data
+  async (filters?: Partial<InvoicesState['filters']>, { rejectWithValue }) => {
+    try {
+      const response = await accountingApi.getInvoices(filters || {})
+      return {
+        invoices: response.data.invoices,
+        filters: filters || {} // Return filters along with data
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message)
+    }
   }
 )
 
@@ -183,7 +198,11 @@ const invoicesSlice = createSlice({
       .addCase(fetchInvoices.fulfilled, (state, action) => {
         state.loading = false
         state.invoices = action.payload.invoices || []
-        invoicesSlice.caseReducers.calculateStats(state)
+
+        const receivedFilters = action.payload.filters
+        if (receivedFilters.status === undefined || receivedFilters.status === null) {
+          invoicesSlice.caseReducers.calculateStats(state)
+        }
       })
       .addCase(fetchInvoices.rejected, (state, action) => {
         state.loading = false

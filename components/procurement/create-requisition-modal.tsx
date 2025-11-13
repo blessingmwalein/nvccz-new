@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,9 @@ import { toast } from "sonner"
 import { procurementApi, CreateRequisitionRequest, PurchaseRequisition } from "@/lib/api/procurement-api"
 import { departmentApiService, Department } from "@/lib/api/department-api"
 import { accountingApi, Currency } from "@/lib/api/accounting-api"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { fetchAvailableDepartments } from "@/lib/store/slices/performanceSlice"
+import { fetchCurrencies } from "@/lib/store/slices/accountingSlice"
 
 interface CreateRequisitionModalProps {
   isOpen: boolean
@@ -37,9 +40,14 @@ interface RequisitionItem {
 export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = false, requisitionId }: CreateRequisitionModalProps) {
   const [loading, setLoading] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
-  const [currencies, setCurrencies] = useState<Currency[]>([])
+  // const [currencies, setCurrencies] = useState<Currency[]>([])
   const [loadingData, setLoadingData] = useState(false)
-  
+  const { availableDepartments, loading: perfomanceLoading, error } = useAppSelector((state) => state.performance)
+  const dispatch = useAppDispatch()
+  const hasLoadedRef = useRef(false)
+  const { currencies, currenciesLoading: currenciesLoading } = useAppSelector(state => state.accounting)
+
+
   const [formData, setFormData] = useState<CreateRequisitionRequest>({
     title: '',
     description: '',
@@ -66,25 +74,8 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
   const loadInitialData = async () => {
     try {
       setLoadingData(true)
-      
-      // Load departments
-      const deptResponse = await departmentApiService.getDepartments({ isActive: true })
-      if (deptResponse.success && deptResponse.departments) {
-        setDepartments(deptResponse.departments)
-      }
 
-      // Load currencies
-      const currResponse = await accountingApi.currencies.getAll()
-      if (currResponse.success && currResponse.data) {
-        setCurrencies(currResponse.data)
-        // Set default currency only in create mode
-        if (!editMode) {
-          const defaultCurrency = currResponse.data.find(c => c.isDefault) || currResponse.data[0]
-          if (defaultCurrency) {
-            setFormData(prev => ({ ...prev, currencyId: defaultCurrency.id }))
-          }
-        }
-      }
+    
 
       // Load existing requisition data in edit mode
       if (editMode && requisitionId) {
@@ -117,6 +108,40 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
     }
   }
 
+  const loadDepartments = (forceReload = false) => {
+    // Prevent duplicate calls
+    if ((hasLoadedRef.current || loading) && !forceReload) {
+      console.log('Skipping duplicate load request')
+      return
+    }
+
+    console.log('Loading available departments...')
+    hasLoadedRef.current = true
+
+    dispatch(fetchAvailableDepartments())
+      .unwrap()
+      .then(() => {
+        // toast.success("Departments loaded successfully")
+      })
+      .catch((error) => {
+        console.error('Failed to load departments:', error)
+        toast.error("Failed to load departments")
+        hasLoadedRef.current = false // Reset on error to allow retry
+      })
+  }
+
+   useEffect(() => {
+        // Load initial data
+        dispatch(fetchCurrencies())
+      }, [dispatch])
+
+  useEffect(() => {
+    // Only load once on mount
+    if (!hasLoadedRef.current) {
+      loadDepartments()
+    }
+  }, [])
+
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
@@ -142,7 +167,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
   const updateItem = (index: number, field: keyof RequisitionItem, value: any) => {
     setFormData(prev => ({
       ...prev,
-      items: prev.items.map((item, i) => 
+      items: prev.items.map((item, i) =>
         i === index ? { ...item, [field]: value } : item
       )
     }))
@@ -204,7 +229,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
       }
       onSuccess?.()
       onClose()
-      
+
       // Reset form
       setFormData({
         title: '',
@@ -269,9 +294,9 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="priority">Priority</Label>
-                    <Select 
-                      value={formData.priority} 
-                      onValueChange={(value: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT') => 
+                    <Select
+                      value={formData.priority}
+                      onValueChange={(value: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT') =>
                         setFormData(prev => ({ ...prev, priority: value }))
                       }
                     >
@@ -317,8 +342,8 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="departmentId">Department *</Label>
-                    <Select 
-                      value={formData.departmentId} 
+                    <Select
+                      value={formData.departmentId}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, departmentId: value }))}
                       disabled={loadingData}
                     >
@@ -326,7 +351,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                         <SelectValue placeholder={loadingData ? "Loading departments..." : "Select department"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {departments.map((dept) => (
+                        {availableDepartments.map((dept) => (
                           <SelectItem key={dept.id} value={dept.id}>
                             <div className="flex items-center gap-2">
                               <Building2 className="w-4 h-4" />
@@ -339,8 +364,8 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currencyId">Currency *</Label>
-                    <Select 
-                      value={formData.currencyId} 
+                    <Select
+                      value={formData.currencyId}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, currencyId: value }))}
                       disabled={loadingData}
                     >
@@ -406,7 +431,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                 Add Item
               </Button>
             </div>
-            
+
             <Card className="border-l-4 border-l-amber-500">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-normal flex items-center gap-2">
@@ -431,7 +456,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                         </Button>
                       )}
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label>Item Name *</Label>
@@ -454,8 +479,8 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                       </div>
                       <div className="space-y-2">
                         <Label>Unit</Label>
-                        <Select 
-                          value={item.unit} 
+                        <Select
+                          value={item.unit}
                           onValueChange={(value) => updateItem(index, 'unit', value)}
                         >
                           <SelectTrigger className="rounded-lg">
@@ -485,7 +510,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                         />
                       </div>
                     </div>
-                    
+
                     <div className="mt-4 space-y-2">
                       <Label>Description</Label>
                       <Textarea
@@ -496,7 +521,7 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                         className="rounded-lg"
                       />
                     </div>
-                    
+
                     <div className="mt-4 flex justify-end">
                       <div className="text-right">
                         <Label className="text-sm text-gray-500">Item Total</Label>
@@ -507,9 +532,9 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
                     </div>
                   </div>
                 ))}
-                
+
                 <Separator />
-                
+
                 <div className="flex justify-end">
                   <div className="text-right">
                     <Label className="text-base text-gray-700">Grand Total</Label>
@@ -527,9 +552,9 @@ export function CreateRequisitionModal({ isOpen, onClose, onSuccess, editMode = 
           <Button variant="outline" onClick={onClose} disabled={loading} className="rounded-full">
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={loading} 
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full"
           >
             {loading ? (editMode ? 'Updating...' : 'Creating...') : (editMode ? 'Update Requisition' : 'Create Requisition')}

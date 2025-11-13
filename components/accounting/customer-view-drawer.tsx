@@ -17,7 +17,11 @@ import {
   Building2,
   CreditCard,
   Calendar,
-  DollarSign
+  DollarSign,
+  X,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Receipt
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -25,6 +29,7 @@ import { toast } from "sonner"
 import type { Customer, CreditNote } from "@/lib/api/accounting-api"
 import { accountingApi } from "@/lib/api/accounting-api"
 import { ProcurementDataTable, Column } from "../procurement/procurement-data-table"
+import { Button } from "@/components/ui/button"
 
 interface CustomerViewDrawerProps {
   isOpen: boolean
@@ -35,6 +40,7 @@ interface CustomerViewDrawerProps {
 
 const customerTabs = [
   { id: "overview", label: "Customer Info", icon: User },
+  { id: "transactions", label: "Transactions", icon: Receipt },
   { id: "credit-notes", label: "Credit Notes", icon: CreditCard }
 ]
 
@@ -71,6 +77,10 @@ export function CustomerViewDrawer({ isOpen, onClose, customer, onCustomerUpdate
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'POSTED':
+        return 'bg-green-100 text-green-800'
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-800'
       case 'APPLIED':
         return 'bg-green-100 text-green-800'
       case 'SENT':
@@ -79,10 +89,140 @@ export function CustomerViewDrawer({ isOpen, onClose, customer, onCustomerUpdate
         return 'bg-gray-100 text-gray-800'
       case 'VOID':
         return 'bg-red-100 text-red-800'
+      case 'PAID':
+        return 'bg-blue-100 text-blue-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
   }
+
+  const getSourceColor = (source: string) => {
+    switch (source) {
+      case 'CASHBOOK':
+        return 'bg-blue-100 text-blue-800'
+      case 'INVOICE':
+        return 'bg-purple-100 text-purple-800'
+      case 'CREDIT_NOTE':
+        return 'bg-orange-100 text-orange-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const transactionColumns: Column<any>[] = [
+    {
+      key: 'reference',
+      label: 'Reference',
+      sortable: true,
+      render: (value, row) => (
+        <div className="space-y-1">
+          <div className="font-medium text-blue-600">{value}</div>
+          <div className="text-xs text-gray-500">
+            {row.type === 'INVOICE' ? 'Invoice' : row.type}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      sortable: true,
+      render: (value) => (
+        <div className="max-w-xs truncate" title={value}>
+          {value}
+        </div>
+      )
+    },
+    {
+      key: 'source',
+      label: 'Source',
+      sortable: true,
+      render: (value) => (
+        <Badge className={getSourceColor(value)}>
+          {value}
+        </Badge>
+      )
+    },
+    {
+      key: 'amount',
+      label: 'Amount',
+      sortable: true,
+      render: (value, row) => (
+        <div className="text-right space-y-1">
+          <div className={cn(
+            "font-bold flex items-center justify-end gap-1",
+            row.direction === 'IN' ? 'text-green-600' : 'text-red-600'
+          )}>
+            {row.direction === 'IN' ? (
+              <ArrowDownLeft className="w-3 h-3" />
+            ) : (
+              <ArrowUpRight className="w-3 h-3" />
+            )}
+            ${Math.abs(value).toLocaleString()}
+          </div>
+          {row.balance !== undefined && (
+            <div className="text-xs text-gray-500">
+              Balance: ${row.balance.toLocaleString()}
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'bank',
+      label: 'Bank Account',
+      sortable: false,
+      render: (value) => (
+        value ? (
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">{value.name}</div>
+            <div className="text-xs text-gray-500">{value.accountNumber}</div>
+          </div>
+        ) : (
+          <span className="text-gray-400">-</span>
+        )
+      )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (value) => (
+        <Badge className={getStatusColor(value)}>
+          {value}
+        </Badge>
+      )
+    },
+    {
+      key: 'date',
+      label: 'Date',
+      sortable: true,
+      render: (value) => (
+        <span className="text-sm text-gray-600">
+          {format(new Date(value), "PPP")}
+        </span>
+      )
+    },
+    {
+      key: 'journalEntry',
+      label: 'Journal',
+      sortable: false,
+      render: (value) => (
+        value ? (
+          <div className="space-y-0.5">
+            <div className="text-xs font-medium text-blue-600">
+              {value.referenceNumber}
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {value.status}
+            </Badge>
+          </div>
+        ) : (
+          <span className="text-gray-400 text-xs">No Journal</span>
+        )
+      )
+    }
+  ]
 
   const creditNoteColumns: Column<CreditNote>[] = [
     {
@@ -143,14 +283,24 @@ export function CustomerViewDrawer({ isOpen, onClose, customer, onCustomerUpdate
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[500px] sm:max-w-[500px] overflow-y-auto">
+      <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
-            </div>
-            {customer.name}
-          </SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              {customer.name}
+            </SheetTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="rounded-full h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </SheetHeader>
 
         {/* Tab Navigation */}
@@ -183,83 +333,54 @@ export function CustomerViewDrawer({ isOpen, onClose, customer, onCustomerUpdate
         <div className="mt-6 space-y-6">
           {activeTab === "overview" && (
             <>
-              {/* Basic Information */}
+              {/* Customer Information */}
               <Card className="shadow-sm">
                 <CardHeader>
-                  <CardTitle>Contact Information</CardTitle>
+                  <CardTitle>Customer Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    {customer.contactPerson && (
-                      <div className="flex items-center gap-3">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <div>
-                          <p className="text-xs text-gray-500">Contact Person</p>
-                          <p className="font-medium">{customer.contactPerson}</p>
-                        </div>
-                      </div>
-                    )}
-                    
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="flex items-center gap-3">
-                      <Mail className="w-4 h-4 text-gray-400" />
+                      <Mail className="w-4 h-4 text-gray-500" />
                       <div>
-                        <p className="text-xs text-gray-500">Email</p>
-                        <p className="font-medium">{customer.email}</p>
+                        <h4 className="text-gray-900 font-medium text-sm">Email</h4>
+                        <p className="text-sm">{customer.email || 'N/A'}</p>
                       </div>
                     </div>
-
-                    {customer.phone && (
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <div>
-                          <p className="text-xs text-gray-500">Phone</p>
-                          <p className="font-medium">{customer.phone}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {customer.address && (
-                      <div className="flex items-start gap-3">
-                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Address</p>
-                          <p className="font-medium leading-relaxed">{customer.address}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Business Information */}
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle>Business Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    {customer.taxNumber && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 text-gray-500" />
                       <div>
-                        <p className="text-xs text-gray-500">Tax Number</p>
-                        <p className="font-medium">{customer.taxNumber}</p>
+                        <h4 className="text-gray-900 font-medium text-sm">Phone</h4>
+                        <p className="text-sm">{customer.phone || 'N/A'}</p>
                       </div>
-                    )}
-                    
-                    <div>
-                      <p className="text-xs text-gray-500">Payment Terms</p>
-                      <Badge variant="outline">{customer.paymentTerms}</Badge>
                     </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Status</p>
-                      <Badge className={customer.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                        {customer.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <h4 className="text-gray-900 font-medium text-sm">Address</h4>
+                        <p className="text-sm">{customer.address || 'N/A'}</p>
+                      </div>
                     </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Created Date</p>
-                      <p className="font-medium">{format(new Date(customer.createdAt), 'PPP')}</p>
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <h4 className="text-gray-900 font-medium text-sm">Type</h4>
+                        <Badge>{customer.type}</Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <h4 className="text-gray-900 font-medium text-sm">Balance</h4>
+                        <p className="text-sm font-bold">${customer.balance?.toLocaleString() || '0'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <h4 className="text-gray-900 font-medium text-sm">Created</h4>
+                        <p className="text-sm">{format(new Date(customer.createdAt), "PPP")}</p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -267,24 +388,26 @@ export function CustomerViewDrawer({ isOpen, onClose, customer, onCustomerUpdate
             </>
           )}
 
+          {activeTab === "transactions" && (
+            <ProcurementDataTable
+              data={customer.transactions || []}
+              columns={transactionColumns}
+              title=""
+              searchPlaceholder="Search transactions..."
+              loading={false}
+              emptyMessage="No transactions found."
+            />
+          )}
+
           {activeTab === "credit-notes" && (
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>Customer Credit Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ProcurementDataTable
-                  data={creditNotes}
-                  columns={creditNoteColumns}
-                  title=""
-                  loading={creditNotesLoading}
-                  showSearch={false}
-                  showFilters={false}
-                  showActions={false}
-                  emptyMessage="No credit notes found for this customer."
-                />
-              </CardContent>
-            </Card>
+            <ProcurementDataTable
+              data={creditNotes}
+              columns={creditNoteColumns}
+              title=""
+              searchPlaceholder="Search credit notes..."
+              loading={creditNotesLoading}
+              emptyMessage="No credit notes found."
+            />
           )}
         </div>
       </SheetContent>

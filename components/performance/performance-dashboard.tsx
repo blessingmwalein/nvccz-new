@@ -223,7 +223,7 @@ export function PerformanceDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl">{(overallProgress * 100).toFixed(1)}%</div>
+            <div className="text-4xl">{(overallProgress).toFixed(2)}%</div>
             <p className="text-xs text-muted-foreground">Average performance</p>
           </CardContent>
         </Card>

@@ -299,6 +299,16 @@ export function ProcessCashbookModal({
       const csv = generateCSV(data.entries)
       const timestamp = Date.now()
       const file = new File([csv], `batch-cashbook-${timestamp}.csv`, { type: "text/csv" })
+
+      //download CSV for debugging
+      const url = URL.createObjectURL(file)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = file.name
+      a.click()
+      URL.revokeObjectURL(url)
+
+
       try {
         const res = await cashbookApi.createCashbookBatchImport(file)
         if (res.success) {
@@ -336,6 +346,7 @@ export function ProcessCashbookModal({
     setSaving(false)
   }
 
+
   // Helper to generate CSV from entries (with headers matching table columns)
   const generateCSV = (entries: any[]) => {
     const headers = ["bankId", "transactionDate", "description", "amount", "reference", "counterpartyType", "customerId", "vendorId", "glAccountId", "vatCode", "projectCode", "discount"]
@@ -345,7 +356,7 @@ export function ProcessCashbookModal({
       else if (entry.gcs === "V") counterpartyType = "VENDOR"
       else counterpartyType = "GL"
       return [
-        selectedBank?.id || "",
+        trimSpaces(selectedBank?.id),
         format(new Date(entry.date), "yyyy-MM-dd"),
         entry.description,
         parseFloat(entry.bankAmount),
@@ -365,6 +376,10 @@ export function ProcessCashbookModal({
       return `"${cell}"`
     }).join(",")).join("\n")
   }
+
+  const trimSpaces = (value: any): string => {
+    return value?.toString().trim() || "";
+  };
 
 
   const formatCurrency = (amount: number) => {

@@ -1639,7 +1639,7 @@ const accountingSlice = createSlice({
       })
       .addCase(fetchBankReconciliations.fulfilled, (state, action) => {
         state.bankReconciliationLoading = false
-        state.bankReconciliations = action.payload.reconciliations || []
+        state.bankReconciliations = action.payload.banks || []
       })
       .addCase(fetchBankReconciliations.rejected, (state, action) => {
         state.bankReconciliationLoading = false

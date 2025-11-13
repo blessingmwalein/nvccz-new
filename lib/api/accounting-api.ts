@@ -874,7 +874,12 @@ export interface CashbookBalanceCheckReport {
   status: CashbookBalanceCheckStatus
   summary: CashbookBalanceCheckSummary
 }
-
+export interface JournalEntryFilters {
+  search?: string
+  status?: 'PENDING' | 'POSTED' | 'VOID'
+  page?: number
+  limit?: number
+}
 // --- ACCOUNTING API ---
 class AccountingApiService {
   // Currencies
@@ -920,8 +925,32 @@ class AccountingApiService {
   }
 
   // Journal Entries
-  async getJournalEntries(): Promise<AccountingResponse<JournalEntry[]>> {
-    return apiClient.get<AccountingResponse<JournalEntry[]>>('/accounting/journal-entries')
+  async getJournalEntries(filters?: JournalEntryFilters): Promise<AccountingResponse<JournalEntry[]>> {
+    // Build query params
+    const params = new URLSearchParams()
+
+    if (filters?.search) {
+      params.append('search', filters.search.trim())
+    }
+
+    if (filters?.status) {
+      params.append('status', filters.status)
+    }
+
+    if (filters?.page) {
+      params.append('page', filters.page.toString())
+    }
+
+    if (filters?.limit) {
+      params.append('limit', filters.limit.toString())
+    }
+
+    const queryString = params.toString()
+    const url = queryString
+      ? `/accounting/journal-entries?${queryString}`
+      : '/accounting/journal-entries'
+
+    return apiClient.get<AccountingResponse<JournalEntry[]>>(url)
   }
 
   async getJournalEntryById(id: string): Promise<AccountingResponse<JournalEntry>> {
@@ -1384,8 +1413,8 @@ class AccountingApiService {
   }
 
   // Bank Reconciliation CRUD
-  async getBankReconciliations(): Promise<AccountingResponse<{ reconciliations: BankReconciliation[], total: number }>> {
-    return apiClient.get<AccountingResponse<{ reconciliations: BankReconciliation[], total: number }>>('/accounting/bank-reconciliation')
+  async getBankReconciliations(): Promise<any> {
+    return apiClient.get<any>('/accounting/bank-reconciliation')
   }
   async getBankReconciliation(id: string): Promise<AccountingResponse<BankReconciliation>> {
     return apiClient.get<AccountingResponse<BankReconciliation>>(`/accounting/bank-reconciliation/${id}`)

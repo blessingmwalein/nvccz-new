@@ -30,14 +30,14 @@ export function ProcurementDrawer({
     sm: "max-w-[50%]",
     md: "max-w-[50%]", 
     lg: "max-w-[50%]",
-    xl: "max-w-[50%]"
+    xl: "max-w-[80%]"
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
         side="right" 
-        className={`!${sizeClasses[size]} overflow-y-auto [&>button]:hidden`}
+        className={`W-[50vw] min-w-[1000px] max-w-[1600px] overflow-y-auto`}
       >
         <SheetHeader className="space-y-3">
           <div className="flex items-start justify-between">
@@ -53,7 +53,7 @@ export function ProcurementDrawer({
             </div>
             <div className="flex items-center gap-2 ml-4">
               {headerActions}
-              {showCloseButton && (
+              {/* {showCloseButton && ( */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -63,7 +63,7 @@ export function ProcurementDrawer({
                   <X className="h-4 w-4" />
                   <span className="sr-only">Close</span>
                 </Button>
-              )}
+              {/* )} */}
             </div>
           </div>
         </SheetHeader>
