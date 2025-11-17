@@ -7,17 +7,15 @@ export const exportTrialBalanceToCSV = (data: TrialBalanceData) => {
     'Account Name',
     'Account Type',
     'Debit Balance',
-    'Credit Balance',
-    'Net Balance'
+    'Credit Balance'
   ]
 
   const rows = data.accounts.map(account => [
     account.accountNo,
     `"${account.accountName}"`, // Quote account names to handle commas
     account.accountType,
-    account.debitBalance > 0 ? account.debitBalance.toFixed(2) : '0.00',
-    account.creditBalance > 0 ? account.creditBalance.toFixed(2) : '0.00',
-    account.netBalance.toFixed(2)
+    (account.debitBalance || 0).toFixed(2),
+    (account.creditBalance || 0).toFixed(2)
   ])
 
   // Add totals row
@@ -26,8 +24,7 @@ export const exportTrialBalanceToCSV = (data: TrialBalanceData) => {
     '',
     'TOTALS',
     data.totals.totalDebits.toFixed(2),
-    data.totals.totalCredits.toFixed(2),
-    data.totals.isBalanced ? 'BALANCED' : 'UNBALANCED'
+    data.totals.totalCredits.toFixed(2)
   ])
 
   const csvContent = [
@@ -150,13 +147,8 @@ export const exportTrialBalanceToPDF = async (data: TrialBalanceData) => {
           color: #dc2626;
           font-weight: bold;
         }
-        .net-positive {
-          color: #16a34a;
-          font-weight: bold;
-        }
-        .net-negative {
-          color: #dc2626;
-          font-weight: bold;
+        .zero-balance {
+          color: #6b7280;
         }
         .totals-row {
           background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
@@ -167,16 +159,6 @@ export const exportTrialBalanceToPDF = async (data: TrialBalanceData) => {
           font-size: 16px;
           letter-spacing: 1px;
           color: #374151;
-        }
-        .balance-status {
-          padding: 6px 12px;
-          border-radius: 15px;
-          font-weight: bold;
-          font-size: 12px;
-          ${data.totals.isBalanced 
-            ? 'background-color: #d4edda; color: #155724;'
-            : 'background-color: #f8d7da; color: #721c24;'
-          }
         }
         .footer {
           margin-top: 40px;
@@ -217,23 +199,19 @@ export const exportTrialBalanceToPDF = async (data: TrialBalanceData) => {
               <th>Account Type</th>
               <th class="text-right">Debit Balance</th>
               <th class="text-right">Credit Balance</th>
-              <th class="text-right">Net Balance</th>
             </tr>
           </thead>
           <tbody>
-            ${data.accounts.map(account => `
+            ${data.accounts.map((account: any) => `
               <tr>
                 <td class="account-no">${account.accountNo}</td>
                 <td class="account-name">${account.accountName}</td>
                 <td><span class="account-type">${account.accountType}</span></td>
-                <td class="text-right ${account.debitBalance > 0 ? 'debit' : ''}">
-                  ${account.debitBalance > 0 ? formatCurrency(account.debitBalance) : ''}
+                <td class="text-right ${account.debitBalance > 0 ? 'debit' : 'zero-balance'}">
+                  ${formatCurrency(account.debitBalance || 0)}
                 </td>
-                <td class="text-right ${account.creditBalance > 0 ? 'credit' : ''}">
-                  ${account.creditBalance > 0 ? formatCurrency(account.creditBalance) : ''}
-                </td>
-                <td class="text-right ${account.netBalance >= 0 ? 'net-positive' : 'net-negative'}">
-                  ${formatCurrency(Math.abs(account.netBalance))}${account.netBalance < 0 ? ' (CR)' : ''}
+                <td class="text-right ${account.creditBalance > 0 ? 'credit' : 'zero-balance'}">
+                  ${formatCurrency(account.creditBalance || 0)}
                 </td>
               </tr>
             `).join('')}
@@ -241,11 +219,6 @@ export const exportTrialBalanceToPDF = async (data: TrialBalanceData) => {
               <td colspan="3" class="totals-label">TOTALS</td>
               <td class="text-right debit">${formatCurrency(data.totals.totalDebits)}</td>
               <td class="text-right credit">${formatCurrency(data.totals.totalCredits)}</td>
-              <td class="text-right">
-                <span class="balance-status">
-                  ${data.totals.isBalanced ? 'BALANCED' : 'UNBALANCED'}
-                </span>
-              </td>
             </tr>
           </tbody>
         </table>

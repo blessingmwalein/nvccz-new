@@ -10,15 +10,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { CalendarIcon, RefreshCw, FileText, Loader2, AlertCircle, Check } from "lucide-react"
+import { CalendarIcon, RefreshCw, FileText, Loader2, AlertCircle, Check, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import type { RootState, AppDispatch } from "@/lib/store/store"
 import { generateCashFlow } from "@/lib/store/slices/accountingSlice"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
+import { TransactionsDataTable } from "./transactions-data-table"
+import { TransactionViewDrawer } from "./transaction-view-drawer"
 
 function formatMoney(v: number | string) {
   return (
@@ -75,6 +78,9 @@ export function CashFlowView() {
   const [endDate, setEndDate] = useState<Date>(endOfYear)
   const [currencyId, setCurrencyId] = useState(defaultCurrencyId)
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
+  const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false)
 
   useEffect(() => {
     if (currencies.length && !currencyId) setCurrencyId(defaultCurrencyId)
@@ -102,6 +108,23 @@ export function CashFlowView() {
         toast.error("Failed to generate cash flow statement", { description: error.message })
       }
     }
+  }
+
+  const toggleAccount = (accountId: string) => {
+    setExpandedAccounts(prev => {
+      const next = new Set(prev)
+      if (next.has(accountId)) {
+        next.delete(accountId)
+      } else {
+        next.add(accountId)
+      }
+      return next
+    })
+  }
+
+  const handleTransactionClick = (transaction: any) => {
+    setSelectedTransaction(transaction)
+    setIsTransactionDrawerOpen(true)
   }
 
   // Custom dropdown for currency selection
@@ -135,14 +158,13 @@ export function CashFlowView() {
 
   // Export to PDF implementation
   const handleExportPDF = async () => {
-    if (!cashFlow || !cashFlow.presentation) {
+    if (!cashFlow) {
       toast.error("No cash flow data to export")
       return
     }
     setGeneratingPDF(true)
     try {
       const doc = new jsPDF()
-      const { presentation } = cashFlow
       
       doc.setFontSize(16)
       doc.text("Cash Flow Statement", 14, 18)
@@ -159,29 +181,30 @@ export function CashFlowView() {
       const pushTotal = (label: string, value: number) => rows.push([{ content: label, styles: { fontStyle: 'bold' } }, { content: value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } }])
 
       // Operating Activities
-      pushSection(presentation.operating.label)
-      presentation.operating.cashReceipts?.forEach(item => pushItem(item.label, item.amount))
-      presentation.operating.cashPayments?.forEach(item => pushItem(item.label, item.amount))
-      presentation.operating.additions?.forEach(item => pushItem(item.label, item.amount))
-      presentation.operating.adjustments?.forEach(item => pushItem(item.label, item.amount))
-      pushTotal(`Total ${presentation.operating.label}`, presentation.operating.total)
+      pushSection("Operating Activities")
+      cashFlow.operatingActivities.accounts?.forEach((account: any) => 
+        pushItem(`${account.accountNo} - ${account.accountName}`, account.netAmount)
+      )
+      pushTotal("Total Operating Activities", cashFlow.operatingActivities.total)
 
       // Investing Activities
-      pushSection(presentation.investing.label)
-      presentation.investing.cashReceipts?.forEach(item => pushItem(item.label, item.amount))
-      presentation.investing.cashPayments?.forEach(item => pushItem(item.label, item.amount))
-      pushTotal(`Total ${presentation.investing.label}`, presentation.investing.total)
+      pushSection("Investing Activities")
+      cashFlow.investingActivities.accounts?.forEach((account: any) => 
+        pushItem(`${account.accountNo} - ${account.accountName}`, account.netAmount)
+      )
+      pushTotal("Total Investing Activities", cashFlow.investingActivities.total)
 
       // Financing Activities
-      pushSection(presentation.financing.label)
-      presentation.financing.cashReceipts?.forEach(item => pushItem(item.label, item.amount))
-      presentation.financing.cashPayments?.forEach(item => pushItem(item.label, item.amount))
-      pushTotal(`Total ${presentation.financing.label}`, presentation.financing.total)
+      pushSection("Financing Activities")
+      cashFlow.financingActivities.accounts?.forEach((account: any) => 
+        pushItem(`${account.accountNo} - ${account.accountName}`, account.netAmount)
+      )
+      pushTotal("Total Financing Activities", cashFlow.financingActivities.total)
 
       // Summary
-      pushTotal("Net Change in Cash", presentation.netChangeInCash)
-      pushItem("Beginning Cash Balance", presentation.beginningCashBalance)
-      pushItem("Ending Cash Balance", presentation.endingCashBalance)
+      pushTotal("Net Change in Cash", cashFlow.netCashFlow)
+      pushItem("Beginning Cash Balance", cashFlow.beginningCashBalance)
+      pushItem("Ending Cash Balance", cashFlow.endingCashBalance)
 
       autoTable(doc, {
         head: [["Description", "Amount"]],
@@ -218,54 +241,10 @@ export function CashFlowView() {
   }
 
   function renderTraditionalCashFlow() {
-    if (!cashFlow || !cashFlow.presentation) return null
-    const { presentation } = cashFlow
-
-    const rows: { label: string; value: number | null; type: "section" | "item" | "total" | "subtotal" }[] = []
-    
-    // Operating Activities
-    rows.push({ label: presentation.operating.label, value: null, type: "section" })
-    presentation.operating.cashReceipts?.forEach(item => {
-      rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    presentation.operating.cashPayments?.forEach(item => {
-      rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    presentation.operating.additions?.forEach(item => {
-      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    presentation.operating.adjustments?.forEach(item => {
-      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    rows.push({ label: `Total ${presentation.operating.label}`, value: presentation.operating.total, type: "subtotal" })
-
-    // Investing Activities
-    rows.push({ label: presentation.investing.label, value: null, type: "section" })
-    presentation.investing.cashReceipts?.forEach(item => {
-      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    presentation.investing.cashPayments?.forEach(item => {
-      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    rows.push({ label: `Total ${presentation.investing.label}`, value: presentation.investing.total, type: "subtotal" })
-
-    // Financing Activities
-    rows.push({ label: presentation.financing.label, value: null, type: "section" })
-    presentation.financing.cashReceipts?.forEach(item => {
-      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    presentation.financing.cashPayments?.forEach(item => {
-      if (item.amount !== 0) rows.push({ label: item.label, value: item.amount, type: "item" })
-    })
-    rows.push({ label: `Total ${presentation.financing.label}`, value: presentation.financing.total, type: "subtotal" })
-
-    // Summary
-    rows.push({ label: "Net Change in Cash", value: presentation.netChangeInCash, type: "total" })
-    rows.push({ label: "Beginning Cash Balance", value: presentation.beginningCashBalance, type: "item" })
-    rows.push({ label: "Ending Cash Balance", value: presentation.endingCashBalance, type: "total" })
+    if (!cashFlow) return null
 
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Company Header */}
         <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
@@ -275,53 +254,252 @@ export function CashFlowView() {
           </p>
           <p className="text-sm text-gray-500 mt-1">Currency: {cashFlow.currency.name} ({cashFlow.currency.code})</p>
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-gray-400">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Description</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={idx}
-                  className={cn(
-                    row.type === "section" && "bg-gray-100 border-t-2 border-gray-300",
-                    row.type === "subtotal" && "border-t border-gray-300 font-semibold bg-gray-50",
-                    row.type === "total" && "border-t-2 border-gray-400 font-bold"
-                  )}
-                >
-                  <td className={cn(
-                    "py-2",
-                    row.type === "section" && "pl-2 font-bold text-sm text-gray-700 uppercase",
-                    row.type === "item" && "pl-6 text-sm",
-                    row.type === "subtotal" && "pl-4 text-sm",
-                    row.type === "total" && "pl-2 text-base"
-                  )}>
-                    {row.label}
-                  </td>
-                  <td className={cn(
-                    "py-2 pr-2 text-right",
-                    row.type === "total" && "text-blue-700 text-base font-bold",
-                    row.type === "subtotal" && "font-semibold",
-                    row.type === "section" && "text-sm"
-                  )}>
-                    {row.value !== null ? (
+
+        {/* Operating Activities Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900 border-b-2 border-gray-300 pb-2">
+            Operating Activities
+          </h3>
+          {cashFlow.operatingActivities.accounts && cashFlow.operatingActivities.accounts.length > 0 ? (
+            cashFlow.operatingActivities.accounts.map((account: any) => {
+              const hasTransactions = account.transactions && account.transactions.length > 0
+              const isExpanded = expandedAccounts.has(account.accountId)
+
+              return (
+                <div key={account.accountId} className="space-y-2">
+                  <div 
+                    className={cn(
+                      "flex items-center justify-between py-2 rounded-lg px-2",
+                      hasTransactions && "cursor-pointer hover:bg-blue-50 transition-colors"
+                    )}
+                    onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {hasTransactions && (
+                        <div className="h-6 w-6 flex items-center justify-center">
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">{account.accountNo}</span>
+                        <span className="text-sm font-medium">{account.accountName}</span>
+                        {hasTransactions && (
+                          <Badge variant="outline" className="text-xs">
+                            {account.transactions.length} transactions
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
                       <span className={cn(
-                        row.value < 0 && "text-red-600"
+                        "font-mono text-sm",
+                        account.netAmount < 0 ? "text-red-600" : "text-gray-900"
                       )}>
-                        {formatMoney(row.value)}
+                        {formatMoney(account.netAmount)}
                       </span>
-                    ) : ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                  {isExpanded && hasTransactions && (
+                    <div className="bg-blue-50 rounded-lg p-4 ml-8">
+                      <TransactionsDataTable
+                        transactions={account.transactions}
+                        onRowClick={handleTransactionClick}
+                        loading={false}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          ) : (
+            <p className="text-sm text-gray-500 italic pl-4">No operating activities</p>
+          )}
+          <div className="flex justify-between border-t-2 border-gray-400 pt-2 font-bold">
+            <span className="text-sm">Total Operating Activities</span>
+            <span className={cn(
+              "font-mono text-sm",
+              cashFlow.operatingActivities.total < 0 ? "text-red-600" : "text-blue-700"
+            )}>
+              {formatMoney(cashFlow.operatingActivities.total)}
+            </span>
+          </div>
         </div>
-        
+
+        {/* Investing Activities Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900 border-b-2 border-gray-300 pb-2">
+            Investing Activities
+          </h3>
+          {cashFlow.investingActivities.accounts && cashFlow.investingActivities.accounts.length > 0 ? (
+            cashFlow.investingActivities.accounts.map((account: any) => {
+              const hasTransactions = account.transactions && account.transactions.length > 0
+              const isExpanded = expandedAccounts.has(account.accountId)
+
+              return (
+                <div key={account.accountId} className="space-y-2">
+                  <div 
+                    className={cn(
+                      "flex items-center justify-between py-2 rounded-lg px-2",
+                      hasTransactions && "cursor-pointer hover:bg-green-50 transition-colors"
+                    )}
+                    onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {hasTransactions && (
+                        <div className="h-6 w-6 flex items-center justify-center">
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">{account.accountNo}</span>
+                        <span className="text-sm font-medium">{account.accountName}</span>
+                        {hasTransactions && (
+                          <Badge variant="outline" className="text-xs">
+                            {account.transactions.length} transactions
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={cn(
+                        "font-mono text-sm",
+                        account.netAmount < 0 ? "text-red-600" : "text-gray-900"
+                      )}>
+                        {formatMoney(account.netAmount)}
+                      </span>
+                    </div>
+                  </div>
+                  {isExpanded && hasTransactions && (
+                    <div className="bg-green-50 rounded-lg p-4 ml-8">
+                      <TransactionsDataTable
+                        transactions={account.transactions}
+                        onRowClick={handleTransactionClick}
+                        loading={false}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          ) : (
+            <p className="text-sm text-gray-500 italic pl-4">No investing activities</p>
+          )}
+          <div className="flex justify-between border-t-2 border-gray-400 pt-2 font-bold">
+            <span className="text-sm">Total Investing Activities</span>
+            <span className={cn(
+              "font-mono text-sm",
+              cashFlow.investingActivities.total < 0 ? "text-red-600" : "text-blue-700"
+            )}>
+              {formatMoney(cashFlow.investingActivities.total)}
+            </span>
+          </div>
+        </div>
+
+        {/* Financing Activities Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900 border-b-2 border-gray-300 pb-2">
+            Financing Activities
+          </h3>
+          {cashFlow.financingActivities.accounts && cashFlow.financingActivities.accounts.length > 0 ? (
+            cashFlow.financingActivities.accounts.map((account: any) => {
+              const hasTransactions = account.transactions && account.transactions.length > 0
+              const isExpanded = expandedAccounts.has(account.accountId)
+
+              return (
+                <div key={account.accountId} className="space-y-2">
+                  <div 
+                    className={cn(
+                      "flex items-center justify-between py-2 rounded-lg px-2",
+                      hasTransactions && "cursor-pointer hover:bg-amber-50 transition-colors"
+                    )}
+                    onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {hasTransactions && (
+                        <div className="h-6 w-6 flex items-center justify-center">
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">{account.accountNo}</span>
+                        <span className="text-sm font-medium">{account.accountName}</span>
+                        {hasTransactions && (
+                          <Badge variant="outline" className="text-xs">
+                            {account.transactions.length} transactions
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={cn(
+                        "font-mono text-sm",
+                        account.netAmount < 0 ? "text-red-600" : "text-gray-900"
+                      )}>
+                        {formatMoney(account.netAmount)}
+                      </span>
+                    </div>
+                  </div>
+                  {isExpanded && hasTransactions && (
+                    <div className="bg-amber-50 rounded-lg p-4 ml-8">
+                      <TransactionsDataTable
+                        transactions={account.transactions}
+                        onRowClick={handleTransactionClick}
+                        loading={false}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          ) : (
+            <p className="text-sm text-gray-500 italic pl-4">No financing activities</p>
+          )}
+          <div className="flex justify-between border-t-2 border-gray-400 pt-2 font-bold">
+            <span className="text-sm">Total Financing Activities</span>
+            <span className={cn(
+              "font-mono text-sm",
+              cashFlow.financingActivities.total < 0 ? "text-red-600" : "text-blue-700"
+            )}>
+              {formatMoney(cashFlow.financingActivities.total)}
+            </span>
+          </div>
+        </div>
+
+        {/* Cash Flow Summary */}
+        <div className="space-y-3 border-t-2 border-gray-500 pt-4">
+          <div className="flex justify-between items-center">
+            <span className="text-base font-bold">Net Change in Cash</span>
+            <span className={cn(
+              "font-mono text-base font-bold",
+              cashFlow.netCashFlow < 0 ? "text-red-600" : "text-blue-700"
+            )}>
+              {formatMoney(cashFlow.netCashFlow)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="pl-4">Beginning Cash Balance</span>
+            <span className="font-mono">{formatMoney(cashFlow.beginningCashBalance)}</span>
+          </div>
+          <div className="flex justify-between items-center border-t-2 border-gray-500 pt-2">
+            <span className="text-base font-bold">Ending Cash Balance</span>
+            <span className="font-mono text-base font-bold text-blue-700">
+              {formatMoney(cashFlow.endingCashBalance)}
+            </span>
+          </div>
+        </div>
+
         <div className="mt-6 text-center text-xs text-gray-500">
           Generated on {format(new Date(cashFlow.generatedAt), "PPP 'at' p")}
         </div>
@@ -433,6 +611,13 @@ export function CashFlowView() {
           )}
         </CardContent>
       </Card>
+
+      {/* Transaction View Drawer */}
+      <TransactionViewDrawer
+        transaction={selectedTransaction}
+        isOpen={isTransactionDrawerOpen}
+        onClose={() => setIsTransactionDrawerOpen(false)}
+      />
     </div>
   )
 }

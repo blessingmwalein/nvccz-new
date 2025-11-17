@@ -20,7 +20,9 @@ import {
   FileText,
   AlertCircle,
   Download,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, subDays } from "date-fns"
@@ -30,6 +32,8 @@ import { fetchIncomeStatement } from "@/lib/store/slices/accountingSlice"
 import { exportIncomeStatementToPDF } from "@/lib/utils/export"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
+import { TransactionsDataTable } from "./transactions-data-table"
+import { TransactionViewDrawer } from "./transaction-view-drawer"
 
 export function IncomeStatementView() {
   const dispatch = useDispatch<AppDispatch>()
@@ -42,6 +46,9 @@ export function IncomeStatementView() {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30))
   const [endDate, setEndDate] = useState<Date>(new Date())
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
+  const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false)
 
   useEffect(() => {
     loadIncomeStatement()
@@ -61,6 +68,23 @@ export function IncomeStatementView() {
         description: error.message
       })
     }
+  }
+
+  const toggleAccount = (accountId: string) => {
+    setExpandedAccounts(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(accountId)) {
+        newSet.delete(accountId)
+      } else {
+        newSet.add(accountId)
+      }
+      return newSet
+    })
+  }
+
+  const handleTransactionClick = (transaction: any) => {
+    setSelectedTransaction(transaction)
+    setIsTransactionDrawerOpen(true)
   }
 
   const handleExportPDF = async () => {
@@ -94,14 +118,14 @@ export function IncomeStatementView() {
 
       // Revenue
       pushSection("Revenue")
-      incomeStatement.sections.revenue.accounts.forEach(acc => {
+      incomeStatement.sections.revenue.accounts.forEach((acc: any) => {
         pushItem(acc.accountName, acc.amount)
       })
       pushTotal("Total Revenue", incomeStatement.sections.revenue.total, "#15803d")
 
       // Operating Expenses
       pushSection("Operating Expenses")
-      incomeStatement.sections.operatingExpenses.accounts.forEach(acc => {
+      incomeStatement.sections.operatingExpenses.accounts.forEach((acc: any) => {
         pushItem(acc.accountName, acc.amount)
       })
       pushTotal("Total Operating Expenses", incomeStatement.sections.operatingExpenses.total, "#dc2626")
@@ -109,7 +133,7 @@ export function IncomeStatementView() {
       // Income Tax
       if (incomeStatement.sections.incomeTax.total > 0) {
         pushSection("Income Tax Expense")
-        incomeStatement.sections.incomeTax.accounts.forEach(acc => {
+        incomeStatement.sections.incomeTax.accounts.forEach((acc: any) => {
           pushItem(acc.accountName, acc.amount)
         })
         pushTotal("Total Income Tax Expense", incomeStatement.sections.incomeTax.total, "#dc2626")
@@ -118,7 +142,7 @@ export function IncomeStatementView() {
       // Below the Line Items
       if (incomeStatement.sections.belowTheLine.total !== 0) {
         pushSection("Below-the-Line Items")
-        incomeStatement.sections.belowTheLine.accounts.forEach(acc => {
+        incomeStatement.sections.belowTheLine.accounts.forEach((acc: any) => {
           pushItem(acc.accountName, acc.amount)
         })
         pushTotal("Total Below-the-Line", incomeStatement.sections.belowTheLine.total)
@@ -300,7 +324,7 @@ export function IncomeStatementView() {
           {incomeStatementLoading ? (
             <IncomeStatementSkeleton />
           ) : incomeStatement ? (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto">
               {/* Company Header */}
               <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Company Name</h1>
@@ -320,14 +344,54 @@ export function IncomeStatementView() {
                   </div>
                   
                   <div className="ml-8 space-y-1">
-                    {incomeStatement.sections.revenue.accounts.map((account) => (
-                      <div key={account.accountId} className="flex justify-between py-1">
-                        <span className="text-gray-700">{account.accountName}</span>
-                        <span className="font-mono text-right w-32">
-                          {formatCurrency(account.amount)}
-                        </span>
-                      </div>
-                    ))}
+                    {incomeStatement.sections.revenue.accounts.map((account: any) => {
+                      const isExpanded = expandedAccounts.has(account.accountId)
+                      const hasTransactions = account.transactions && account.transactions.length > 0
+                      
+                      return (
+                        <div key={account.accountId} className="space-y-2">
+                          <div 
+                            className={cn(
+                              "flex justify-between py-1 rounded-md px-2 -mx-2",
+                              hasTransactions && "cursor-pointer hover:bg-gray-100 transition-colors"
+                            )}
+                            onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {hasTransactions && (
+                                <div className="h-6 w-6 flex items-center justify-center">
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              )}
+                              <span className="text-gray-700">{account.accountName}</span>
+                              {hasTransactions && (
+                                <Badge variant="outline" className="text-xs">
+                                  {account.transactions.length} txns
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="font-mono text-right w-32 text-green-700">
+                              {formatCurrency(account.amount || account.netAmount)}
+                            </span>
+                          </div>
+                          
+                          {/* Expandable Transactions */}
+                          {isExpanded && hasTransactions && (
+                            <div className="ml-8 my-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                              <TransactionsDataTable
+                                transactions={account.transactions}
+                                onRowClick={handleTransactionClick}
+                                title={`${account.accountName} Transactions`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                     {incomeStatement.sections.revenue.accounts.length === 0 && (
                       <div className="flex justify-between py-1">
                         <span className="text-gray-500 italic">No revenue accounts</span>
@@ -354,17 +418,57 @@ export function IncomeStatementView() {
                   </div>
                   
                   <div className="ml-8 space-y-1">
-                    {incomeStatement.sections.operatingExpenses.accounts.map((account) => (
-                      <div key={account.accountId} className="flex justify-between py-1">
-                        <span className="text-gray-700">{account.accountName}</span>
-                        <span className="font-mono text-right w-32">
-                          {formatCurrency(account.amount)}
-                        </span>
-                      </div>
-                    ))}
+                    {incomeStatement.sections.operatingExpenses.accounts.map((account: any) => {
+                      const isExpanded = expandedAccounts.has(account.accountId)
+                      const hasTransactions = account.transactions && account.transactions.length > 0
+                      
+                      return (
+                        <div key={account.accountId} className="space-y-2">
+                          <div 
+                            className={cn(
+                              "flex justify-between py-1 rounded-md px-2 -mx-2",
+                              hasTransactions && "cursor-pointer hover:bg-red-50 transition-colors"
+                            )}
+                            onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {hasTransactions && (
+                                <div className="h-6 w-6 flex items-center justify-center">
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              )}
+                              <span className="text-gray-700">{account.accountName}</span>
+                              {hasTransactions && (
+                                <Badge variant="outline" className="text-xs">
+                                  {account.transactions.length} txns
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="font-mono text-right w-32 text-red-700">
+                              {formatCurrency(account.amount || account.netAmount)}
+                            </span>
+                          </div>
+                          
+                          {/* Expandable Transactions */}
+                          {isExpanded && hasTransactions && (
+                            <div className="ml-8 my-2 p-4 bg-red-50 rounded-lg border border-red-200">
+                              <TransactionsDataTable
+                                transactions={account.transactions}
+                                onRowClick={handleTransactionClick}
+                                title={`${account.accountName} Transactions`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                     {incomeStatement.sections.operatingExpenses.accounts.length === 0 && (
                       <div className="flex justify-between py-1">
-                        <span className="text-gray-500 italic">No operating expenses</span>
+                        <span className="text-gray-500 italic">No expense accounts</span>
                         <span className="font-mono text-right w-32">-</span>
                       </div>
                     )}
@@ -400,14 +504,54 @@ export function IncomeStatementView() {
                     </div>
                     
                     <div className="ml-8 space-y-1">
-                      {incomeStatement.sections.incomeTax.accounts.map((account) => (
-                        <div key={account.accountId} className="flex justify-between py-1">
-                          <span className="text-gray-700">{account.accountName}</span>
-                          <span className="font-mono text-right w-32">
-                            {formatCurrency(account.amount)}
-                          </span>
-                        </div>
-                      ))}
+                      {incomeStatement.sections.incomeTax.accounts.map((account: any) => {
+                        const isExpanded = expandedAccounts.has(account.accountId)
+                        const hasTransactions = account.transactions && account.transactions.length > 0
+                        
+                        return (
+                          <div key={account.accountId} className="space-y-2">
+                            <div 
+                              className={cn(
+                                "flex justify-between py-1 rounded-md px-2 -mx-2",
+                                hasTransactions && "cursor-pointer hover:bg-amber-50 transition-colors"
+                              )}
+                              onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {hasTransactions && (
+                                  <div className="h-6 w-6 flex items-center justify-center">
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                )}
+                                <span className="text-gray-700">{account.accountName}</span>
+                                {hasTransactions && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {account.transactions.length} txns
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="font-mono text-right w-32 text-red-700">
+                                {formatCurrency(account.amount || account.netAmount)}
+                              </span>
+                            </div>
+                            
+                            {/* Expandable Transactions */}
+                            {isExpanded && hasTransactions && (
+                              <div className="ml-8 my-2 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                                <TransactionsDataTable
+                                  transactions={account.transactions}
+                                  onRowClick={handleTransactionClick}
+                                  title={`${account.accountName} Transactions`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                     
                     <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
@@ -429,14 +573,54 @@ export function IncomeStatementView() {
                     </div>
                     
                     <div className="ml-8 space-y-1">
-                      {incomeStatement.sections.belowTheLine.accounts.map((account) => (
-                        <div key={account.accountId} className="flex justify-between py-1">
-                          <span className="text-gray-700">{account.accountName}</span>
-                          <span className="font-mono text-right w-32">
-                            {formatCurrency(account.amount)}
-                          </span>
-                        </div>
-                      ))}
+                      {incomeStatement.sections.belowTheLine.accounts.map((account: any) => {
+                        const isExpanded = expandedAccounts.has(account.accountId)
+                        const hasTransactions = account.transactions && account.transactions.length > 0
+                        
+                        return (
+                          <div key={account.accountId} className="space-y-2">
+                            <div 
+                              className={cn(
+                                "flex justify-between py-1 rounded-md px-2 -mx-2",
+                                hasTransactions && "cursor-pointer hover:bg-purple-50 transition-colors"
+                              )}
+                              onClick={() => hasTransactions && toggleAccount(account.accountId)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {hasTransactions && (
+                                  <div className="h-6 w-6 flex items-center justify-center">
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                )}
+                                <span className="text-gray-700">{account.accountName}</span>
+                                {hasTransactions && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {account.transactions.length} txns
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="font-mono text-right w-32">
+                                {formatCurrency(account.amount || account.netAmount)}
+                              </span>
+                            </div>
+                            
+                            {/* Expandable Transactions */}
+                            {isExpanded && hasTransactions && (
+                              <div className="ml-8 my-2 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                <TransactionsDataTable
+                                  transactions={account.transactions}
+                                  onRowClick={handleTransactionClick}
+                                  title={`${account.accountName} Transactions`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                     
                     <div className="flex justify-between py-2 border-t border-b-2 border-gray-800 ml-8 font-semibold">
@@ -522,6 +706,13 @@ export function IncomeStatementView() {
           )}
         </CardContent>
       </Card>
+
+      {/* Transaction View Drawer */}
+      <TransactionViewDrawer
+        isOpen={isTransactionDrawerOpen}
+        onClose={() => setIsTransactionDrawerOpen(false)}
+        transaction={selectedTransaction}
+      />
     </div>
   )
 }

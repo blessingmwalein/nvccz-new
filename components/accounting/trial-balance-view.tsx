@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import React, { useEffect, useState, useRef } from "react"
 import { useSelector, useDispatch } from "react-redux"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar } from "@/components/ui/calendar"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Popover,
   PopoverContent,
@@ -27,8 +29,12 @@ import {
   Scale,
   Download,
   FileText,
-  Loader2
+  Loader2,
+  Eye
 } from "lucide-react"
+import { ChevronDown, ChevronUp } from "lucide-react"
+import { CiSearch, CiFilter, CiReceipt } from "react-icons/ci"
+import { ProcurementDataTable } from "@/components/procurement/procurement-data-table"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -49,6 +55,14 @@ export function TrialBalanceView() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterAccountType, setFilterAccountType] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 12
+
+  // track which account rows are expanded to show transaction details
+  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({})
+  const [loadingTransactions, setLoadingTransactions] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     loadTrialBalanceData()
@@ -75,6 +89,29 @@ export function TrialBalanceView() {
       minimumFractionDigits: 2
     }).format(amount)
   }
+
+  const toggleAccountExpand = (accountId: string) => {
+    setExpandedAccounts((prev) => ({ ...prev, [accountId]: !prev[accountId] }))
+  }
+
+  // Filter and search
+  const filteredAccounts = trialBalance?.accounts.filter((account: any) => {
+    const matchesSearch = account.accountName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          account.accountNo.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = filterAccountType === 'all' || account.accountType.toLowerCase() === filterAccountType.toLowerCase()
+    return matchesSearch && matchesFilter
+  }) || []
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedAccounts = filteredAccounts.slice(startIndex, endIndex)
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filterAccountType])
 
   const getAccountTypeColor = (accountType: string) => {
     switch (accountType.toLowerCase()) {
@@ -294,188 +331,233 @@ export function TrialBalanceView() {
         </div>
       )}
 
-      {/* Trial Balance Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <BarChart3 className="w-6 h-6 text-blue-600" />
-              Account Balances
-            </CardTitle>
-            <div className="flex items-center gap-3">
-              {trialBalance && (
-                <Badge className={cn(
-                  "text-sm",
-                  trialBalance.totals.isBalanced 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-red-100 text-red-800"
-                )}>
-                  {trialBalance.totals.isBalanced ? "✓ Balanced" : "⚠ Unbalanced"}
-                </Badge>
-              )}
-              
-              {/* Quick Export Buttons in Table Header */}
-              <div className="flex gap-2">
-                <Button 
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleExportCSV}
-                  disabled={!trialBalance}
-                  className="text-xs"
-                >
-                  <Download className="w-3 h-3 mr-1" />
-                  CSV
-                </Button>
-                <Button 
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleExportPDF}
-                  disabled={!trialBalance || generatingPDF}
-                  className="text-xs"
-                >
-                  {generatingPDF ? (
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  ) : (
-                    <FileText className="w-3 h-3 mr-1" />
-                  )}
-                  PDF
-                </Button>
-              </div>
-            </div>
+      {/* Trial Balance Cards Grid */}
+      <div className="space-y-6">
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search accounts by name or number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        </CardHeader>
-        <CardContent>
-          {trialBalanceLoading ? (
-            <TrialBalanceSkeleton />
-          ) : trialBalance ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-gray-50">
-                    <th className="text-left p-4 font-semibold text-gray-700">Account No.</th>
-                    <th className="text-left p-4 font-semibold text-gray-700">Account Name</th>
-                    <th className="text-left p-4 font-semibold text-gray-700">Type</th>
-                    <th className="text-right p-4 font-semibold text-gray-700">Debit Balance</th>
-                    <th className="text-right p-4 font-semibold text-gray-700">Credit Balance</th>
-                    {/* <th className="text-right p-4 font-semibold text-gray-700">Net Balance</th> */}
-                  </tr>
-                </thead>
-                <tbody>
-                  {trialBalance.accounts.map((account, index) => (
-                    <tr 
-                      key={account.accountId} 
-                      className={cn(
-                        "hover:bg-gray-50 transition-colors border-b",
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-25'
-                      )}
-                    >
-                      <td className="p-4">
-                        <span className="font-mono text-sm font-semibold text-blue-600">
-                          {account.accountNo}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-medium text-gray-900">
-                          {account.accountName}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <Badge className={getAccountTypeColor(account.accountType)}>
-                          {account.accountType}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-right">
-                        {account.debitBalance > 0 && (
-                          <span className="font-semibold text-green-700">
-                            {formatCurrency(account.debitBalance)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4 text-right">
-                        {account.creditBalance > 0 && (
-                          <span className="font-semibold text-red-700">
-                            {formatCurrency(account.creditBalance)}
-                          </span>
-                        )}
-                      </td>
-                      {/* <td className="p-4 text-right">
-                        <span className={cn(
-                          "font-bold",
-                          account.netBalance >= 0 ? "text-green-700" : "text-red-700"
-                        )}>
-                          {formatCurrency(Math.abs(account.netBalance))}
-                          {account.netBalance < 0 && " (CR)"}
-                        </span>
-                      </td> */}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="border-t-2 border-gray-300 bg-gray-50">
-                  <tr>
-                    <td colSpan={3} className="p-4 font-bold text-gray-900 text-lg">
-                      TOTALS
-                    </td>
-                    <td className="p-4 text-right font-bold text-green-700 text-lg">
-                      {formatCurrency(trialBalance.totals.totalDebits)}
-                    </td>
-                    <td className="p-4 text-right font-bold text-red-700 text-lg">
-                      {formatCurrency(trialBalance.totals.totalCredits)}
-                    </td>
-                    {/* <td className="p-4 text-right">
-                      <Badge className={cn(
-                        "text-sm font-semibold",
-                        trialBalance.totals.isBalanced 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-red-100 text-red-800"
-                      )}>
-                        {trialBalance.totals.isBalanced ? "BALANCED" : "UNBALANCED"}
-                      </Badge>
-                    </td> */}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Trial Balance Data</h3>
-              <p className="text-gray-600">No data available for the selected date</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+          <Select value={filterAccountType} onValueChange={setFilterAccountType}>
+            <SelectTrigger className="w-full sm:w-56">
+              <CiFilter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Account Types</SelectItem>
+              <SelectItem value="current asset">Current Asset</SelectItem>
+              <SelectItem value="fixed asset">Fixed Asset</SelectItem>
+              <SelectItem value="current liability">Current Liability</SelectItem>
+              <SelectItem value="long-term liability">Long-Term Liability</SelectItem>
+              <SelectItem value="revenue">Revenue</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+              <SelectItem value="equity">Equity</SelectItem>
+              <SelectItem value="contra-asset">Contra-Asset</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-function TrialBalanceSkeleton() {
-  return (
-    <div className="animate-pulse">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="text-left p-4"><div className="h-4 w-20 bg-gray-300 rounded"></div></th>
-              <th className="text-left p-4"><div className="h-4 w-32 bg-gray-300 rounded"></div></th>
-              <th className="text-left p-4"><div className="h-4 w-16 bg-gray-300 rounded"></div></th>
-              <th className="text-right p-4"><div className="h-4 w-24 bg-gray-300 rounded ml-auto"></div></th>
-              <th className="text-right p-4"><div className="h-4 w-24 bg-gray-300 rounded ml-auto"></div></th>
-              <th className="text-right p-4"><div className="h-4 w-24 bg-gray-300 rounded ml-auto"></div></th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...Array(8)].map((_, index) => (
-              <tr key={index} className="border-b">
-                <td className="p-4"><div className="h-4 w-16 bg-gray-200 rounded"></div></td>
-                <td className="p-4"><div className="h-4 w-40 bg-gray-200 rounded"></div></td>
-                <td className="p-4"><div className="h-6 w-20 bg-blue-200 rounded-full"></div></td>
-                <td className="p-4 text-right"><div className="h-4 w-20 bg-green-200 rounded ml-auto"></div></td>
-                <td className="p-4 text-right"><div className="h-4 w-20 bg-red-200 rounded ml-auto"></div></td>
-                <td className="p-4 text-right"><div className="h-4 w-24 bg-gray-200 rounded ml-auto"></div></td>
-              </tr>
+        {/* Accounts Grid */}
+        {trialBalanceLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse border border-gray-200 rounded-xl p-4">
+                <div className="space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        ) : paginatedAccounts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {paginatedAccounts.map((account: any) => {
+                const isExpanded = !!expandedAccounts[account.accountId]
+                const hasTransactions = account.transactions && account.transactions.length > 0
+
+                return (
+                  <Card 
+                    key={account.accountId}
+                    className="border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <CiReceipt className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-mono text-xs font-semibold text-blue-600">
+                              {account.accountNo}
+                            </div>
+                            <CardTitle className="text-sm font-medium mt-0.5 line-clamp-2">
+                              {account.accountName}
+                            </CardTitle>
+                          </div>
+                        </div>
+                        {hasTransactions && (
+                          <Button 
+                            onClick={() => toggleAccountExpand(account.accountId)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 rounded-full"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-gray-600" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-gray-600" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      <Badge className={cn("mt-2 text-xs w-fit", getAccountTypeColor(account.accountType))}>
+                        {account.accountType}
+                      </Badge>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-3">
+                      {/* Debit & Credit Balances */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <TrendingUp className="w-3 h-3 text-green-600" />
+                            <span className="text-xs font-medium text-green-700">Debit</span>
+                          </div>
+                          <div className={cn(
+                            "text-sm font-semibold",
+                            account.debitBalance > 0 ? "text-green-700" : "text-gray-400"
+                          )}>
+                            {formatCurrency(account.debitBalance || 0)}
+                          </div>
+                        </div>
+                        
+                        <div className="text-center p-3 bg-red-50 rounded-lg border border-red-100">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <TrendingDown className="w-3 h-3 text-red-600" />
+                            <span className="text-xs font-medium text-red-700">Credit</span>
+                          </div>
+                          <div className={cn(
+                            "text-sm font-semibold",
+                            account.creditBalance > 0 ? "text-red-700" : "text-gray-400"
+                          )}>
+                            {formatCurrency(account.creditBalance || 0)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Transaction Count */}
+                      {hasTransactions && (
+                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg border border-blue-100">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3 h-3 text-blue-600" />
+                            <span className="text-xs font-medium text-blue-700">Transactions</span>
+                          </div>
+                          <span className="text-xs font-semibold text-blue-600">
+                            {account.transactions.length}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Expanded Transactions */}
+                      {isExpanded && hasTransactions && (
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="max-h-64 overflow-y-auto">
+                            <ProcurementDataTable
+                              data={account.transactions}
+                              columns={[
+                                { key: 'date' as any, label: 'Date', render: (v: string) => format(new Date(v), 'PP') },
+                                { key: 'reference' as any, label: 'Reference' },
+                                { key: 'debitAmount' as any, label: 'Debit', render: (v: number) => formatCurrency(v || 0) },
+                                { key: 'creditAmount' as any, label: 'Credit', render: (v: number) => formatCurrency(v || 0) },
+                              ]}
+                              title=""
+                              searchPlaceholder="Search transactions..."
+                              loading={false}
+                              emptyMessage="No transactions found."
+                              showSearch={false}
+                              showFilters={false}
+                              pageSize={5}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum
+                      if (totalPages <= 5) {
+                        pageNum = i + 1
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i
+                      } else {
+                        pageNum = currentPage - 2 + i
+                      }
+                      
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(pageNum)}
+                            isActive={currentPage === pageNum}
+                            className="cursor-pointer"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    })}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <CiReceipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No accounts found</h3>
+            <p className="text-gray-600">
+              {searchTerm || filterAccountType !== 'all'
+                ? 'Try adjusting your search or filter criteria.'
+                : 'No account data available for the selected date.'
+              }
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
