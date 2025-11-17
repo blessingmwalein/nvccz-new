@@ -34,7 +34,8 @@ import {
 } from "lucide-react"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { CiSearch, CiFilter, CiReceipt } from "react-icons/ci"
-import { ProcurementDataTable } from "@/components/procurement/procurement-data-table"
+import { TransactionsDataTable } from "./transactions-data-table"
+import { TransactionViewDrawer } from "./transaction-view-drawer"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -61,8 +62,9 @@ export function TrialBalanceView() {
   const itemsPerPage = 12
 
   // track which account rows are expanded to show transaction details
-  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({})
-  const [loadingTransactions, setLoadingTransactions] = useState<Record<string, boolean>>({})
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
+  const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false)
 
   useEffect(() => {
     loadTrialBalanceData()
@@ -91,7 +93,20 @@ export function TrialBalanceView() {
   }
 
   const toggleAccountExpand = (accountId: string) => {
-    setExpandedAccounts((prev) => ({ ...prev, [accountId]: !prev[accountId] }))
+    setExpandedAccounts(prev => {
+      const next = new Set(prev)
+      if (next.has(accountId)) {
+        next.delete(accountId)
+      } else {
+        next.add(accountId)
+      }
+      return next
+    })
+  }
+
+  const handleTransactionClick = (transaction: any) => {
+    setSelectedTransaction(transaction)
+    setIsTransactionDrawerOpen(true)
   }
 
   // Filter and search
@@ -365,138 +380,131 @@ export function TrialBalanceView() {
 
         {/* Accounts Grid */}
         {trialBalanceLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse border border-gray-200 rounded-xl p-4">
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div className="h-16 bg-gray-200 rounded"></div>
-                    <div className="h-16 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : paginatedAccounts.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {paginatedAccounts.map((account: any) => {
-                const isExpanded = !!expandedAccounts[account.accountId]
-                const hasTransactions = account.transactions && account.transactions.length > 0
+            {/* Trial Balance Table */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Account No.</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Account Name</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Account Type</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Debit Balance</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Credit Balance</th>
+                        <th className="w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedAccounts.map((account: any) => {
+                        const isExpanded = expandedAccounts.has(account.accountId)
+                        const hasTransactions = account.transactions && account.transactions.length > 0
 
-                return (
-                  <Card 
-                    key={account.accountId}
-                    className="border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md"
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <CiReceipt className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-mono text-xs font-semibold text-blue-600">
-                              {account.accountNo}
-                            </div>
-                            <CardTitle className="text-sm font-medium mt-0.5 line-clamp-2">
-                              {account.accountName}
-                            </CardTitle>
-                          </div>
-                        </div>
-                        {hasTransactions && (
-                          <Button 
-                            onClick={() => toggleAccountExpand(account.accountId)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 rounded-full"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="w-4 h-4 text-gray-600" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 text-gray-600" />
+                        return (
+                          <React.Fragment key={account.accountId}>
+                            <tr 
+                              className={cn(
+                                "border-b hover:bg-gray-50 transition-colors",
+                                hasTransactions && "cursor-pointer"
+                              )}
+                              onClick={() => hasTransactions && toggleAccountExpand(account.accountId)}
+                            >
+                              <td className="py-3 px-4">
+                                <span className="font-mono text-sm text-blue-600 font-semibold">
+                                  {account.accountNo}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-900">{account.accountName}</span>
+                                  {hasTransactions && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {account.transactions.length} txns
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <Badge className={cn("text-xs", getAccountTypeColor(account.accountType))}>
+                                  {account.accountType}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <span className={cn(
+                                  "font-mono text-sm",
+                                  account.debitBalance > 0 ? "text-green-700 font-semibold" : "text-gray-400"
+                                )}>
+                                  {formatCurrency(account.debitBalance || 0)}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <span className={cn(
+                                  "font-mono text-sm",
+                                  account.creditBalance > 0 ? "text-red-700 font-semibold" : "text-gray-400"
+                                )}>
+                                  {formatCurrency(account.creditBalance || 0)}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                {hasTransactions && (
+                                  <div className="flex items-center justify-center">
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-4 h-4 text-gray-600" />
+                                    ) : (
+                                      <ChevronDown className="w-4 h-4 text-gray-600" />
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                            {/* Expanded Transaction Row */}
+                            {isExpanded && hasTransactions && (
+                              <tr>
+                                <td colSpan={6} className="p-0 bg-blue-50">
+                                  <div className="px-4 py-4">
+                                    <TransactionsDataTable
+                                      transactions={account.transactions}
+                                      onRowClick={handleTransactionClick}
+                                      loading={false}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                          </Button>
-                        )}
-                      </div>
-                      <Badge className={cn("mt-2 text-xs w-fit", getAccountTypeColor(account.accountType))}>
-                        {account.accountType}
-                      </Badge>
-                    </CardHeader>
-                    
-                    <CardContent className="space-y-3">
-                      {/* Debit & Credit Balances */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <TrendingUp className="w-3 h-3 text-green-600" />
-                            <span className="text-xs font-medium text-green-700">Debit</span>
-                          </div>
-                          <div className={cn(
-                            "text-sm font-semibold",
-                            account.debitBalance > 0 ? "text-green-700" : "text-gray-400"
-                          )}>
-                            {formatCurrency(account.debitBalance || 0)}
-                          </div>
-                        </div>
-                        
-                        <div className="text-center p-3 bg-red-50 rounded-lg border border-red-100">
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <TrendingDown className="w-3 h-3 text-red-600" />
-                            <span className="text-xs font-medium text-red-700">Credit</span>
-                          </div>
-                          <div className={cn(
-                            "text-sm font-semibold",
-                            account.creditBalance > 0 ? "text-red-700" : "text-gray-400"
-                          )}>
-                            {formatCurrency(account.creditBalance || 0)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Transaction Count */}
-                      {hasTransactions && (
-                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg border border-blue-100">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-3 h-3 text-blue-600" />
-                            <span className="text-xs font-medium text-blue-700">Transactions</span>
-                          </div>
-                          <span className="text-xs font-semibold text-blue-600">
-                            {account.transactions.length}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Expanded Transactions */}
-                      {isExpanded && hasTransactions && (
-                        <div className="mt-3 pt-3 border-t">
-                          <div className="max-h-64 overflow-y-auto">
-                            <ProcurementDataTable
-                              data={account.transactions}
-                              columns={[
-                                { key: 'date' as any, label: 'Date', render: (v: string) => format(new Date(v), 'PP') },
-                                { key: 'reference' as any, label: 'Reference' },
-                                { key: 'debitAmount' as any, label: 'Debit', render: (v: number) => formatCurrency(v || 0) },
-                                { key: 'creditAmount' as any, label: 'Credit', render: (v: number) => formatCurrency(v || 0) },
-                              ]}
-                              title=""
-                              searchPlaceholder="Search transactions..."
-                              loading={false}
-                              emptyMessage="No transactions found."
-                              showSearch={false}
-                              showFilters={false}
-                              pageSize={5}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+                          </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                    {/* Totals Row */}
+                    {trialBalance && (
+                      <tfoot>
+                        <tr className="border-t-2 border-gray-300 bg-gray-100 font-bold">
+                          <td colSpan={3} className="py-3 px-4 text-sm text-gray-900">
+                            TOTALS
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="font-mono text-sm text-green-700">
+                              {formatCurrency(trialBalance.totals?.totalDebits || 0)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="font-mono text-sm text-red-700">
+                              {formatCurrency(trialBalance.totals?.totalCredits || 0)}
+                            </span>
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -559,6 +567,13 @@ export function TrialBalanceView() {
           </div>
         )}
       </div>
+
+      {/* Transaction View Drawer */}
+      <TransactionViewDrawer
+        transaction={selectedTransaction}
+        isOpen={isTransactionDrawerOpen}
+        onClose={() => setIsTransactionDrawerOpen(false)}
+      />
     </div>
   )
 }
