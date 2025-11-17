@@ -43,6 +43,75 @@ import type { RootState, AppDispatch } from "@/lib/store/store"
 import { fetchTrialBalance, fetchTrialBalanceSummary } from "@/lib/store/slices/accountingSlice"
 import { exportTrialBalanceToCSV, exportTrialBalanceToPDF } from "@/lib/utils/export"
 
+function TrialBalanceSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Summary Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="border border-gray-200">
+            <CardContent className="p-4 h-[80px] flex items-center">
+              <div className="flex items-center gap-3 w-full">
+                <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-7 w-20 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-24 bg-gray-100 rounded"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters Skeleton */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 h-10 bg-gray-200 rounded"></div>
+        <div className="w-48 h-10 bg-gray-200 rounded"></div>
+      </div>
+
+      {/* Table Skeleton */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-gray-50">
+                  <th className="text-left py-3 px-4"><div className="h-4 w-20 bg-gray-200 rounded"></div></th>
+                  <th className="text-left py-3 px-4"><div className="h-4 w-32 bg-gray-200 rounded"></div></th>
+                  <th className="text-left py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded"></div></th>
+                  <th className="text-right py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded ml-auto"></div></th>
+                  <th className="text-right py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded ml-auto"></div></th>
+                  <th className="w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(8)].map((_, i) => (
+                  <tr key={i} className="border-b hover:bg-gray-50">
+                    <td className="py-4 px-4"><div className="h-4 w-16 bg-gray-200 rounded"></div></td>
+                    <td className="py-4 px-4"><div className="h-4 w-40 bg-gray-200 rounded"></div></td>
+                    <td className="py-4 px-4"><div className="h-4 w-20 bg-gray-200 rounded"></div></td>
+                    <td className="py-4 px-4 text-right"><div className="h-4 w-24 bg-gray-200 rounded ml-auto"></div></td>
+                    <td className="py-4 px-4 text-right"><div className="h-4 w-24 bg-gray-200 rounded ml-auto"></div></td>
+                    <td className="py-4 px-4"><div className="h-4 w-4 bg-gray-200 rounded"></div></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 bg-gray-50 font-semibold">
+                  <td colSpan={3} className="py-4 px-4"><div className="h-5 w-20 bg-gray-300 rounded"></div></td>
+                  <td className="py-4 px-4 text-right"><div className="h-5 w-28 bg-gray-300 rounded ml-auto"></div></td>
+                  <td className="py-4 px-4 text-right"><div className="h-5 w-28 bg-gray-300 rounded ml-auto"></div></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export function TrialBalanceView() {
   const dispatch = useDispatch<AppDispatch>()
   const {
@@ -54,7 +123,8 @@ export function TrialBalanceView() {
     trialBalanceSummaryError
   } = useSelector((state: RootState) => state.accounting)
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month')
+  const [periodValue, setPeriodValue] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [generatingPDF, setGeneratingPDF] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterAccountType, setFilterAccountType] = useState("all")
@@ -66,16 +136,84 @@ export function TrialBalanceView() {
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
   const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false)
 
+  // Generate period options based on period type
+  const getPeriodOptions = () => {
+    const currentYear = new Date().getFullYear()
+    const options: { label: string; value: string }[] = []
+    
+    if (periodType === 'month') {
+      // Generate last 24 months
+      for (let i = 0; i < 24; i++) {
+        const date = new Date(currentYear, new Date().getMonth() - i, 1)
+        const value = format(date, 'yyyy-MM')
+        const label = format(date, 'MMMM yyyy')
+        options.push({ label, value })
+      }
+    } else if (periodType === 'quarter') {
+      // Generate last 8 quarters
+      for (let i = 0; i < 8; i++) {
+        const year = currentYear - Math.floor(i / 4)
+        const quarter = 4 - (i % 4)
+        options.push({
+          label: `Q${quarter} ${year}`,
+          value: `${year}-Q${quarter}`
+        })
+      }
+    } else if (periodType === 'year') {
+      // Generate last 5 years
+      for (let i = 0; i < 5; i++) {
+        const year = currentYear - i
+        options.push({
+          label: year.toString(),
+          value: year.toString()
+        })
+      }
+    }
+    
+    return options
+  }
+
+  // Update period value when period type changes
   useEffect(() => {
-    loadTrialBalanceData()
-  }, [selectedDate])
+    const currentYear = new Date().getFullYear()
+    const currentMonth = new Date().getMonth()
+    
+    if (periodType === 'month') {
+      const newValue = format(new Date(), 'yyyy-MM')
+      setPeriodValue(newValue)
+    } else if (periodType === 'quarter') {
+      const quarter = Math.ceil((currentMonth + 1) / 3)
+      const newValue = `${currentYear}-Q${quarter}`
+      setPeriodValue(newValue)
+    } else if (periodType === 'year') {
+      const newValue = currentYear.toString()
+      setPeriodValue(newValue)
+    }
+  }, [periodType])
+
+  useEffect(() => {
+    // Only load data when we have a valid periodValue for the current periodType
+    const isValidPeriodValue = 
+      (periodType === 'month' && /^\d{4}-\d{2}$/.test(periodValue)) ||
+      (periodType === 'quarter' && /^\d{4}-Q\d$/.test(periodValue)) ||
+      (periodType === 'year' && /^\d{4}$/.test(periodValue))
+    
+    if (isValidPeriodValue) {
+      loadTrialBalanceData()
+    }
+  }, [periodType, periodValue])
 
   const loadTrialBalanceData = async () => {
-    const dateString = format(selectedDate, 'yyyy-MM-dd')
     try {
       await Promise.all([
-        dispatch(fetchTrialBalance(dateString)),
-        dispatch(fetchTrialBalanceSummary(dateString))
+        dispatch(fetchTrialBalance({ 
+          periodType, 
+          periodValue
+        })),
+        dispatch(fetchTrialBalanceSummary({ 
+          periodType, 
+          periodValue
+        }))
       ])
     } catch (error: any) {
       toast.error("Failed to load trial balance data", {
@@ -204,26 +342,35 @@ export function TrialBalanceView() {
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Trial Balance</h2>
           <p className="text-gray-600">
-            As of {format(selectedDate, 'MMMM d, yyyy')} - Currency: USD
+            Period: {getPeriodOptions().find(opt => opt.value === periodValue)?.label || periodValue} - Currency: USD
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="rounded-full">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(selectedDate, "PPP")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          {/* Period Type Selector */}
+          <Select value={periodType} onValueChange={(value: any) => setPeriodType(value)}>
+            <SelectTrigger className="w-[140px] rounded-full">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Monthly</SelectItem>
+              <SelectItem value="quarter">Quarterly</SelectItem>
+              <SelectItem value="year">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* Period Value Selector */}
+          <Select value={periodValue} onValueChange={setPeriodValue}>
+            <SelectTrigger className="w-[180px] rounded-full">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              {getPeriodOptions().map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           
           {/* Export Buttons */}
           <Button 
@@ -380,9 +527,7 @@ export function TrialBalanceView() {
 
         {/* Accounts Grid */}
         {trialBalanceLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
+          <TrialBalanceSkeleton />
         ) : paginatedAccounts.length > 0 ? (
           <>
             {/* Trial Balance Table */}

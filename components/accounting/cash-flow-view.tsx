@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from "react-redux"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Popover,
   PopoverContent,
@@ -12,10 +13,10 @@ import {
 } from "@/components/ui/popover"
 import { CalendarIcon, RefreshCw, FileText, Loader2, AlertCircle, Check, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { format } from "date-fns"
+import { format, subDays } from "date-fns"
 import { toast } from "sonner"
 import type { RootState, AppDispatch } from "@/lib/store/store"
-import { generateCashFlow } from "@/lib/store/slices/accountingSlice"
+import { fetchCashFlow } from "@/lib/store/slices/accountingSlice"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import jsPDF from "jspdf"
@@ -74,6 +75,8 @@ export function CashFlowView() {
   const endOfYear = new Date(now.getFullYear(), 11, 31)
   const defaultCurrencyId = currencies.find(c => c.code === "USD")?.id || currencies[0]?.id || ""
   
+  const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year' | 'custom'>('month')
+  const [periodValue, setPeriodValue] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [startDate, setStartDate] = useState<Date>(startOfYear)
   const [endDate, setEndDate] = useState<Date>(endOfYear)
   const [currencyId, setCurrencyId] = useState(defaultCurrencyId)
@@ -82,32 +85,105 @@ export function CashFlowView() {
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
   const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false)
 
+  // Generate period options based on period type
+  const getPeriodOptions = () => {
+    const currentYear = new Date().getFullYear()
+    const options: { label: string; value: string }[] = []
+    
+    if (periodType === 'month') {
+      // Generate last 24 months
+      for (let i = 0; i < 24; i++) {
+        const date = new Date(currentYear, new Date().getMonth() - i, 1)
+        const value = format(date, 'yyyy-MM')
+        const label = format(date, 'MMMM yyyy')
+        options.push({ label, value })
+      }
+    } else if (periodType === 'quarter') {
+      // Generate last 8 quarters
+      for (let i = 0; i < 8; i++) {
+        const year = currentYear - Math.floor(i / 4)
+        const quarter = 4 - (i % 4)
+        options.push({
+          label: `Q${quarter} ${year}`,
+          value: `${year}-Q${quarter}`
+        })
+      }
+    } else if (periodType === 'year') {
+      // Generate last 5 years
+      for (let i = 0; i < 5; i++) {
+        const year = currentYear - i
+        options.push({
+          label: year.toString(),
+          value: year.toString()
+        })
+      }
+    }
+    
+    return options
+  }
+
+  // Update period value when period type changes
+  useEffect(() => {
+    if (periodType !== 'custom') {
+      const currentYear = new Date().getFullYear()
+      const currentMonth = new Date().getMonth()
+      
+      if (periodType === 'month') {
+        const newValue = format(new Date(), 'yyyy-MM')
+        setPeriodValue(newValue)
+      } else if (periodType === 'quarter') {
+        const quarter = Math.ceil((currentMonth + 1) / 3)
+        const newValue = `${currentYear}-Q${quarter}`
+        setPeriodValue(newValue)
+      } else if (periodType === 'year') {
+        const newValue = currentYear.toString()
+        setPeriodValue(newValue)
+      }
+    }
+  }, [periodType])
+
   useEffect(() => {
     if (currencies.length && !currencyId) setCurrencyId(defaultCurrencyId)
   }, [currencies])
 
   useEffect(() => {
     if (currencyId) {
-      dispatch(generateCashFlow({
-        startDate: format(startDate, "yyyy-MM-dd"),
-        endDate: format(endDate, "yyyy-MM-dd"),
-        currencyId
-      }) as any)
+      // Only load data when we have a valid periodValue for the current periodType (or when in custom mode)
+      const isValidPeriodValue = periodType === 'custom' ||
+        (periodType === 'month' && /^\d{4}-\d{2}$/.test(periodValue)) ||
+        (periodType === 'quarter' && /^\d{4}-Q\d$/.test(periodValue)) ||
+        (periodType === 'year' && /^\d{4}$/.test(periodValue))
+      
+      if (isValidPeriodValue) {
+        loadCashFlow()
+      }
     }
-  }, [currencyId])
+  }, [periodType, periodValue, startDate, endDate, currencyId])
 
-  const handleGenerate = async () => {
-    if (startDate && endDate && currencyId) {
-      try {
-        await dispatch(generateCashFlow({
+  const loadCashFlow = async () => {
+    try {
+      if (periodType === 'custom') {
+        // Use date range for custom period
+        await dispatch(fetchCashFlow({
           startDate: format(startDate, "yyyy-MM-dd"),
           endDate: format(endDate, "yyyy-MM-dd"),
           currencyId
         }) as any)
-      } catch (error: any) {
-        toast.error("Failed to generate cash flow statement", { description: error.message })
+      } else {
+        // Use period type and value
+        await dispatch(fetchCashFlow({
+          periodType,
+          periodValue,
+          currencyId
+        }) as any)
       }
+    } catch (error: any) {
+      toast.error("Failed to load cash flow statement", { description: error.message })
     }
+  }
+
+  const handleGenerate = async () => {
+    await loadCashFlow()
   }
 
   const toggleAccount = (accountId: string) => {
@@ -514,48 +590,84 @@ export function CashFlowView() {
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Cash Flow Statement</h2>
           <p className="text-gray-600">
-            For the period {format(startDate, "MMM d, yyyy")} to {format(endDate, "MMM d, yyyy")}
+            {periodType === 'custom' 
+              ? `For the period ${format(startDate, 'MMM d, yyyy')} to ${format(endDate, 'MMM d, yyyy')}`
+              : `Period: ${getPeriodOptions().find(opt => opt.value === periodValue)?.label || periodValue}`
+            }
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">From:</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="rounded-full">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(startDate, "MMM d, yyyy")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => date && setStartDate(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">To:</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="rounded-full">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(endDate, "MMM d, yyyy")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={(date) => date && setEndDate(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {/* Period Type Selector */}
+          <Select value={periodType} onValueChange={(value: any) => setPeriodType(value)}>
+            <SelectTrigger className="w-[140px] rounded-full">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Monthly</SelectItem>
+              <SelectItem value="quarter">Quarterly</SelectItem>
+              <SelectItem value="year">Yearly</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {periodType !== 'custom' ? (
+            /* Period Value Selector */
+            <Select value={periodValue} onValueChange={setPeriodValue}>
+              <SelectTrigger className="w-[180px] rounded-full">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                {getPeriodOptions().map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            /* Custom Date Range */
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">From:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="rounded-full">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(startDate, "MMM d, yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => date && setStartDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">To:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="rounded-full">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(endDate, "MMM d, yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(date) => date && setEndDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </>
+          )}
           {/* Custom currency dropdown */}
           <div>
             {currencyDropdown}

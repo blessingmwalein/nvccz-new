@@ -52,6 +52,7 @@ interface ProcessCashbookModalProps {
   banks: any[]
   selectedBank: any
   onBankChange: (bank: any) => void
+  onSuccess?: () => void
 }
 
 export function ProcessCashbookModal({
@@ -60,6 +61,7 @@ export function ProcessCashbookModal({
   banks,
   selectedBank,
   onBankChange,
+  onSuccess,
 }: ProcessCashbookModalProps) {
   const dispatch = useDispatch<AppDispatch>()
   const customers = useSelector((state: RootState) => state.accounting.customers)
@@ -258,9 +260,9 @@ export function ProcessCashbookModal({
           setConfirmOpen(false)
           onClose()
           // After creating entry, match allocations if any
-          if (entry.allocations && entry.allocations.length > 0) {
+          if ((entry as any).allocations && (entry as any).allocations.length > 0) {
             try {
-              await cashbookApi.matchOpenItems(res.data.id, entry.allocations)
+              await cashbookApi.matchOpenItems(res.data.id, (entry as any).allocations)
               toast.success("Allocations matched")
             } catch (matchError) {
               console.error("Matching error:", matchError)
@@ -301,20 +303,30 @@ export function ProcessCashbookModal({
       const file = new File([csv], `batch-cashbook-${timestamp}.csv`, { type: "text/csv" })
 
       //download CSV for debugging
-      const url = URL.createObjectURL(file)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = file.name
-      a.click()
-      URL.revokeObjectURL(url)
+      // const url = URL.createObjectURL(file)
+      // const a = document.createElement("a")
+      // a.href = url
+      // a.download = file.name
+      // a.click()
+      // URL.revokeObjectURL(url)
 
 
       try {
         const res = await cashbookApi.createCashbookBatchImport(file)
         if (res.success) {
-          toast.success(`Batch imported: ${res.data.totalTransactions} transactions`)
+          toast.success(`Batch imported: ${res.data.totalTransactions} transactions (${res.data.validTransactions} valid, ${res.data.invalidTransactions} invalid)`)
+          
+          // Show errors if any
+          if (res.data.errors && res.data.errors.length > 0) {
+            toast.warning(`Some transactions had errors: ${res.data.errors.slice(0, 3).join(", ")}${res.data.errors.length > 3 ? "..." : ""}`)
+          }
+          
           setConfirmOpen(false)
           onClose()
+          
+          // Call onSuccess callback to refresh batches
+          onSuccess?.()
+          
           // Clear form
           reset({
             entries: [
@@ -347,34 +359,68 @@ export function ProcessCashbookModal({
   }
 
 
-  // Helper to generate CSV from entries (with headers matching table columns)
+  // Helper to generate CSV from entries (with headers matching new template)
   const generateCSV = (entries: any[]) => {
-    const headers = ["bankId", "transactionDate", "description", "amount", "reference", "counterpartyType", "customerId", "vendorId", "glAccountId", "vatCode", "projectCode", "discount"]
+    const headers = ["bankName", "transactionDate", "description", "amount", "reference", "counterpartyType", "customerName", "vendorName", "glAccountNo", "vatCode", "projectCode", "discount"]
+    
+    // Helper to escape CSV field if it contains comma, quote, or newline
+    const escapeField = (field: any): string => {
+      const str = String(field)
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+    
     const rows = entries.map(entry => {
       let counterpartyType
       if (entry.gcs === "C") counterpartyType = "CUSTOMER"
       else if (entry.gcs === "V") counterpartyType = "VENDOR"
       else counterpartyType = "GL"
+      
+      // Get customer name
+      const customerName = entry.customerId 
+        ? customers.find((c: any) => c.id === entry.customerId)?.name || ""
+        : ""
+      
+      // Get vendor name
+      const vendorName = entry.vendorId
+        ? vendors.find((v: any) => v.id === entry.vendorId)?.name || ""
+        : ""
+      
+      // Get GL account number (use accountNo property)
+      const glAccountNo = entry.glAccountId
+        ? chartOfAccounts.find((acc: any) => acc.id === entry.glAccountId)?.accountNo || ""
+        : ""
+      
       return [
-        trimSpaces(selectedBank?.id),
+        selectedBank?.name || "",
         format(new Date(entry.date), "yyyy-MM-dd"),
         entry.description,
         parseFloat(entry.bankAmount),
         entry.reference,
         counterpartyType,
-        entry.customerId || "",
-        entry.vendorId || "",
-        entry.glAccountId || "",
+        customerName,
+        vendorName,
+        glAccountNo,
         entry.vatCode || "",
         entry.projectCode || "",
         parseFloat(entry.discount) || 0,
       ]
     })
-    return [headers, ...rows].map(row => row.map((cell, index) => {
-      // Don't quote numbers (amount and discount)
-      if (index === 3 || index === 11) return cell.toString()
-      return `"${cell}"`
-    }).join(",")).join("\n")
+    
+    // Generate CSV with proper escaping only for fields that need it
+    const csvLines = [
+      headers.join(","),
+      ...rows.map(row => row.map((cell, index) => {
+        // For description field (index 2), always escape if contains special chars
+        if (index === 2) return escapeField(cell)
+        // Otherwise just convert to string
+        return String(cell)
+      }).join(","))
+    ]
+    
+    return csvLines.join("\n")
   }
 
   const trimSpaces = (value: any): string => {
@@ -410,7 +456,7 @@ export function ProcessCashbookModal({
     const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0)
     if (lines.length < 1) return []
     const headers = splitCSVLine(lines[0]).map(h => h.replace(/"/g, "").trim())
-    const expectedHeaders = ["bankId", "transactionDate", "description", "amount", "reference", "counterpartyType", "customerId", "vendorId", "glAccountId", "vatCode", "projectCode", "discount"]
+    const expectedHeaders = ["bankName", "transactionDate", "description", "amount", "reference", "counterpartyType", "customerName", "vendorName", "glAccountNo", "vatCode", "projectCode", "discount"]
     if (!expectedHeaders.every(h => headers.includes(h))) {
       throw new Error("CSV headers do not match expected format")
     }
@@ -425,10 +471,31 @@ export function ProcessCashbookModal({
         else if (h === "counterpartyType") {
           entry.counterpartyType = val
           if (val === "CUSTOMER") entry.gcs = "C"
-          else if (val === "SUPPLIER") entry.gcs = "V"
+          else if (val === "SUPPLIER" || val === "VENDOR") entry.gcs = "V"
           else if (val === "GL") entry.gcs = "G"
         }
-        else entry[h] = val
+        else if (h === "customerName") {
+          // Find customer by name and set customerId
+          const customer = customers.find((c: any) => c.name === val)
+          if (customer) entry.customerId = customer.id
+        }
+        else if (h === "vendorName") {
+          // Find vendor by name and set vendorId
+          const vendor = vendors.find((v: any) => v.name === val)
+          if (vendor) entry.vendorId = vendor.id
+        }
+        else if (h === "glAccountNo") {
+          // Find GL account by account number and set glAccountId
+          const account = chartOfAccounts.find((acc: any) => acc.accountNo === val)
+          if (account) entry.glAccountId = account.id
+        }
+        else if (h === "bankName") {
+          // Store bank name for reference (not used in submission)
+          entry.bankName = val
+        }
+        else {
+          entry[h] = val
+        }
       })
       entry.period = "07-" // Default period
       return entry
@@ -445,8 +512,8 @@ export function ProcessCashbookModal({
       reset({ entries: parsedEntries.length > 0 ? parsedEntries : [/* default entry */] })
       setImportOpen(false)
       toast.success(`Imported ${parsedEntries.length} entries`)
-    } catch (error) {
-      toast.error("Failed to parse CSV: " + error.message)
+    } catch (error: any) {
+      toast.error("Failed to parse CSV: " + (error?.message || "Unknown error"))
     }
   }
 
@@ -1083,6 +1150,21 @@ export function ProcessCashbookModal({
                       className="w-[180px] text-right font-mono bg-muted font-semibold"
                     />
                   </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="whitespace-nowrap bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full hover:from-green-600 hover:to-green-700" 
+                    onClick={() => {
+                      const link = document.createElement('a')
+                      link.href = '/sample-cashbook-transactions.csv'
+                      link.download = 'sample-cashbook-transactions.csv'
+                      link.click()
+                      toast.success('Template downloaded')
+                    }}
+                  >
+                    Download Template
+                  </Button>
                   <Button type="button" variant="outline" size="sm" className="whitespace-nowrap bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-full" onClick={() => setImportOpen(true)}>
                     Import Batch
                   </Button>
@@ -1128,8 +1210,28 @@ export function ProcessCashbookModal({
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground mb-4">
-              Upload a CSV file with the same format as batch exports. Headers: period, date, gcs, customerId, vendorId, glAccountId, reference, description, bankAmount, discount, vatCode, projectCode
+              Upload a CSV file with the following headers: <strong>bankName, transactionDate, description, amount, reference, counterpartyType, customerName, vendorName, glAccountNo, vatCode, projectCode, discount</strong>
             </p>
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 mb-2">
+                <strong>Need a template?</strong> Download the sample CSV template to get started.
+              </p>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  const link = document.createElement('a')
+                  link.href = '/sample-cashbook-transactions.csv'
+                  link.download = 'sample-cashbook-transactions.csv'
+                  link.click()
+                  toast.success('Template downloaded')
+                }}
+              >
+                Download Sample Template
+              </Button>
+            </div>
             <Input
               type="file"
               accept=".csv"

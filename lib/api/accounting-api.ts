@@ -1137,16 +1137,75 @@ class AccountingApiService {
 
   // Reports
   async getTrialBalance(date?: string): Promise<AccountingResponse<any>> {
+    // Deprecated: use new getTrialBalanceV2
     return apiClient.get<AccountingResponse<any>>('/accounting/reports/trial-balance', { params: { date } })
   }
 
-  async getBalanceSheet(date?: string): Promise<AccountingResponse<any>> {
-    return apiClient.get<AccountingResponse<any>>('/accounting/reports/balance-sheet', { params: { date } })
+  // NEW: Flexible trial balance API
+  async getTrialBalanceV2(params: {
+    periodType?: string;
+    periodValue?: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }): Promise<AccountingResponse<any>> {
+    const queryString = params ? `?${new URLSearchParams(
+      Object.entries(params).filter(([_, value]) => value !== undefined && value !== null).map(([key, value]) => [key, String(value)])
+    ).toString()}` : '';
+    return apiClient.get<AccountingResponse<any>>(`/accounting/trial-balance${queryString}`);
   }
 
-  async getIncomeStatement(startDate: string, endDate: string): Promise<AccountingResponse<IncomeStatementData>> {
-    const queryString = `?startDate=${startDate}&endDate=${endDate}`
-    return apiClient.get<AccountingResponse<IncomeStatementData>>(`/accounting/income-statement${queryString}`)
+  async getTrialBalanceSummaryV2(params: {
+    periodType?: string;
+    periodValue?: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }): Promise<AccountingResponse<any>> {
+    const queryString = params ? `?${new URLSearchParams(
+      Object.entries(params).filter(([_, value]) => value !== undefined && value !== null).map(([key, value]) => [key, String(value)])
+    ).toString()}` : '';
+    return apiClient.get<AccountingResponse<any>>(`/accounting/trial-balance/summary${queryString}`);
+  }
+
+  async getIncomeStatementV2(params: {
+    periodType?: string;
+    periodValue?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }): Promise<AccountingResponse<IncomeStatementData>> {
+    const queryString = params ? `?${new URLSearchParams(
+      Object.entries(params).filter(([_, value]) => value !== undefined && value !== null).map(([key, value]) => [key, String(value)])
+    ).toString()}` : '';
+    return apiClient.get<AccountingResponse<IncomeStatementData>>(`/accounting/income-statement${queryString}`);
+  }
+
+  async getCashFlowV2(params: {
+    periodType?: string;
+    periodValue?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }): Promise<AccountingResponse<CashFlowResponse>> {
+    const queryString = params ? `?${new URLSearchParams(
+      Object.entries(params).filter(([_, value]) => value !== undefined && value !== null).map(([key, value]) => [key, String(value)])
+    ).toString()}` : '';
+    return apiClient.get<AccountingResponse<CashFlowResponse>>(`/accounting/cash-flow${queryString}`);
+  }
+
+  async getBalanceSheetV2(params: {
+    periodType?: string;
+    periodValue?: string;
+    asOfDate?: string;
+    currencyId?: string;
+  }): Promise<AccountingResponse<BalanceSheetResponse>> {
+    const queryString = params ? `?${new URLSearchParams(
+      Object.entries(params).filter(([_, value]) => value !== undefined && value !== null).map(([key, value]) => [key, String(value)])
+    ).toString()}` : '';
+    return apiClient.get<AccountingResponse<BalanceSheetResponse>>(`/accounting/balance-sheet${queryString}`);
   }
 
   // Chart of Accounts

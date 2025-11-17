@@ -48,8 +48,10 @@ export function useAccountingDashboard() {
 
       if (expensesRes.success) {
         const expenseData = expensesRes.data?.expenses || expensesRes.data || []
-        setExpenses(expenseData)
-        console.log('Loaded expenses:', expenseData.length)
+        // Filter to only show POSTED expenses
+        const postedExpenses = expenseData.filter((expense: any) => expense.status === 'POSTED')
+        setExpenses(postedExpenses)
+        console.log('Loaded expenses (POSTED only):', postedExpenses.length)
       }
 
       hasInitialized.current = true
@@ -120,7 +122,7 @@ export function useAccountingDashboard() {
     const lastCreditTotal = lastMonthCreditNotes.reduce((sum, note) => sum + parseFloat(note.totalAmount || 0), 0)
     const creditChange = lastCreditTotal > 0 ? ((currentCreditTotal - lastCreditTotal) / lastCreditTotal) * 100 : 0
 
-    // All expenses totals
+    // All expenses totals (POSTED only)
     const totalExpenses = expenses.length
     const totalExpenseAmount = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0)
     
@@ -203,7 +205,7 @@ export function useAccountingDashboard() {
     return months
   }, [invoices, creditNotes])
 
-  // Get recent expenses (last 5)
+  // Get recent expenses (last 5, POSTED only)
   const recentExpenses = useMemo(() => {
     if (!expenses.length) return []
     

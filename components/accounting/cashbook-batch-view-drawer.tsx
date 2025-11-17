@@ -10,9 +10,10 @@ import { Banknote, Package, FileText, AlertTriangle, Calendar as CalendarIcon, R
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"  // Change import to sonner
 import { ProcurementDataTable } from "../procurement/procurement-data-table"
+import { TransactionsDataTable } from "./transactions-data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { cashbookApi, TransactionReversal } from "@/lib/api/cashbook-api"
+import { cashbookApi } from "@/lib/api/cashbook-api"
 import { useForm, Controller } from "react-hook-form"
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
@@ -28,7 +29,14 @@ const reverseSchema = yup.object({
     reverseDate: yup.date().required("Reverse date is required"),
 })
 
-export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate }) {
+interface CashbookBatchViewDrawerProps {
+    isOpen: boolean
+    onClose: () => void
+    batch: any
+    onBatchUpdate?: (batch?: any) => void
+}
+
+export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate }: CashbookBatchViewDrawerProps) {
     const getRelevantTabs = () => {
         const baseTabs = [
             { id: "overview", label: "Overview", icon: Package },
@@ -42,10 +50,10 @@ export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate 
     const [postConfirmOpen, setPostConfirmOpen] = useState(false)
     const [posting, setPosting] = useState(false)
     const [reverseDialogOpen, setReverseDialogOpen] = useState(false)
-    const [selectedTransaction, setSelectedTransaction] = useState(null)
+    const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
     const [reversing, setReversing] = useState(false)
     const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
-    const [reversalHistory, setReversalHistory] = useState([])
+    const [reversalHistory, setReversalHistory] = useState<any[]>([])
     const [loadingHistory, setLoadingHistory] = useState(false)
 
     const {
@@ -71,61 +79,6 @@ export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate 
     }, [relevantTabs])
 
     if (!batch) return null
-
-    const transactionColumns = [
-        {
-            key: "type",
-            label: "Type",
-            render: (value: string) => (
-                <Badge variant={value === 'RECEIPT' ? 'default' : 'secondary'}>
-                    {value}
-                </Badge>
-            ),
-        },
-        {
-            key: "amount",
-            label: "Amount",
-            render: (value: number) => `$${value.toLocaleString()}`,
-        },
-        {
-            key: "status",
-            label: "Status",
-            render: (value: string) => (
-                <Badge variant={value === 'POSTED' ? 'default' : 'secondary'}>
-                    {value}
-                </Badge>
-            ),
-        },
-        {
-            key: "actions",
-            label: "Actions",
-            render: (value, row) => (
-                <div className="flex gap-2">
-                    {row.status === "POSTED" && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                                setSelectedTransaction(row)
-                                setReverseDialogOpen(true)
-                            }}
-                            className="rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white"
-                        >
-                            <RotateCcw className="w-4 h-4" />
-                        </Button>
-                    )}
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewHistory(row.id)}
-                        className="rounded-full bg-gradient-to-r from-gray-500 to-gray-600 text-white"
-                    >
-                        <History className="w-4 h-4" />
-                    </Button>
-                </div>
-            ),
-        },
-    ]
 
     const renderedTabs = relevantTabs.map((tab) => {
         const Icon = tab.icon
@@ -167,10 +120,10 @@ export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate 
         }
     }
 
-    const handleReverseTransaction = async (data) => {
+    const handleReverseTransaction = async (data: any) => {
         setReversing(true)
         try {
-            const res = await cashbookApi.reverseTransaction(selectedTransaction.id, {
+            const res = await cashbookApi.reverseTransaction(selectedTransaction?.id, {
                 ...data,
                 reverseDate: format(data.reverseDate, "yyyy-MM-dd"),
             })
@@ -191,20 +144,20 @@ export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate 
         }
     }
 
-    const handleViewHistory = async (transactionId) => {
+    const handleViewHistory = async (transactionId: string) => {
         setLoadingHistory(true)
         try {
             const res = await cashbookApi.getTransactionReversalHistory(transactionId)
             if (res.success && Array.isArray(res.message)) {
-                setReversalHistory(res.message)
+                setReversalHistory(res.message as any[])
                 setHistoryDialogOpen(true)
             } else {
-                toast.error("Failed to load reversal history or invalid response")  // Update to sonner style
-                setReversalHistory([])  // Fallback to empty array
+                toast.error("Failed to load reversal history or invalid response")
+                setReversalHistory([])
             }
         } catch (error) {
-            toast.error("Failed to load reversal history")  // Update to sonner style
-            setReversalHistory([])  // Fallback to empty array
+            toast.error("Failed to load reversal history")
+            setReversalHistory([])
         } finally {
             setLoadingHistory(false)
         }
@@ -301,13 +254,19 @@ export function CashbookBatchViewDrawer({ isOpen, onClose, batch, onBatchUpdate 
                         )}
 
                         {activeTab === "transactions" && (
-                            <ProcurementDataTable
-                                data={batch.transactions || []}
-                                columns={transactionColumns}
-                                title=""
-                                searchPlaceholder="Search transactions..."
+                            <TransactionsDataTable
+                                transactions={(batch.transactions || []).map((txn: any, index: number) => ({
+                                    id: txn.id,
+                                    date: txn.transactionDate || txn.createdAt || batch.createdAt || new Date().toISOString(),
+                                    reference: txn.reference || `BATCH-${index + 1}`,
+                                    description: txn.description || 'No description',
+                                    debitAmount: txn.type === 'RECEIPT' ? parseFloat(txn.amount) : 0,
+                                    creditAmount: txn.type === 'PAYMENT' ? parseFloat(txn.amount) : 0,
+                                    source: 'CASHBOOK',
+                                    journalEntryStatus: txn.status || 'PENDING',
+                                }))}
                                 loading={false}
-                                emptyMessage="No transactions found."
+                                title="Batch Transactions"
                             />
                         )}
                     </div>

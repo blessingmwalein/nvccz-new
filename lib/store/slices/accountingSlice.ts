@@ -155,8 +155,15 @@ export const fetchChartOfAccounts = createAsyncThunk(
 // Trial Balance thunks
 export const fetchTrialBalance = createAsyncThunk(
   'accounting/fetchTrialBalance',
-  async (date?: string) => {
-    const response = await accountingApi.getTrialBalance(date)
+  async (params: {
+    periodType?: string;
+    periodValue?: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }) => {
+    const response = await accountingApi.getTrialBalanceV2(params)
     if (!response.success) {
       throw new Error(response.error || 'Failed to fetch trial balance')
     }
@@ -166,8 +173,15 @@ export const fetchTrialBalance = createAsyncThunk(
 
 export const fetchTrialBalanceSummary = createAsyncThunk(
   'accounting/fetchTrialBalanceSummary',
-  async (date?: string) => {
-    const response = await accountingApi.getTrialBalanceSummary(date)
+  async (params: {
+    periodType?: string;
+    periodValue?: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }) => {
+    const response = await accountingApi.getTrialBalanceSummaryV2(params)
     if (!response.success) {
       throw new Error(response.error || 'Failed to fetch trial balance summary')
     }
@@ -178,8 +192,14 @@ export const fetchTrialBalanceSummary = createAsyncThunk(
 // Income Statement thunk
 export const fetchIncomeStatement = createAsyncThunk(
   'accounting/fetchIncomeStatement',
-  async (params: { startDate: string; endDate: string }) => {
-    const response = await accountingApi.getIncomeStatement(params.startDate, params.endDate)
+  async (params: {
+    periodType?: string;
+    periodValue?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }) => {
+    const response = await accountingApi.getIncomeStatementV2(params)
     if (!response.success) {
       throw new Error(response.error || 'Failed to fetch income statement')
     }
@@ -475,8 +495,13 @@ export const generateBalanceSheet = createAsyncThunk(
 )
 export const fetchBalanceSheet = createAsyncThunk(
   'accounting/fetchBalanceSheet',
-  async (params: { asOfDate: string; currencyId: string }) => {
-    const response = await accountingApi.getBalanceSheet(params.asOfDate, params.currencyId)
+  async (params: {
+    periodType?: string;
+    periodValue?: string;
+    asOfDate?: string;
+    currencyId?: string;
+  }) => {
+    const response = await accountingApi.getBalanceSheetV2(params)
     if (!response.success) throw new Error(response.error || 'Failed to fetch balance sheet')
     return response.data
   }
@@ -493,8 +518,14 @@ export const generateCashFlow = createAsyncThunk(
 )
 export const fetchCashFlow = createAsyncThunk(
   'accounting/fetchCashFlow',
-  async (params: { startDate: string; endDate: string; currencyId: string }) => {
-    const response = await accountingApi.getCashFlow(params.startDate, params.endDate, params.currencyId)
+  async (params: {
+    periodType?: string;
+    periodValue?: string;
+    startDate?: string;
+    endDate?: string;
+    currencyId?: string;
+  }) => {
+    const response = await accountingApi.getCashFlowV2(params)
     if (!response.success) throw new Error(response.error || 'Failed to fetch cash flow statement')
     return response.data
   }

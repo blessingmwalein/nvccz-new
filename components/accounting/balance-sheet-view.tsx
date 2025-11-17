@@ -75,6 +75,7 @@ export function BalanceSheetView() {
   const defaultCurrencyId = currencies.find(c => c.code === "USD")?.id || currencies[0]?.id || ""
   const [asOfDate, setAsOfDate] = useState<Date>(new Date())
   const [currencyId, setCurrencyId] = useState(defaultCurrencyId)
+  const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year' | 'custom'>('custom')
   const [generatingPDF, setGeneratingPDF] = useState(false)
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)

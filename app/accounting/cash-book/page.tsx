@@ -524,6 +524,25 @@ export default function CashbookPage() {
           banks={cashbookBanks}
           selectedBank={selectedCashbookBank}
           onBankChange={(bank) => dispatch(setSelectedCashbookBank(bank))}
+          onSuccess={() => {
+            // Refresh batches after successful import
+            if (activeTab === 'batch') {
+              const fetchBatches = async () => {
+                setBatchesLoading(true)
+                try {
+                  const res = await cashbookApi.getCashbookBatches()
+                  if (res.success) {
+                    setBatches(res.data?.batches)
+                  }
+                } catch (error) {
+                  console.error("Failed to fetch batches", error)
+                } finally {
+                  setBatchesLoading(false)
+                }
+              }
+              fetchBatches()
+            }
+          }}
         />
 
         <CashbookBatchViewDrawer

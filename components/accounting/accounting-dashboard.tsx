@@ -80,7 +80,6 @@ function FinancialChart({ data }: FinancialChartProps) {
           fillOpacity={0.2} 
           dot={{ r: 4 }} 
         />
-        <ChartLegend content={<ChartLegendContent className="text-sm md:text-base" />} />
       </AreaChart>
     </ChartContainer>
   )
@@ -103,26 +102,8 @@ export function AccountingDashboard() {
   useEffect(() => {
     dispatch(fetchCurrencies())
     // Load all data without filters
-    loadDashboardData('', '')
+    loadDashboardData()
   }, [dispatch, loadDashboardData])
-
-  useEffect(() => {
-    const fetchFilteredInvoices = async () => {
-      try {
-        // Assuming accountingApi has a method to fetch invoices with status filter
-        const res = await accountingApi.getInvoices({ status: 'ACTIVE' })  // Adjust API call to exclude void
-        if (res.success) {
-          const activeInvoices = res.data.filter(invoice => invoice.status !== 'VOID')
-          const total = activeInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0)
-          setFilteredInvoicesTotal(total)
-          setFilteredInvoicesCount(activeInvoices.length)
-        }
-      } catch (error) {
-        console.error("Failed to fetch filtered invoices", error)
-      }
-    }
-    fetchFilteredInvoices()
-  }, [])
 
   if (loading && !dashboardStats) {
     return <AccountingDashboardSkeleton />
