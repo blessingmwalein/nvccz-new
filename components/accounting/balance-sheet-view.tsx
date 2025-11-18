@@ -446,6 +446,110 @@ export function BalanceSheetView() {
                   </div>
                 )}
 
+                {/* Fixed Assets */}
+                {balanceSheet.assets.fixedAssets && balanceSheet.assets.fixedAssets.accounts && balanceSheet.assets.fixedAssets.accounts.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold text-gray-700 mb-2">Fixed Assets</h4>
+                    <div className="ml-4 space-y-2">
+                      {balanceSheet.assets.fixedAssets.accounts.map((account: any) => {
+                        const isExpanded = expandedAccounts.has(account.accountNo)
+                        const hasTransactions = account.transactions && account.transactions.length > 0
+                        
+                        return (
+                          <div key={account.accountNo} className="space-y-2">
+                            <div 
+                              className={cn(
+                                "flex justify-between items-center py-1 rounded-md px-2 -mx-2",
+                                hasTransactions && "cursor-pointer hover:bg-blue-50 transition-colors"
+                              )}
+                              onClick={() => hasTransactions && toggleAccount(account.accountNo)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {hasTransactions && (
+                                  <div className="h-6 w-6 flex items-center justify-center">
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </div>
+                                )}
+                                <span className="text-sm text-gray-700">{account.accountName}</span>
+                                {hasTransactions && (
+                                  <Badge variant="outline" className="text-xs">{account.transactions.length} txns</Badge>
+                                )}
+                              </div>
+                              <span className="font-mono text-sm text-gray-900">{formatMoney(account.balance)}</span>
+                            </div>
+                            
+                            {isExpanded && hasTransactions && (
+                              <div className="ml-8 my-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <TransactionsDataTable
+                                  transactions={account.transactions}
+                                  onRowClick={handleTransactionClick}
+                                  title={`${account.accountName} Transactions`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                      <div className="flex justify-between py-2 border-t border-gray-300 font-semibold">
+                        <span>Total Fixed Assets</span>
+                        <span className="font-mono text-blue-700">{formatMoney(balanceSheet.assets.fixedAssets.total)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Other Assets */}
+                {balanceSheet.assets.otherAssets && balanceSheet.assets.otherAssets.accounts && balanceSheet.assets.otherAssets.accounts.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold text-gray-700 mb-2">Other Assets</h4>
+                    <div className="ml-4 space-y-2">
+                      {balanceSheet.assets.otherAssets.accounts.map((account: any) => {
+                        const isExpanded = expandedAccounts.has(account.accountNo)
+                        const hasTransactions = account.transactions && account.transactions.length > 0
+                        
+                        return (
+                          <div key={account.accountNo} className="space-y-2">
+                            <div 
+                              className={cn(
+                                "flex justify-between items-center py-1 rounded-md px-2 -mx-2",
+                                hasTransactions && "cursor-pointer hover:bg-blue-50 transition-colors"
+                              )}
+                              onClick={() => hasTransactions && toggleAccount(account.accountNo)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {hasTransactions && (
+                                  <div className="h-6 w-6 flex items-center justify-center">
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </div>
+                                )}
+                                <span className="text-sm text-gray-700">{account.accountName}</span>
+                                {hasTransactions && (
+                                  <Badge variant="outline" className="text-xs">{account.transactions.length} txns</Badge>
+                                )}
+                              </div>
+                              <span className="font-mono text-sm text-gray-900">{formatMoney(account.balance)}</span>
+                            </div>
+                            
+                            {isExpanded && hasTransactions && (
+                              <div className="ml-8 my-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <TransactionsDataTable
+                                  transactions={account.transactions}
+                                  onRowClick={handleTransactionClick}
+                                  title={`${account.accountName} Transactions`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                      <div className="flex justify-between py-2 border-t border-gray-300 font-semibold">
+                        <span>Total Other Assets</span>
+                        <span className="font-mono text-blue-700">{formatMoney(balanceSheet.assets.otherAssets.total)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Total Assets */}
                 <div className="flex justify-between py-3 border-t-2 border-gray-800 font-bold text-lg">
                   <span>TOTAL ASSETS</span>
