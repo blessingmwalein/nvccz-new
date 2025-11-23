@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getModuleById } from "@/lib/config/modules"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { 
   CiViewList,
   CiWallet,
@@ -17,6 +18,7 @@ export function PortfolioSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  const { canAccessSubModule } = useRolePermissions()
 
   const module = getModuleById("portfolio-management")
 
@@ -108,7 +110,35 @@ export function PortfolioSidebar() {
     }
   }
 
+  // Filter groups and items based on permissions
+  const filteredGroups = useMemo(() => {
+    if (!module?.groups) return []
+    return module.groups.map(group => {
+      if (Array.isArray(group.items) && group.items.length > 0) {
+        const filteredItems = group.items.filter(item => 
+          canAccessSubModule('portfolio-management', item.id)
+        )
+        return filteredItems.length > 0 ? { ...group, items: filteredItems } : null
+      } else if (group.path) {
+        return canAccessSubModule('portfolio-management', group.id) ? group : null
+      }
+      return null
+    }).filter((group): group is NonNullable<typeof group> => group !== null)
+  }, [module, canAccessSubModule])
+
+  const filteredSubModules = useMemo(() => {
+    if (!module?.subModules) return []
+    return module.subModules.filter(subModule => 
+      canAccessSubModule('portfolio-management', subModule.id)
+    )
+  }, [module, canAccessSubModule])
+
   if (!module) {
+    return null
+  }
+
+  // Don't render sidebar if user has no access to any items
+  if (filteredGroups.length === 0 && filteredSubModules.length === 0) {
     return null
   }
 
@@ -131,9 +161,9 @@ export function PortfolioSidebar() {
         {/* Navigation Items */}
         <div className="space-y-4">
           {/* Groups with collapsible items */}
-          {module.groups && module.groups.length > 0 && (
+          {filteredGroups.length > 0 && (
             <>
-              {module.groups.map(group => {
+              {filteredGroups.map(group => {
                 const GroupIcon = getGroupIcon(group.id)
                 const collapsed = collapsedGroups[group.id]
                 return (
@@ -199,9 +229,9 @@ export function PortfolioSidebar() {
           )}
 
           {/* SubModules - displayed below groups */}
-          {module.subModules && module.subModules.length > 0 && (
+          {filteredSubModules.length > 0 && (
             <div className="space-y-1 pt-4 border-t border-gray-200">
-              {module.subModules.map((subModule) => {
+              {filteredSubModules.map((subModule) => {
                 const Icon = subModule.icon
                 const active = activeItemId === subModule.id
                 return (

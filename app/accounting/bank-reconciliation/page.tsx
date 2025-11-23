@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSelector, useDispatch } from "react-redux"
 import { AccountingLayout } from "@/components/layout/accounting-layout"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -31,7 +32,7 @@ import { ProcurementDataTable, Column } from "@/components/procurement/procureme
 import { BankReconciliationViewDrawer } from "@/components/accounting/bank-reconciliation-view-drawer"
 import { BankReconciliationUploadModal } from "@/components/accounting/bank-reconciliation-upload-modal"
 
-export default function BankReconciliationPage() {
+function BankReconciliationPage() {
   const dispatch = useDispatch<AppDispatch>()
   const {
     bankReconciliations,
@@ -346,5 +347,14 @@ export default function BankReconciliationPage() {
         />
       </div>
     </AccountingLayout>
+  )
+}
+
+// Wrap the component with permission guard
+export default function BankReconciliationPageWrapper() {
+  return (
+    <ModuleGuard moduleId="accounting" subModuleId="bank-reconciliation">
+      <BankReconciliationPage />
+    </ModuleGuard>
   )
 }

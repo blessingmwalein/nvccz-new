@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Plus, Mail, Phone, Building, DollarSign, Calendar, Users } from "lucide-react"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 const investors = [
   {
@@ -77,18 +78,19 @@ export default function InvestorsPage() {
   )
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Investors</h1>
-          <p className="text-gray-600 mt-1">Manage your investor relationships and commitments</p>
+    <ModuleGuard moduleId="portfolio-management" subModuleId="funds">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Investors</h1>
+            <p className="text-gray-600 mt-1">Manage your investor relationships and commitments</p>
+          </div>
+          <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Investor
+          </Button>
         </div>
-        <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Investor
-        </Button>
-      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -248,5 +250,6 @@ export default function InvestorsPage() {
         ))}
       </div>
     </div>
+    </ModuleGuard>
   )
 }

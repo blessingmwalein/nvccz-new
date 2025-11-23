@@ -15,6 +15,7 @@ import { FinancialReportUploadModal } from "./financial-report-upload-modal"
 import { FinancialReportType } from "@/lib/api/application-portal-api"
 import { FinancialStatementsSkeleton } from "./financial-statements-skeleton"
 import { GradientBorderButton } from "@/components/ui/gradient-border-button"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,13 @@ import {
 export function FinancialStatementsView() {
   const dispatch = useAppDispatch()
   const { financialReports, financialReportsLoading, loading } = useAppSelector((state) => state.applicationPortal)
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canUploadReport = canPerformAction('application-portal', 'create')
+  const canSubmitReports = canPerformAction('application-portal', 'update')
+  const canDeleteReport = canPerformAction('application-portal', 'delete')
+  
   const [selectedReports, setSelectedReports] = useState<string[]>([])
   const [isUploadModalOpen, setUploadModalOpen] = useState(false)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -91,8 +99,11 @@ export function FinancialStatementsView() {
               <p className="text-muted-foreground text-sm">Upload and manage your company's financial reports.</p>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setUploadModalOpen(true)} className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white"><Upload className="w-4 h-4 mr-2" /> Upload Report</Button>
-              <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+              {canUploadReport && (
+                <Button onClick={() => setUploadModalOpen(true)} className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white"><Upload className="w-4 h-4 mr-2" /> Upload Report</Button>
+              )}
+              {canSubmitReports && (
+                <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
                 <AlertDialogTrigger asChild>
                   <Button disabled={selectedReports.length === 0 || loading} className="rounded-full bg-gradient-to-r from-green-500 to-green-600 text-white">
                     <Send className="w-4 h-4 mr-2" /> Submit Selected ({selectedReports.length})
@@ -120,6 +131,7 @@ export function FinancialStatementsView() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              )}
             </div>
           </div>
         </CardHeader>

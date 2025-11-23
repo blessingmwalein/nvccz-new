@@ -31,10 +31,17 @@ import { ProcurementDataTable, Column } from "../procurement/procurement-data-ta
 import { AssetViewDrawer } from "./asset-view-drawer"
 import { CreateAssetModal } from "./create-asset-modal"
 import { accountingApi } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 export function AssetsManagement() {
   const dispatch = useDispatch<AppDispatch>()
   const { assets, assetsLoading, assetsError } = useSelector((state: RootState) => state.accounting)
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateAsset = canPerformAction('accounting', 'create')
+  const canEditAsset = canPerformAction('accounting', 'update')
+  const canDeleteAsset = canPerformAction('accounting', 'delete')
   
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
@@ -332,10 +339,12 @@ export function AssetsManagement() {
           <h1 className="text-3xl font-normal">Asset Management</h1>
           <p className="text-muted-foreground">Manage fixed assets and depreciation</p>
         </div>
-        <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-full">
-          <Plus className="w-4 h-4 mr-2" />
-          New Asset
-        </Button>
+        {canCreateAsset && (
+          <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-full">
+            <Plus className="w-4 h-4 mr-2" />
+            New Asset
+          </Button>
+        )}
       </div>
 
       {/* Assets Data Table */}
@@ -346,8 +355,8 @@ export function AssetsManagement() {
             searchPlaceholder="Search assets..."
             filterOptions={filterOptions}
             onView={handleViewAsset}
-            onEdit={handleEditAsset}
-            onDelete={handleDeleteAsset}
+            onEdit={canEditAsset ? handleEditAsset : undefined}
+            onDelete={canDeleteAsset ? handleDeleteAsset : undefined}
             onBulkAction={handleBulkAction}
             bulkActions={bulkActions}
             loading={assetsLoading}

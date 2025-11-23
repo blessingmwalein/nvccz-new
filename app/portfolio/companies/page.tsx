@@ -20,6 +20,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store"
 import { fetchPortfolioCompanies, setSelectedCompany } from "@/lib/store/slices/portfolioCompaniesSlice"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CompanyDrawer } from "@/components/portfolio/companies/company-drawer"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 export default function CompaniesPage() {
   const dispatch = useAppDispatch()
@@ -78,15 +79,16 @@ export default function CompaniesPage() {
   }
 
   return (
-    <PortfolioLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-normal text-gray-900">Portfolio Companies</h1>
-            <p className="text-gray-600 mt-1">Manage and track your portfolio companies</p>
+    <ModuleGuard moduleId="portfolio-management" subModuleId="companies">
+      <PortfolioLayout>
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-normal text-gray-900">Portfolio Companies</h1>
+              <p className="text-gray-600 mt-1">Manage and track your portfolio companies</p>
+            </div>
           </div>
-        </div>
 
         {/* Stats Cards */}
         {loading ? (
@@ -274,5 +276,6 @@ export default function CompaniesPage() {
         <CompanyDrawer />
       </div>
     </PortfolioLayout>
+    </ModuleGuard>
   )
 }

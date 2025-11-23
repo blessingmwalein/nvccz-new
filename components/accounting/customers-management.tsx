@@ -20,11 +20,19 @@ import { ViewCustomerModal } from "./view-customer-modal"
 import { ConfirmationDialog } from "../ui/confirmation-drawer"
 import { accountingApi, Customer, CreateCustomerRequest } from "@/lib/api/accounting-api"
 import { CustomerViewDrawer } from "./customer-view-drawer"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 // Export the type for use in other components
 export type { Customer }
 
 export function CustomersManagement() {
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateCustomer = canPerformAction('accounting', 'create')
+  const canEditCustomer = canPerformAction('accounting', 'update')
+  const canDeleteCustomer = canPerformAction('accounting', 'delete')
+  
   const [customers, setCustomers] = useState<Customer[]>([])
   const [customersLoading, setCustomersLoading] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -282,9 +290,9 @@ export function CustomersManagement() {
         searchPlaceholder="Search customers..."
         filterOptions={filterOptions}
         onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onCreate={handleCreate}
+        onEdit={canEditCustomer ? handleEdit : undefined}
+        onDelete={canDeleteCustomer ? handleDelete : undefined}
+        onCreate={canCreateCustomer ? handleCreate : undefined}
         onBulkAction={handleBulkAction}
         bulkActions={bulkActions}
         loading={customersLoading}

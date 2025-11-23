@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TrendingUp, TrendingDown, Users, Download } from "lucide-react"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 const performanceData = [
   {
@@ -36,17 +37,18 @@ const performanceData = [
 
 export default function CompanyPerformancePage() {
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Performance Dashboard</h1>
-          <p className="text-gray-600 mt-1">Track portfolio company performance metrics</p>
-        </div>
-        <Button variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          Export Report
-        </Button>
+    <ModuleGuard moduleId="portfolio-management" subModuleId="companies">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Performance Dashboard</h1>
+            <p className="text-gray-600 mt-1">Track portfolio company performance metrics</p>
+          </div>
+          <Button variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Export Report
+          </Button>
       </div>
 
       {/* Performance Overview */}
@@ -158,5 +160,6 @@ export default function CompanyPerformancePage() {
         ))}
       </div>
     </div>
+    </ModuleGuard>
   )
 }

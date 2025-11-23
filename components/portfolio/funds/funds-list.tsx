@@ -11,8 +11,12 @@ import { FundCreateModal } from "./fund-create-modal"
 import { FundDrawer } from "./fund-drawer"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 export function FundsList() {
+  const { canPerformAction } = useRolePermissions()
+  const canCreateFund = canPerformAction('portfolio-management', 'create')
+  
   const [funds, setFunds] = useState<Fund[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -97,10 +101,12 @@ export function FundsList() {
           >
             Refresh
           </Button>
-          <Button onClick={() => setIsCreateOpen(true)} className="rounded-full gradient-primary text-white font-normal">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Fund
-          </Button>
+          {canCreateFund && (
+            <Button onClick={() => setIsCreateOpen(true)} className="rounded-full gradient-primary text-white font-normal">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Fund
+            </Button>
+          )}
         </div>
       </div>
 

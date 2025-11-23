@@ -21,10 +21,13 @@ import { Button } from "@/components/ui/button"
 import { CiDollar, CiCalendar, CiUser } from "react-icons/ci"
 import { Building, CheckCircle, XCircle } from "lucide-react"
 import { toast } from "sonner"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 export function AllowanceTypesTable() {
   const dispatch = useAppDispatch()
   const { allowanceTypes, loading } = useAppSelector(state => state.payroll)
+  const { hasSpecificAction } = useRolePermissions()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingType, setEditingType] = useState<AllowanceType | null>(null)
   const [viewingType, setViewingType] = useState<AllowanceType | null>(null)
@@ -32,6 +35,11 @@ export function AllowanceTypesTable() {
   const [deleteType, setDeleteType] = useState<AllowanceType | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Permission checks
+  const canCreateAllowanceType = hasSpecificAction(PAYROLL_ACTIONS.CREATE_ALLOWANCE_TYPE)
+  const canUpdateAllowanceType = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_ALLOWANCE_TYPE)
+  const canDeleteAllowanceType = hasSpecificAction(PAYROLL_ACTIONS.DELETE_ALLOWANCE_TYPE)
 
   // Load allowance types on component mount
   useEffect(() => {
@@ -274,13 +282,15 @@ export function AllowanceTypesTable() {
             <h1 className="text-3xl text-gray-900">Allowance Types</h1>
             <p className="text-gray-600 font-normal">Manage housing, transport, and medical allowances</p>
           </div>
-          <Button 
-            onClick={handleCreate}
-            className="rounded-full gradient-primary text-white font-normal"
-          >
-            <Building className="w-4 h-4 mr-2" />
-            Create Allowance Type
-          </Button>
+          {canCreateAllowanceType && (
+            <Button 
+              onClick={handleCreate}
+              className="rounded-full gradient-primary text-white font-normal"
+            >
+              <Building className="w-4 h-4 mr-2" />
+              Create Allowance Type
+            </Button>
+          )}
         </div>
 
         <RichDataTable
@@ -299,9 +309,9 @@ export function AllowanceTypesTable() {
             { label: 'Unpaid Leave', value: 'UNPAID_LEAVE' },
             { label: 'Other', value: 'OTHER' }
           ]}
-          onEdit={handleEdit}
+          onEdit={canUpdateAllowanceType ? handleEdit : undefined}
           onView={handleView}
-          onDelete={handleDeleteClick}
+          onDelete={canDeleteAllowanceType ? handleDeleteClick : undefined}
           onBulkAction={handleBulkAction}
           bulkActions={bulkActions}
           loading={loading.allowanceTypes}

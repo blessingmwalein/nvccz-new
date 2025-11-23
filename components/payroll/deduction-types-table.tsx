@@ -21,10 +21,13 @@ import { Button } from "@/components/ui/button"
 import { CiDollar, CiCalendar, CiUser } from "react-icons/ci"
 import { Building, CheckCircle, XCircle } from "lucide-react"
 import { toast } from "sonner"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 export function DeductionTypesTable() {
   const dispatch = useAppDispatch()
   const { deductionTypes, loading } = useAppSelector(state => state.payroll)
+  const { hasSpecificAction } = useRolePermissions()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingType, setEditingType] = useState<DeductionType | null>(null)
   const [viewingType, setViewingType] = useState<DeductionType | null>(null)
@@ -32,6 +35,11 @@ export function DeductionTypesTable() {
   const [deleteType, setDeleteType] = useState<DeductionType | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Permission checks
+  const canCreateDeductionType = hasSpecificAction(PAYROLL_ACTIONS.CREATE_DEDUCTION_TYPE)
+  const canUpdateDeductionType = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_DEDUCTION_TYPE)
+  const canDeleteDeductionType = hasSpecificAction(PAYROLL_ACTIONS.DELETE_DEDUCTION_TYPE)
 
   // Load deduction types on component mount
   useEffect(() => {
@@ -266,13 +274,15 @@ export function DeductionTypesTable() {
             <h1 className="text-3xl text-gray-900">Deduction Types</h1>
             <p className="text-gray-600 font-normal">Manage loans, pension, and other deductions</p>
           </div>
-          <Button 
-            onClick={handleCreate}
-            className="rounded-full gradient-primary text-white font-normal"
-          >
-            <Building className="w-4 h-4 mr-2" />
-            Create Deduction Type
-          </Button>
+          {canCreateDeductionType && (
+            <Button 
+              onClick={handleCreate}
+              className="rounded-full gradient-primary text-white font-normal"
+            >
+              <Building className="w-4 h-4 mr-2" />
+              Create Deduction Type
+            </Button>
+          )}
         </div>
 
         <RichDataTable
@@ -287,9 +297,9 @@ export function DeductionTypesTable() {
             { label: 'Advance', value: 'ADVANCE' },
             { label: 'Other', value: 'OTHER' }
           ]}
-          onEdit={handleEdit}
+          onEdit={canUpdateDeductionType ? handleEdit : undefined}
           onView={handleView}
-          onDelete={handleDeleteClick}
+          onDelete={canDeleteDeductionType ? handleDeleteClick : undefined}
           onBulkAction={handleBulkAction}
           bulkActions={bulkActions}
           loading={loading.deductionTypes}

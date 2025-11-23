@@ -10,6 +10,7 @@ import { reviewFinancialReport } from "@/lib/store/slices/portfolioCompaniesSlic
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { PortfolioFinancialReport } from "@/lib/api/portfolio-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 interface FinancialReportReviewModalProps {
   isOpen: boolean
@@ -18,6 +19,9 @@ interface FinancialReportReviewModalProps {
 }
 
 export function FinancialReportReviewModal({ isOpen, onClose, report }: FinancialReportReviewModalProps) {
+  const { canPerformAction } = useRolePermissions()
+  const canReviewReports = canPerformAction('portfolio-management', 'update')
+  
   const dispatch = useAppDispatch()
   const [comment, setComment] = useState("")
   const [loading, setLoading] = useState(false)
@@ -54,12 +58,18 @@ export function FinancialReportReviewModal({ isOpen, onClose, report }: Financia
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="destructive" onClick={() => handleSubmit('REJECT')} disabled={loading}>
-            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Reject
-          </Button>
-          <Button onClick={() => handleSubmit('ACCEPT')} disabled={loading} className="bg-green-600 hover:bg-green-700">
-            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Accept
-          </Button>
+          {canReviewReports ? (
+            <>
+              <Button variant="destructive" onClick={() => handleSubmit('REJECT')} disabled={loading}>
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Reject
+              </Button>
+              <Button onClick={() => handleSubmit('ACCEPT')} disabled={loading} className="bg-green-600 hover:bg-green-700">
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Accept
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 italic">You don't have permission to review reports</p>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

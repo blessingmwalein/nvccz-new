@@ -22,6 +22,8 @@ import {
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Loader2 } from "lucide-react"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface PayrollRunDrawerProps {
   isOpen: boolean
@@ -52,12 +54,18 @@ const tabs = [
 ]
 
 export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProcess }: PayrollRunDrawerProps) {
+  const { hasSpecificAction } = useRolePermissions()
   const [activeTab, setActiveTab] = useState<TabType>("overview")
   const [detailedRun, setDetailedRun] = useState<PayrollRun | null>(null)
   const [loading, setLoading] = useState(false)
   const [isBankFileDialogOpen, setIsBankFileDialogOpen] = useState(false)
   const [isProcessOpen, setIsProcessOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Permission checks
+  const canUpdateRun = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_PAYROLL_RUN)
+  const canProcessRun = hasSpecificAction(PAYROLL_ACTIONS.PROCESS_PAYROLL_RUN)
+  const canGenerateBankFile = hasSpecificAction(PAYROLL_ACTIONS.GENERATE_BANK_FILE)
 
   // Load detailed payroll run data
   const loadDetailedRun = useCallback(async () => {
@@ -196,7 +204,7 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
               Payroll Run Details
             </SheetTitle>
             <div className="flex items-center gap-2">
-              {payrollRun.status === 'DRAFT' && (
+              {payrollRun.status === 'DRAFT' && canUpdateRun && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -324,7 +332,7 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 pt-4 border-t">
-                  {payrollRun.status === 'DRAFT' && (
+                  {payrollRun.status === 'DRAFT' && canProcessRun && (
                     <Button
                       onClick={handleProcess}
                       className="gradient-primary text-white"
@@ -333,7 +341,7 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
                       Process Payroll
                     </Button>
                   )}
-                  {payrollRun.status === 'COMPLETED' && (
+                  {payrollRun.status === 'COMPLETED' && canGenerateBankFile && (
                     <Button
                       onClick={() => setIsBankFileDialogOpen(true)}
                       className="gradient-primary text-white"
@@ -342,7 +350,7 @@ export function PayrollRunDrawer({ isOpen, onClose, payrollRun, onEdit, onProces
                       Generate Bank File
                     </Button>
                   )}
-                  {payrollRun.status === 'DRAFT' && (
+                  {payrollRun.status === 'DRAFT' && canUpdateRun && (
                     <Button
                       variant="outline"
                       onClick={handleEdit}

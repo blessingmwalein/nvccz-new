@@ -17,11 +17,19 @@ import { CreateVendorModal } from "./create-vendor-modal"
 import { ViewVendorModal } from "./view-vendor-modal"
 import { ConfirmationDialog } from "../ui/confirmation-drawer"
 import { accountingApi, Vendor, CreateVendorRequest } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 // Export the type for use in other components
 export type { Vendor }
 
 export function VendorsManagement() {
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateVendor = canPerformAction('accounting', 'create')
+  const canEditVendor = canPerformAction('accounting', 'update')
+  const canDeleteVendor = canPerformAction('accounting', 'delete')
+  
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [vendorsLoading, setVendorsLoading] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -276,9 +284,9 @@ export function VendorsManagement() {
         searchPlaceholder="Search vendors..."
         filterOptions={filterOptions}
         onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onCreate={handleCreate}
+        onEdit={canEditVendor ? handleEdit : undefined}
+        onDelete={canDeleteVendor ? handleDelete : undefined}
+        onCreate={canCreateVendor ? handleCreate : undefined}
         onBulkAction={handleBulkAction}
         bulkActions={bulkActions}
         loading={vendorsLoading}

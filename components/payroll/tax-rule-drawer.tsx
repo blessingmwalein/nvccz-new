@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { TaxRule } from "@/lib/api/payroll-api"
 import { CiDollar, CiCalendar, CiPercent, CiUser } from "react-icons/ci"
 import { Minus, Shield, Info, Building, Clock, Edit, X } from "lucide-react"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface TaxRuleDrawerProps {
   isOpen: boolean
@@ -38,6 +40,8 @@ const TAX_TYPE_INFO = {
 export function TaxRuleDrawer({ isOpen, onClose, taxRule, onEdit }: TaxRuleDrawerProps) {
   if (!taxRule) return null
 
+  const { hasSpecificAction } = useRolePermissions()
+  const canUpdateTaxRule = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_TAX_RULE)
   const taxInfo = TAX_TYPE_INFO[taxRule.type as keyof typeof TAX_TYPE_INFO]
 
   const handleEdit = () => {
@@ -56,7 +60,7 @@ export function TaxRuleDrawer({ isOpen, onClose, taxRule, onEdit }: TaxRuleDrawe
               {taxRule.name}
             </SheetTitle>
             <div className="flex items-center gap-2">
-              {onEdit && (
+              {onEdit && canUpdateTaxRule && (
                 <Button
                   variant="ghost"
                   size="sm"

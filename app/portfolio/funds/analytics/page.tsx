@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, PieChart, Download } from "lucide-react"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 const performanceData = [
   {
@@ -44,18 +45,19 @@ const sectorAllocation = [
 
 export default function FundAnalyticsPage() {
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Fund Analytics</h1>
-          <p className="text-gray-600 mt-1">Comprehensive performance analysis across all funds</p>
+    <ModuleGuard moduleId="portfolio-management" subModuleId="funds">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Fund Analytics</h1>
+            <p className="text-gray-600 mt-1">Comprehensive performance analysis across all funds</p>
+          </div>
+          <Button variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Export Report
+          </Button>
         </div>
-        <Button variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          Export Report
-        </Button>
-      </div>
 
       {/* Portfolio Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -244,5 +246,6 @@ export default function FundAnalyticsPage() {
         </Card>
       </div>
     </div>
+    </ModuleGuard>
   )
 }

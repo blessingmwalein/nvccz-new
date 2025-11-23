@@ -1,13 +1,16 @@
 import { PayrollLayout } from "@/components/layout/payroll-layout"
 import { PayrollDashboard } from "@/components/payroll/PayrollDashboard"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 export default function PayrollPage() {
   return (
-    <PayrollLayout>
-      <div className="px-6 py-6">
-        <PayrollDashboard />
-      </div>
-    </PayrollLayout>
+    <ModuleGuard moduleId="payroll" requiredAccess="read">
+      <PayrollLayout>
+        <div className="px-6 py-6">
+          <PayrollDashboard />
+        </div>
+      </PayrollLayout>
+    </ModuleGuard>
   )
 }
 

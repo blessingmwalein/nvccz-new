@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getModuleById } from "@/lib/config/modules"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { 
   CiGrid41
 } from "react-icons/ci"
@@ -12,6 +13,7 @@ import {
 export function AccountingSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { hasSubModuleAccess, isLoading } = useRolePermissions()
 
   const module = getModuleById("accounting")
 
@@ -46,6 +48,16 @@ export function AccountingSidebar() {
     return null
   }
 
+  // Filter sub-modules based on user permissions
+  const accessibleSubModules = useMemo(() => {
+    if (isLoading) return module.subModules; // Show all while loading
+    
+    return module.subModules.filter((subModule) => {
+      // Check if user has access to this sub-module
+      return hasSubModuleAccess('accounting', subModule.id)
+    })
+  }, [module.subModules, hasSubModuleAccess, isLoading])
+
   return (
     <aside className="w-64 bg-white border-r border-border h-[calc(100vh-5rem)] overflow-y-auto sticky top-20 z-10">
       <div className="p-4 space-y-4">
@@ -62,9 +74,9 @@ export function AccountingSidebar() {
           </div>
         </div>
 
-        {/* Navigation Items */}
+        {/* Navigation Items - Only show accessible sub-modules */}
         <div className="space-y-1">
-          {module.subModules.map((subModule) => {
+          {accessibleSubModules.map((subModule) => {
             const Icon = subModule.icon
             const active = activeSubModuleId === subModule.id
             return (
@@ -84,6 +96,13 @@ export function AccountingSidebar() {
             )
           })}
         </div>
+
+        {/* Show message if no accessible modules */}
+        {!isLoading && accessibleSubModules.length === 0 && (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            No accessible features
+          </div>
+        )}
       </div>
     </aside>
   )

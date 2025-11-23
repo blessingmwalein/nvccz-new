@@ -21,10 +21,13 @@ import { Button } from "@/components/ui/button"
 import { CiDollar, CiPercent, CiCalendar, CiUser } from "react-icons/ci"
 import { Minus, Shield } from "lucide-react"
 import { toast } from "sonner"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 export function TaxRulesTable() {
   const dispatch = useAppDispatch()
   const { taxRules, loading } = useAppSelector(state => state.payroll)
+  const { hasSpecificAction } = useRolePermissions()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<TaxRule | null>(null)
   const [viewingRule, setViewingRule] = useState<TaxRule | null>(null)
@@ -32,6 +35,11 @@ export function TaxRulesTable() {
   const [deleteRule, setDeleteRule] = useState<TaxRule | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Permission checks
+  const canCreateTaxRule = hasSpecificAction(PAYROLL_ACTIONS.CREATE_TAX_RULE)
+  const canUpdateTaxRule = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_TAX_RULE)
+  const canDeleteTaxRule = hasSpecificAction(PAYROLL_ACTIONS.DELETE_TAX_RULE)
 
   // Load tax rules on component mount
   useEffect(() => {
@@ -282,13 +290,15 @@ export function TaxRulesTable() {
             <h1 className="text-3xl text-gray-900">Tax Rules</h1>
             <p className="text-gray-600 font-normal">Manage PAYE, NSSA, and AIDS Levy tax rules</p>
           </div>
-          <Button 
-            onClick={handleCreate}
-            className="rounded-full gradient-primary text-white font-normal"
-          >
-            <CiDollar className="w-4 h-4 mr-2" />
-            Create Tax Rule
-          </Button>
+          {canCreateTaxRule && (
+            <Button 
+              onClick={handleCreate}
+              className="rounded-full gradient-primary text-white font-normal"
+            >
+              <CiDollar className="w-4 h-4 mr-2" />
+              Create Tax Rule
+            </Button>
+          )}
         </div>
 
         <RichDataTable
@@ -305,9 +315,9 @@ export function TaxRulesTable() {
             { label: 'Standards Levy', value: 'STANDARDS_LEVY' },
             { label: 'ZimDev', value: 'ZIMDEV' }
           ]}
-          onEdit={handleEdit}
+          onEdit={canUpdateTaxRule ? handleEdit : undefined}
           onView={handleView}
-          onDelete={handleDeleteClick}
+          onDelete={canDeleteTaxRule ? handleDeleteClick : undefined}
           onBulkAction={handleBulkAction}
           bulkActions={bulkActions}
           loading={loading.taxRules}

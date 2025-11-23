@@ -16,11 +16,19 @@ import { CreateExpenseCategoryModal } from "./create-expense-category-modal"
 import { ViewExpenseCategoryModal } from "./view-expense-category-modal"
 import { ConfirmationDialog } from "../ui/confirmation-drawer"
 import { accountingApi, ExpenseCategory, CreateExpenseCategoryRequest } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 // Export the type for use in other components
 export type { ExpenseCategory }
 
 export function ExpenseCategoriesManagement() {
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateCategory = canPerformAction('accounting', 'create')
+  const canEditCategory = canPerformAction('accounting', 'update')
+  const canDeleteCategory = canPerformAction('accounting', 'delete')
+  
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
   const [expenseCategoriesLoading, setExpenseCategoriesLoading] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -260,9 +268,9 @@ export function ExpenseCategoriesManagement() {
         searchPlaceholder="Search categories..."
         filterOptions={filterOptions}
         onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onCreate={handleCreate}
+        onEdit={canEditCategory ? handleEdit : undefined}
+        onDelete={canDeleteCategory ? handleDelete : undefined}
+        onCreate={canCreateCategory ? handleCreate : undefined}
         onBulkAction={handleBulkAction}
         bulkActions={bulkActions}
         loading={expenseCategoriesLoading}

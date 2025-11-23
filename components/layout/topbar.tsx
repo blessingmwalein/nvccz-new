@@ -45,7 +45,7 @@ export function Topbar({ onModuleSelect, currentModule }: TopbarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const dispatch = useAppDispatch()
   const currency = useAppSelector((state) => state.ui.currency)
-  const { user } = useAppSelector((state) => state.auth)
+  const { user, userDetails } = useAppSelector((state) => state.auth)
 
   const handleCurrencyToggle = (newCurrency: "USD" | "ZIG") => {
     dispatch(setCurrency(newCurrency))
@@ -181,7 +181,7 @@ export function Topbar({ onModuleSelect, currentModule }: TopbarProps) {
                     {user ? `${user.firstName} ${user.lastName}` : "User"}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {user?.role || "User"}
+                    {userDetails?.roleCode || userDetails?.role?.name || 'User'}
                   </span>
                 </div>
               </div>

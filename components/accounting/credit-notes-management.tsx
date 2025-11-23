@@ -39,6 +39,7 @@ import { accountingApi, CreditNote } from "@/lib/api/accounting-api"
 import { fetchCreditNotes } from "@/lib/store/slices/accountingSlice"
 import type { RootState, AppDispatch } from "@/lib/store/store"
 import { useCreditNotes } from "@/lib/hooks/use-credit-notes"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 const creditNoteTabs = [
   {
@@ -84,6 +85,13 @@ export function CreditNotesManagement({
   isCreateModalOpen: externalCreateModalOpen, 
   onCreateModalClose 
 }: CreditNotesManagementProps = {}) {
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateCreditNote = canPerformAction('accounting', 'create')
+  const canEditCreditNote = canPerformAction('accounting', 'update')
+  const canDeleteCreditNote = canPerformAction('accounting', 'delete')
+  
   // Use the custom hook instead of direct Redux/API calls
   const {
     creditNotes,
@@ -476,8 +484,8 @@ export function CreditNotesManagement({
             title="Credit Notes"
             filterOptions={filterOptions}
             onView={handleViewCreditNote}
-            onEdit={handleEditCreditNote}
-            onDelete={handleDeleteCreditNoteAction}
+            onEdit={canEditCreditNote ? handleEditCreditNote : undefined}
+            onDelete={canDeleteCreditNote ? handleDeleteCreditNoteAction : undefined}
             onBulkAction={handleBulkAction}
             bulkActions={bulkActions}
             loading={creditNotesLoading}

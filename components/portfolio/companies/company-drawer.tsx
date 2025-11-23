@@ -13,8 +13,12 @@ import { FinancialReportReviewModal } from "./financial-report-review-modal"
 import { PortfolioFinancialReport } from "@/lib/api/portfolio-api"
 import { format } from "date-fns"
 import { FinancialReportsSkeleton } from "./financial-reports-skeleton"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 export function CompanyDrawer() {
+  const { canPerformAction } = useRolePermissions()
+  const canReviewReports = canPerformAction('portfolio-management', 'update')
+  
   const dispatch = useAppDispatch()
   const { selectedCompany, financialReports, financialReportsLoading } = useAppSelector(state => state.portfolioCompanies)
   const [activeTab, setActiveTab] = useState<'overview' | 'disbursements' | 'financials'>('overview')
@@ -183,7 +187,7 @@ export function CompanyDrawer() {
                                 <Button size="xs" variant="outline" asChild className="rounded-full px-3 py-1">
                                   <a href={report.reportUrl} target="_blank" rel="noopener noreferrer"><Eye className="w-3 h-3 mr-1" /> View</a>
                                 </Button>
-                                {report.status === 'PENDING' && (
+                                {report.status === 'PENDING' && canReviewReports && (
                                   <Button size="xs" onClick={() => handleReviewClick(report)} className="rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1">
                                     <Check className="w-3 h-3 mr-1" /> Review
                                   </Button>

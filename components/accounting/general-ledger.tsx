@@ -35,6 +35,7 @@ import { CreateJournalEntryModal } from "./create-journal-entry-modal"
 import { JournalEntryViewDrawer } from "./journal-entry-view-drawer"
 import { TrialBalanceView } from "./trial-balance-view"
 import { accountingApi, JournalEntryFilters } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 // Helper function to trim spaces
 const cleanString = (value: any): string => {
@@ -172,6 +173,13 @@ const statusOptions = [
 ]
 
 export function GeneralLedger() {
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateJournal = canPerformAction('accounting', 'create')
+  const canEditJournal = canPerformAction('accounting', 'update')
+  const canDeleteJournal = canPerformAction('accounting', 'delete')
+  
   const [activeTab, setActiveTab] = useState("journal")
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -370,10 +378,12 @@ export function GeneralLedger() {
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
-          <Button onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Journal Entry
-          </Button>
+          {canCreateJournal && (
+            <Button onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Journal Entry
+            </Button>
+          )}
         </div>
       </div>
 
@@ -534,12 +544,12 @@ export function GeneralLedger() {
                       <Button variant="outline" onClick={handleClearFilters}>
                         Clear Filters
                       </Button>
-                    ) : (
+                    ) : canCreateJournal ? (
                       <Button onClick={() => setIsCreateModalOpen(true)}>
                         <Plus className="w-4 h-4 mr-2" />
                         Create Journal Entry
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 ) : (
                   <>

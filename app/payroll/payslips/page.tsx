@@ -12,8 +12,9 @@ import { Download, Loader2, FileText } from "lucide-react"
 import { PayslipTemplate } from "@/components/payroll/payslip-template"
 import { generateAndDownloadPDF } from "@/lib/utils/pdf-generator"
 import { generateAndDownloadSimplePDF } from "@/lib/utils/simple-pdf-generator"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
-export default function PayslipsPage() {
+function PayslipsPage() {
   const dispatch = useAppDispatch()
   const { apiEmployees, apiPayrollRuns } = useAppSelector(s => s.payroll)
   const [employeeId, setEmployeeId] = useState("")
@@ -208,3 +209,13 @@ export default function PayslipsPage() {
     </PayrollLayout>
   )
 }
+
+function PayslipsPageWrapper() {
+  return (
+    <ModuleGuard moduleId="payroll" subModuleId="payroll-payslips" requiredAccess="read">
+      <PayslipsPage />
+    </ModuleGuard>
+  )
+}
+
+export default PayslipsPageWrapper

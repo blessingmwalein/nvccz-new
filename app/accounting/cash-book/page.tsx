@@ -17,6 +17,7 @@ import { CreateCashbookReceiptModal } from "@/components/accounting/create-cashb
 import { CreateCashbookPaymentModal } from "@/components/accounting/create-cashbook-payment-modal"
 import { CashbookEntryViewDrawer } from "@/components/accounting/cashbook-entry-view-drawer"
 import { AccountingLayout } from "@/components/layout/accounting-layout"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 import {
   Select,
   SelectContent,
@@ -58,7 +59,7 @@ const mainTabs = [
   { id: 'contra-entries', label: 'Contra Entries', icon: FileSignature, gradient: 'from-indigo-500 to-indigo-600' },
 ]
 
-export default function CashbookPage() {
+function CashbookPage() {
   const dispatch = useDispatch<AppDispatch>()
   const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'transfers' | 'entry-types' | 'period-lockout' | 'contra-entries'>('single')
   const [isProcessCashbookOpen, setIsProcessCashbookOpen] = useState(false)
@@ -590,5 +591,14 @@ export default function CashbookPage() {
         />
       </div>
     </AccountingLayout>
+  )
+}
+
+// Wrap with permission guard
+export default function CashbookPageWrapper() {
+  return (
+    <ModuleGuard moduleId="accounting" subModuleId="cash-book">
+      <CashbookPage />
+    </ModuleGuard>
   )
 }

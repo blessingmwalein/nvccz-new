@@ -1,10 +1,13 @@
 import { PortfolioLayout } from "@/components/layout/portfolio-layout"
 import { FundDisbursement } from "@/components/applications/fund-disbursement"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 export default function DisbursementPage() {
   return (
-    <PortfolioLayout>
-      <FundDisbursement />
-    </PortfolioLayout>
+    <ModuleGuard moduleId="portfolio-management" subModuleId="applications-all">
+      <PortfolioLayout>
+        <FundDisbursement />
+      </PortfolioLayout>
+    </ModuleGuard>
   )
 }

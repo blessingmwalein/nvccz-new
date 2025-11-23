@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getModuleById } from "@/lib/config/modules"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { 
   CiGrid41,
   CiViewList,
@@ -18,6 +19,7 @@ import {
 export function PayrollSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { canAccessSubModule } = useRolePermissions()
 
   const module = getModuleById("payroll")
 
@@ -51,7 +53,20 @@ export function PayrollSidebar() {
     return bestId
   }, [pathname, module])
 
+  // Filter subModules based on permissions
+  const filteredSubModules = useMemo(() => {
+    if (!module?.subModules) return []
+    return module.subModules.filter(subModule => 
+      canAccessSubModule('payroll', subModule.id)
+    )
+  }, [module, canAccessSubModule])
+
   if (!module) {
+    return null
+  }
+
+  // Don't render sidebar if user has no access to any items
+  if (filteredSubModules.length === 0) {
     return null
   }
 
@@ -73,7 +88,7 @@ export function PayrollSidebar() {
 
         {/* Navigation Items */}
         <div className="space-y-1">
-          {module.subModules.map((subModule) => {
+          {filteredSubModules.map((subModule) => {
             const Icon = subModule.icon
             const active = activeSubModuleId === subModule.id
             return (

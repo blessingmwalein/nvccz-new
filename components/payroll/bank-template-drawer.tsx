@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BankTemplate } from "@/lib/api/payroll-api"
 import { FileText, CheckCircle, XCircle, Clock, Edit, X, GripVertical } from "lucide-react"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface BankTemplateDrawerProps {
   isOpen: boolean
@@ -15,6 +17,9 @@ interface BankTemplateDrawerProps {
 
 export function BankTemplateDrawer({ isOpen, onClose, bankTemplate, onEdit }: BankTemplateDrawerProps) {
   if (!bankTemplate) return null
+
+  const { hasSpecificAction } = useRolePermissions()
+  const canUpdateBankTemplate = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_BANK_TEMPLATE)
 
   const handleEdit = () => {
     if (onEdit) {
@@ -75,7 +80,7 @@ export function BankTemplateDrawer({ isOpen, onClose, bankTemplate, onEdit }: Ba
               {bankTemplate.name}
             </SheetTitle>
             <div className="flex items-center gap-2">
-              {onEdit && (
+              {onEdit && canUpdateBankTemplate && (
                 <Button
                   variant="ghost"
                   size="sm"

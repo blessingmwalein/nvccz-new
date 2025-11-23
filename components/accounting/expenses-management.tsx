@@ -49,6 +49,7 @@ import {
 } from "@/lib/store/slices/accountingSlice"
 import type { RootState, AppDispatch } from "@/lib/store"
 import { Expense } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 const tabs = [
   {
@@ -87,6 +88,8 @@ const tabs = [
 
 export function ExpensesManagement() {
   const dispatch = useDispatch<AppDispatch>()
+  const { canPerformAction } = useRolePermissions()
+  
   const { 
     expenses = [], 
     expensesLoading = false, 
@@ -95,6 +98,11 @@ export function ExpensesManagement() {
     vendors = [],
     expenseCategories = []
   } = useSelector((state: RootState) => state.accounting)
+  
+  // Permission checks
+  const canCreateExpense = canPerformAction('accounting', 'create')
+  const canEditExpense = canPerformAction('accounting', 'update')
+  const canDeleteExpense = canPerformAction('accounting', 'delete')
   
   const [activeTab, setActiveTab] = useState("all")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -623,13 +631,15 @@ export function ExpensesManagement() {
           <h1 className="text-3xl font-normal">Expenses</h1>
           <p className="text-muted-foreground">Manage and track your business expenses</p>
         </div>
-        <Button 
-          onClick={handleCreateExpense}
-          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full px-6"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Expense
-        </Button>
+        {canCreateExpense && (
+          <Button 
+            onClick={handleCreateExpense}
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full px-6"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Expense
+          </Button>
+        )}
       </div>
 
 
@@ -676,8 +686,8 @@ export function ExpensesManagement() {
             searchPlaceholder="Search expenses by description..."
             filterOptions={filterOptions}
             onView={handleViewExpense}
-            onEdit={handleEditExpense}
-            onDelete={handleDeleteExpense}
+            onEdit={canEditExpense ? handleEditExpense : undefined}
+            onDelete={canDeleteExpense ? handleDeleteExpense : undefined}
             onBulkAction={handleBulkAction}
             bulkActions={bulkActions}
             loading={expensesLoading}

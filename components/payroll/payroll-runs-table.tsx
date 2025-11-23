@@ -12,6 +12,8 @@ import { Play, Plus, Calendar, DollarSign, Users, FileText, Loader2, Trash2 } fr
 import { toast } from "sonner"
 import { ApiError } from "@/lib/api/api-client"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 export function PayrollRunsTable() {
   const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>([])
@@ -25,6 +27,16 @@ export function PayrollRunsTable() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [deletingRun, setDeletingRun] = useState<PayrollRun | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const { hasSpecificAction } = useRolePermissions()
+
+  // Permission checks
+  const canCreateRun = hasSpecificAction('payroll', PAYROLL_ACTIONS.CREATE_PAYROLL_RUN)
+  const canUpdateRun = hasSpecificAction('payroll', PAYROLL_ACTIONS.UPDATE_PAYROLL_RUN)
+  const canDeleteRun = hasSpecificAction('payroll', PAYROLL_ACTIONS.DELETE_PAYROLL_RUN)
+  const canProcessRun = hasSpecificAction('payroll', PAYROLL_ACTIONS.PROCESS_PAYROLL_RUN)
+  const canApproveRun = hasSpecificAction('payroll', PAYROLL_ACTIONS.APPROVE_PAYROLL_RUN)
+  const canCompleteRun = hasSpecificAction('payroll', PAYROLL_ACTIONS.COMPLETE_PAYROLL_RUN)
 
   // Load payroll runs
   const loadPayrollRuns = async () => {
@@ -332,11 +344,11 @@ export function PayrollRunsTable() {
         searchPlaceholder="Search payroll runs..."
         title=""
         onView={handleView}
-        onEdit={handleEdit}
-        onDelete={openDeleteDialog}
+        onEdit={canUpdateRun ? handleEdit : undefined}
+        onDelete={canDeleteRun ? openDeleteDialog : undefined}
         customActions={(row: PayrollRun) => (
           <div className="flex items-center gap-1">
-            {row.status === 'DRAFT' && (
+            {row.status === 'DRAFT' && canProcessRun && (
               <Button
                 size="sm"
                 variant="outline"

@@ -1,12 +1,17 @@
+"use client"
+
 import { AccountingLayout } from "@/components/layout/accounting-layout"
 import { AccountingSettings } from "@/components/accounting/accounting-settings"
+import { ModuleGuard } from "@/components/permissions/PermissionGuards"
 
 export default function AccountingSettingsPage() {
   return (
-    <AccountingLayout>
-      <div className="p-6">
-        <AccountingSettings />
-      </div>
-    </AccountingLayout>
+    <ModuleGuard moduleId="accounting" subModuleId="accounting-settings">
+      <AccountingLayout>
+        <div className="p-6">
+          <AccountingSettings />
+        </div>
+      </AccountingLayout>
+    </ModuleGuard>
   )
 }

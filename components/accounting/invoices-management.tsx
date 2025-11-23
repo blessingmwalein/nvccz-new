@@ -52,6 +52,7 @@ import { fetchCurrencies, fetchCreditNotes } from "@/lib/store/slices/accounting
 import type { RootState, AppDispatch } from "@/lib/store"
 import { Invoice } from "@/lib/api/accounting-api"
 import { CreditNotesManagement } from "./credit-notes-management"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 interface MockInvoice {
   id: string
@@ -175,6 +176,7 @@ const tabs = [
 
 export function InvoicesManagement() {
   const dispatch = useDispatch<AppDispatch>()
+  const { canPerformAction } = useRolePermissions()
   
   // Use the custom hook for invoices management
   const {
@@ -200,6 +202,11 @@ export function InvoicesManagement() {
     selectInvoice,
     clearErrorState
   } = useInvoices()
+
+  // Check permissions
+  const canCreateInvoice = canPerformAction('accounting', 'create')
+  const canEditInvoice = canPerformAction('accounting', 'update')
+  const canDeleteInvoice = canPerformAction('accounting', 'delete')
 
   // Get currencies from accounting slice
   const currencies = useSelector((state: RootState) => state.accounting.currencies || [])
@@ -796,7 +803,7 @@ export function InvoicesManagement() {
           {/* Tab-specific content */}
         </div>
         <div className="flex gap-3">
-          {activeMainTab === "invoices" && (
+          {activeMainTab === "invoices" && canCreateInvoice && (
             <Button
               onClick={handleCreateInvoiceClick}
               className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full px-6"
@@ -805,7 +812,7 @@ export function InvoicesManagement() {
               Create Invoice
             </Button>
           )}
-          {activeMainTab === "credit-notes" && (
+          {activeMainTab === "credit-notes" && canCreateInvoice && (
             <Button
               onClick={() => setIsCreateCreditNoteModalOpen(true)}
               className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-full px-6"

@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DeductionType } from "@/lib/api/payroll-api"
 import { Building, CheckCircle, XCircle, Clock, Edit, X } from "lucide-react"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface DeductionTypeDrawerProps {
   isOpen: boolean
@@ -15,6 +17,9 @@ interface DeductionTypeDrawerProps {
 
 export function DeductionTypeDrawer({ isOpen, onClose, deductionType, onEdit }: DeductionTypeDrawerProps) {
   if (!deductionType) return null
+
+  const { hasSpecificAction } = useRolePermissions()
+  const canUpdateDeductionType = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_DEDUCTION_TYPE)
 
   const handleEdit = () => {
     if (onEdit) {
@@ -76,7 +81,7 @@ export function DeductionTypeDrawer({ isOpen, onClose, deductionType, onEdit }: 
               {deductionType.name}
             </SheetTitle>
             <div className="flex items-center gap-2">
-              {onEdit && (
+              {onEdit && canUpdateDeductionType && (
                 <Button
                   variant="ghost"
                   size="sm"

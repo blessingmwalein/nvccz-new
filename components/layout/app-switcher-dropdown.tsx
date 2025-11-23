@@ -1,9 +1,9 @@
 "use client"
 
-import { useRef, useEffect } from "react"
-import { MODULE_CONFIG } from "@/lib/config/modules"
+import { useRef, useEffect, useMemo } from "react"
+import { MODULE_CONFIG, ModuleConfig } from "@/lib/config/modules"
 import { useRouter } from "next/navigation"
-import { usePermissions } from "@/lib/hooks/usePermissions"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 interface AppSwitcherDropdownProps {
   isOpen: boolean
@@ -15,7 +15,27 @@ interface AppSwitcherDropdownProps {
 export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentModule }: AppSwitcherDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
-  const { accessibleModules, isLoading } = usePermissions()
+  const { accessibleModules, hasModuleAccess, isLoading, isAuthenticated } = useRolePermissions()
+
+  // Filter modules based on user's role permissions
+  // Must be called before any conditional returns
+  const modulesToDisplay = useMemo(() => {
+    if (!isAuthenticated) {
+      // If not authenticated, show no modules or only public ones
+      return []
+    }
+
+    if (isLoading) {
+      // While loading permissions, show all modules temporarily
+      return MODULE_CONFIG
+    }
+
+    // Filter modules based on accessible modules from role permissions
+    return MODULE_CONFIG.filter((module) => {
+      // Check if module ID is in accessible modules
+      return accessibleModules.includes(module.id) || hasModuleAccess(module.id)
+    })
+  }, [isAuthenticated, isLoading, accessibleModules, hasModuleAccess])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -34,9 +54,6 @@ export function AppSwitcherDropdown({ isOpen, onClose, onModuleSelect, currentMo
   }, [isOpen, onClose])
 
   if (!isOpen) return null
-
-  // Use accessible modules based on user permissions
-  const modulesToDisplay = accessibleModules.length > 0 ? accessibleModules : MODULE_CONFIG
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">

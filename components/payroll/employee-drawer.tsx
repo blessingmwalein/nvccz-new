@@ -26,6 +26,8 @@ import {
   CheckCircle,
   XCircle
 } from "lucide-react"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface EmployeeDrawerProps {
   isOpen: boolean
@@ -65,6 +67,7 @@ const tabs = [
 ]
 
 export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDrawerProps) {
+  const { hasSpecificAction } = useRolePermissions()
   const [activeTab, setActiveTab] = useState<TabType>("overview")
   const [salaryStructures, setSalaryStructures] = useState<SalaryStructure[]>([])
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([])
@@ -73,6 +76,10 @@ export function EmployeeDrawer({ isOpen, onClose, employee, onEdit }: EmployeeDr
   const [isLeaveFormOpen, setIsLeaveFormOpen] = useState(false)
   const [editingLeave, setEditingLeave] = useState<LeaveBalance | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Permission checks
+  const canUpdateEmployee = hasSpecificAction('payroll', PAYROLL_ACTIONS.UPDATE_EMPLOYEE)
 
   const loadSalaryStructures = useCallback(async () => {
     if (!employee) return

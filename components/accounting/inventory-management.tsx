@@ -29,15 +29,23 @@ import { ProcurementDataTable, Column } from "../procurement/procurement-data-ta
 import { InventoryViewDrawer } from "./inventory-view-drawer"
 import { CreateInventoryModal } from "./create-inventory-modal"
 import { accountingApi } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 export function InventoryManagement() {
   const dispatch = useDispatch<AppDispatch>()
+  const { canPerformAction } = useRolePermissions()
+  
   const {
     inventoryItems,
     inventoryLoading,
     vendors,
     chartOfAccounts
   } = useSelector((state: RootState) => state.accounting)
+
+  // Permission checks
+  const canCreateInventory = canPerformAction('accounting', 'create')
+  const canEditInventory = canPerformAction('accounting', 'update')
+  const canDeleteInventory = canPerformAction('accounting', 'delete')
 
   // Local state for Valuation & Reorder (avoid relying on thunk that caused runtime error)
   const [inventoryValuation, setInventoryValuation] = useState<InventoryValuationResponse | null>(null)
@@ -431,9 +439,11 @@ export function InventoryManagement() {
           <p className="text-muted-foreground">Manage inventory items, stock movements and accounts</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={openCreateModal} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full px-6">
-            <Plus className="w-4 h-4 mr-2" /> New Item
-          </Button>
+          {canCreateInventory && (
+            <Button onClick={openCreateModal} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full px-6">
+              <Plus className="w-4 h-4 mr-2" /> New Item
+            </Button>
+          )}
         </div>
       </div>
 

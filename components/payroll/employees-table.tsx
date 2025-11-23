@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { EmployeeForm } from "./employee-form";
 import { EmployeeDrawer } from "./employee-drawer";
 import { CopyText } from "@/components/ui/copy-text";
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions";
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions";
 
 interface EmployeesTableProps {
   title?: string;
@@ -31,6 +33,7 @@ interface EmployeesTableProps {
 export function EmployeesTable({ title, description }: EmployeesTableProps) {
   const dispatch = useAppDispatch();
   const { apiEmployees, loading } = useAppSelector((state) => state.payroll);
+  const { hasSpecificAction } = useRolePermissions();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -38,6 +41,12 @@ export function EmployeesTable({ title, description }: EmployeesTableProps) {
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBy, setFilterBy] = useState("all");
+
+  // Permission checks
+  const canCreateEmployee = hasSpecificAction('payroll', PAYROLL_ACTIONS.CREATE_EMPLOYEE);
+  const canUpdateEmployee = hasSpecificAction('payroll', PAYROLL_ACTIONS.UPDATE_EMPLOYEE);
+  const canDeleteEmployee = hasSpecificAction('payroll', PAYROLL_ACTIONS.DELETE_EMPLOYEE);
+  const canViewDetails = hasSpecificAction('payroll', PAYROLL_ACTIONS.VIEW_EMPLOYEE_DETAILS);
 
   // Load employees on component mount
   useEffect(() => {
@@ -282,13 +291,15 @@ export function EmployeesTable({ title, description }: EmployeesTableProps) {
             {description || "Manage employee information and payroll details"}
           </p>
         </div>
-        <Button
-          onClick={handleCreate}
-          className="rounded-full gradient-primary text-white font-normal"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Employee
-        </Button>
+        {canCreateEmployee && (
+          <Button
+            onClick={handleCreate}
+            className="rounded-full gradient-primary text-white font-normal"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Employee
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}
@@ -299,9 +310,9 @@ export function EmployeesTable({ title, description }: EmployeesTableProps) {
         filterOptions={filterOptions}
         searchPlaceholder="Search employees..."
         title=""
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onView={canViewDetails ? handleView : undefined}
+        onEdit={canUpdateEmployee ? handleEdit : undefined}
+        onDelete={canDeleteEmployee ? handleDelete : undefined}
       />
 
       {/* Form Modal */}

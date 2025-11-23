@@ -26,6 +26,7 @@ import {
   setSelectedCurrency
 } from "@/lib/store/slices/accountingSlice"
 import { accountingApi, AccountingCurrency, CreateCurrencyRequest } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 // Export the type for use in other components
 export type { AccountingCurrency as Currency }
@@ -33,6 +34,13 @@ export type { AccountingCurrency as Currency }
 export function CurrenciesManagement() {
   const dispatch = useAppDispatch()
   const { currencies, currenciesLoading } = useAppSelector(state => state.accounting)
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateCurrency = canPerformAction('accounting', 'create')
+  const canEditCurrency = canPerformAction('accounting', 'update')
+  const canDeleteCurrency = canPerformAction('accounting', 'delete')
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isConfirmDrawerOpen, setIsConfirmDrawerOpen] = useState(false)
@@ -307,9 +315,9 @@ export function CurrenciesManagement() {
         searchPlaceholder="Search currencies..."
         filterOptions={filterOptions}
         onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onCreate={handleCreate}
+        onEdit={canEditCurrency ? handleEdit : undefined}
+        onDelete={canDeleteCurrency ? handleDelete : undefined}
+        onCreate={canCreateCurrency ? handleCreate : undefined}
         onBulkAction={handleBulkAction}
         bulkActions={bulkActions}
         loading={currenciesLoading}

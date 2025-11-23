@@ -267,7 +267,7 @@ export function ApplicationTimeline({
   }
 
   const fetchVoteSummary = async () => {
-    setVoteSummaryLoading(true)
+    setVoteSummaryLoading(true);
     try {
       const response = await boardReviewApi.getVoteSummary(application.id)
       setVoteSummary(response.data)

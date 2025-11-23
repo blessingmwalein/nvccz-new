@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { FileText, Users, Edit, Play, CheckCircle, DollarSign, UserPlus, Loader2, ThumbsUp, Vote } from "lucide-react"
 import type { Application } from "../applications-dashboard"
 import { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { APPLICATION_PORTAL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface TimelineStageActionsProps {
   stageId: string
@@ -56,17 +58,43 @@ export function TimelineStageActions({
   onCreateFundDisbursement,
   onRefresh
 }: TimelineStageActionsProps) {
+  // Permission checks for application-portal specific actions
+  const { hasSpecificAction } = useRolePermissions()
+  
+  const canInitiateDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_DUE_DILIGENCE)
+  const canCreateDDTask = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DD_TASK)
+  const canUpdateDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_DUE_DILIGENCE)
+  const canCompleteDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.COMPLETE_DUE_DILIGENCE)
+  const canApproveActivity = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.APPROVE_DD_ACTIVITY)
+  
+  const canInitiateBoardReview = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_BOARD_REVIEW)
+  const canUpdateBoardReview = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_BOARD_REVIEW)
+  const canCompleteBoardReview = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.COMPLETE_BOARD_REVIEW)
+  const canVote = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CAST_VOTE)
+  
+  const canCreateTermSheet = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_TERM_SHEET)
+  const canUpdateTermSheet = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_TERM_SHEET)
+  const canFinalizeTermSheet = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.FINALIZE_TERM_SHEET)
+  
+  const canInitiateFundDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_FUND_DISBURSEMENT)
+  const canCreateDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DISBURSEMENT)
+  const canApproveDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.APPROVE_DISBURSEMENT)
+
   // Special handling for BOARD_APPROVED - show TERM_SHEET actions
   if (application.currentStage === "BOARD_APPROVED" && stageId === "TERM_SHEET") {
     return (
       <div className="flex gap-2">
-        <Button
-          onClick={onCreateTermSheet}
-          className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-full"
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          Create Term Sheet
-        </Button>
+        {canCreateTermSheet ? (
+          <Button
+            onClick={onCreateTermSheet}
+            className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-full"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Create Term Sheet
+          </Button>
+        ) : (
+          <p className="text-sm text-gray-500 italic">You don't have permission to create term sheets</p>
+        )}
       </div>
     )
   }
@@ -75,13 +103,17 @@ export function TimelineStageActions({
   if (application.currentStage === "DUE_DILIGENCE_COMPLETED" && stageId === "UNDER_BOARD_REVIEW") {
     return (
       <div className="flex gap-2">
-        <Button
-          onClick={onInitiateBoardReview}
-          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full"
-        >
-          <Users className="w-4 h-4 mr-2" />
-          Initiate Board Review
-        </Button>
+        {canInitiateBoardReview ? (
+          <Button
+            onClick={onInitiateBoardReview}
+            className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full"
+          >
+            <Users className="w-4 h-4 mr-2" />
+            Initiate Board Review
+          </Button>
+        ) : (
+          <p className="text-sm text-gray-500 italic">You don't have permission to initiate board reviews</p>
+        )}
       </div>
     )
   }
@@ -95,13 +127,18 @@ export function TimelineStageActions({
     case "SHORTLISTED":
       return (
         <div className="flex gap-2">
-          <Button
-            onClick={onInitiateDueDiligence}
-            className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-full"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            Initiate Due Diligence
-          </Button>
+          {canInitiateDueDiligence && (
+            <Button
+              onClick={onInitiateDueDiligence}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-full"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Initiate Due Diligence
+            </Button>
+          )}
+          {!canInitiateDueDiligence && (
+            <p className="text-sm text-gray-500 italic py-2">You don't have permission to initiate due diligence</p>
+          )}
         </div>
       )
 
@@ -139,13 +176,17 @@ export function TimelineStageActions({
       if (shouldShowTaskButton) {
         return (
           <div className="flex">
-            <Button
-              onClick={onCreateDueDiligenceTask}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Create DueDiligence Task
-            </Button>
+            {canCreateDDTask ? (
+              <Button
+                onClick={onCreateDueDiligenceTask}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Create DueDiligence Task
+              </Button>
+            ) : (
+              <p className="text-sm text-gray-500 italic py-2">You don't have permission to create tasks</p>
+            )}
           </div>
         )
       }
@@ -154,13 +195,17 @@ export function TimelineStageActions({
       if (hasPendingActivity && dueDiligenceData?.status === "IN_PROGRESS") {
         return (
           <div className="flex">
-            <Button
-              onClick={onApproveActivity}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
-            >
-              <ThumbsUp className="w-4 h-4 mr-2" />
-              Approve Activity
-            </Button>
+            {canApproveActivity ? (
+              <Button
+                onClick={onApproveActivity}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
+              >
+                <ThumbsUp className="w-4 h-4 mr-2" />
+                Approve Activity
+              </Button>
+            ) : (
+              <p className="text-sm text-gray-500 italic py-2">You don't have permission to approve activities</p>
+            )}
           </div>
         )
       }
@@ -178,21 +223,30 @@ export function TimelineStageActions({
       if (hasApprovedActivity) {
         return (
           <div className="flex gap-2">
-            <Button
-              onClick={onUpdateDueDiligence}
-              variant="outline"
-              className="border-amber-500 text-amber-600 hover:bg-amber-50 rounded-full"
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Update Due Diligence
-            </Button>
-            <Button
-              onClick={onCompleteDueDiligence}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Complete Due Diligence
-            </Button>
+            {canUpdateDueDiligence && (
+              <>
+                <Button
+                  onClick={onUpdateDueDiligence}
+                  variant="outline"
+                  className="border-amber-500 text-amber-600 hover:bg-amber-50 rounded-full"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update Due Diligence
+                </Button>
+                {canCompleteDueDiligence && (
+                  <Button
+                    onClick={onCompleteDueDiligence}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Complete Due Diligence
+                  </Button>
+                )}
+              </>
+            )}
+            {!canUpdateDueDiligence && (
+              <p className="text-sm text-gray-500 italic py-2">You don't have permission to update due diligence</p>
+            )}
           </div>
         )
       }
@@ -220,13 +274,17 @@ export function TimelineStageActions({
       if (!boardReviewData) {
         return (
           <div className="flex gap-2">
-            <Button
-              onClick={onInitiateBoardReview}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Create Board Review
-            </Button>
+            {canInitiateBoardReview ? (
+              <Button
+                onClick={onInitiateBoardReview}
+                className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Create Board Review
+              </Button>
+            ) : (
+              <p className="text-sm text-gray-500 italic py-2">You don't have permission to create board reviews</p>
+            )}
           </div>
         )
       }
@@ -238,7 +296,7 @@ export function TimelineStageActions({
       return (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {canVote && (
+            {canVote && canCastVote && (
               <Button
                 onClick={onVote}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
@@ -248,16 +306,18 @@ export function TimelineStageActions({
               </Button>
             )}
             
-            <Button
-              onClick={onUpdateBoardReview}
-              variant="outline"
-              className="border-purple-500 text-purple-600 hover:bg-purple-50 rounded-full"
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Update Board Review
-            </Button>
+            {canUpdateBoardReview && (
+              <Button
+                onClick={onUpdateBoardReview}
+                variant="outline"
+                className="border-purple-500 text-purple-600 hover:bg-purple-50 rounded-full"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Update Board Review
+              </Button>
+            )}
 
-            {isVotingComplete && (
+            {isVotingComplete && canCompleteBoardReview && (
               <Button
                 onClick={onCompleteBoardReview}
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
@@ -279,29 +339,40 @@ export function TimelineStageActions({
     case "TERM_SHEET":
       return (
         <div className="flex gap-2">
-          <Button
-            onClick={onCreateTermSheet}
-            variant="outline"
-            className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Create Term Sheet
-          </Button>
-          <Button
-            onClick={onUpdateTermSheet}
-            variant="outline"
-            className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Update Term Sheet
-          </Button>
-          <Button
-            onClick={onFinalizeTermSheet}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Finalize Term Sheet
-          </Button>
+          {canCreateTermSheet && (
+            <Button
+              onClick={onCreateTermSheet}
+              variant="outline"
+              className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Create Term Sheet
+            </Button>
+          )}
+          {canUpdateTermSheet && (
+            <>
+              <Button
+                onClick={onUpdateTermSheet}
+                variant="outline"
+                className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Update Term Sheet
+              </Button>
+              {canFinalizeTermSheet && (
+                <Button
+                  onClick={onFinalizeTermSheet}
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Finalize Term Sheet
+                </Button>
+              )}
+            </>
+          )}
+          {!canCreateTermSheet && !canUpdateTermSheet && (
+            <p className="text-sm text-gray-500 italic py-2">You don't have permission to manage term sheets</p>
+          )}
         </div>
       )
 
@@ -312,28 +383,36 @@ export function TimelineStageActions({
         <div className="space-y-4">
           {!application.investmentImplementation ? (
             <div className="flex gap-2">
-              <Button
-                onClick={onInitiateFundDisbursement}
-                className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full"
-              >
-                <DollarSign className="w-4 h-4 mr-2" />
-                Initiate Fund Disbursement
-              </Button>
+              {canInitiateFundDisbursement ? (
+                <Button
+                  onClick={onInitiateFundDisbursement}
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full"
+                >
+                  <DollarSign className="w-4 h-4 mr-2" />
+                  Initiate Fund Disbursement
+                </Button>
+              ) : (
+                <p className="text-sm text-gray-500 italic py-2">You don't have permission to initiate fund disbursement</p>
+              )}
             </div>
           ) : !hasDisbursements ? (
             <div className="flex gap-2">
-              <Button
-                onClick={async () => {
-                  if (onCreateFundDisbursement) {
-                    await onCreateFundDisbursement()
-                    await onRefresh()
-                  }
-                }}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Create Fund Disbursement
-              </Button>
+              {canCreateDisbursement ? (
+                <Button
+                  onClick={async () => {
+                    if (onCreateFundDisbursement) {
+                      await onCreateFundDisbursement()
+                      await onRefresh()
+                    }
+                  }}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Create Fund Disbursement
+                </Button>
+              ) : (
+                <p className="text-sm text-gray-500 italic py-2">You don't have permission to create disbursements</p>
+              )}
             </div>
           ) : null}
         </div>

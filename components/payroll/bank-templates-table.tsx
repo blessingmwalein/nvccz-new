@@ -21,10 +21,13 @@ import { Button } from "@/components/ui/button"
 import { CiDollar, CiCalendar, CiUser } from "react-icons/ci"
 import { Building, CheckCircle, XCircle, FileText } from "lucide-react"
 import { toast } from "sonner"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
+import { PAYROLL_ACTIONS } from "@/lib/config/role-permissions"
 
 export function BankTemplatesTable() {
   const dispatch = useAppDispatch()
   const { bankTemplates, loading } = useAppSelector(state => state.payroll)
+  const { hasSpecificAction } = useRolePermissions()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<BankTemplate | null>(null)
   const [viewingTemplate, setViewingTemplate] = useState<BankTemplate | null>(null)
@@ -32,6 +35,11 @@ export function BankTemplatesTable() {
   const [deleteTemplate, setDeleteTemplate] = useState<BankTemplate | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Permission checks
+  const canCreateBankTemplate = hasSpecificAction(PAYROLL_ACTIONS.CREATE_BANK_TEMPLATE)
+  const canUpdateBankTemplate = hasSpecificAction(PAYROLL_ACTIONS.UPDATE_BANK_TEMPLATE)
+  const canDeleteBankTemplate = hasSpecificAction(PAYROLL_ACTIONS.DELETE_BANK_TEMPLATE)
 
   // Load bank templates on component mount
   useEffect(() => {
@@ -261,13 +269,15 @@ export function BankTemplatesTable() {
             <h1 className="text-3xl text-gray-900">Bank Templates</h1>
             <p className="text-gray-600 font-normal">Manage bank file templates for different banks</p>
           </div>
-          <Button 
-            onClick={handleCreate}
-            className="rounded-full gradient-primary text-white font-normal"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Create Bank Template
-          </Button>
+          {canCreateBankTemplate && (
+            <Button 
+              onClick={handleCreate}
+              className="rounded-full gradient-primary text-white font-normal"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Create Bank Template
+            </Button>
+          )}
         </div>
 
         <RichDataTable
@@ -280,9 +290,9 @@ export function BankTemplatesTable() {
             { label: 'With Header', value: 'true' },
             { label: 'No Header', value: 'false' }
           ]}
-          onEdit={handleEdit}
+          onEdit={canUpdateBankTemplate ? handleEdit : undefined}
           onView={handleView}
-          onDelete={handleDeleteClick}
+          onDelete={canDeleteBankTemplate ? handleDeleteClick : undefined}
           onBulkAction={handleBulkAction}
           bulkActions={bulkActions}
           loading={loading.bankTemplates}

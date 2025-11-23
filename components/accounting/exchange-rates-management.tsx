@@ -10,10 +10,18 @@ import { toast } from "sonner"
 import { CreateExchangeRateModal, ViewExchangeRateModal } from "./exchange-rate-modals"
 import { fetchExchangeRates, createExchangeRate, updateExchangeRate, deleteExchangeRate } from "@/lib/store/slices/accountingSlice"
 import { accountingApi, ExchangeRate } from "@/lib/api/accounting-api"
+import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 
 export function ExchangeRatesManagement() {
   const dispatch = useAppDispatch()
   const { exchangeRates, exchangeRatesLoading } = useAppSelector(s => s.accounting)
+  const { canPerformAction } = useRolePermissions()
+  
+  // Permission checks
+  const canCreateRate = canPerformAction('accounting', 'create')
+  const canEditRate = canPerformAction('accounting', 'update')
+  const canDeleteRate = canPerformAction('accounting', 'delete')
+  
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selected, setSelected] = useState<ExchangeRate | null>(null)
@@ -112,9 +120,9 @@ export function ExchangeRatesManagement() {
         title="Exchange Rates"
         searchPlaceholder="Search exchange rates..."
         onView={(r: any) => handleView(r)}
-        onEdit={(r: any) => handleEdit(r)}
-        onDelete={(r: any) => handleDelete(r)}
-        onCreate={handleCreate}
+        onEdit={canEditRate ? (r: any) => handleEdit(r) : undefined}
+        onDelete={canDeleteRate ? (r: any) => handleDelete(r) : undefined}
+        onCreate={canCreateRate ? handleCreate : undefined}
         loading={exchangeRatesLoading}
         onExport={handleExport}
         emptyMessage="No exchange rates found."

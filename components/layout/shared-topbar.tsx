@@ -44,7 +44,7 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const dispatch = useAppDispatch()
   const currency = useAppSelector((state) => state.ui.currency)
-  const { user, token, isAuthenticated } = useAppSelector((state) => state.auth)
+  const { user, token, isAuthenticated, userDetails } = useAppSelector((state) => state.auth)
 
   // Check if user is applicant
   const isApplicant = user?.role?.toLowerCase() === 'applicant'
@@ -183,7 +183,7 @@ export function SharedTopbar({ onModuleSelect, currentModule }: SharedTopbarProp
                     {user ? `${user.firstName} ${user.lastName}` : "User"}
                   </span>
                   <span className="text-xs text-muted-foreground capitalize">
-                    {user?.role || "User"}
+                   {userDetails?.roleCode || userDetails?.role?.name || 'User'}
                   </span>
                 </div>
               </div>
