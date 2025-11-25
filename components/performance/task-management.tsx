@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useAppSelector, useAppDispatch } from "@/lib/store"
-import { fetchMyTasks, fetchDepartmentTasks } from "@/lib/store/slices/taskSlice"
+import { fetchMyTasks, fetchDepartmentTasks, updateTaskStage } from "@/lib/store/slices/taskSlice"
 import { fetchAvailableDepartments } from "@/lib/store/slices/performanceSlice"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,12 +10,15 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CiViewList as List, CiViewBoard as Kanban, CiSearch } from "react-icons/ci"
+import { LayoutGrid, LayoutList } from "lucide-react"
 import { toast } from "sonner"
 import { TaskCard } from "./task-card"
 import { TaskDrawerView } from "./task-drawer-view"
 import { GoalHierarchyInfo } from "./goal-hierarchy-info"
+import { TaskBoardView } from "./task-board-view"
 
 type TaskView = "my-tasks" | "department-tasks"
+type ViewMode = "list" | "kanban"
 
 const TaskPageSkeleton = () => (
   <div className="space-y-4">
@@ -44,6 +47,7 @@ export function TaskManagement() {
   const { availableDepartments } = useAppSelector((state) => state.performance)
 
   const [activeTab, setActiveTab] = useState<TaskView>("my-tasks")
+  const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
@@ -71,6 +75,30 @@ export function TaskManagement() {
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  const handleUpdateStage = async (taskId: string, stage: string, notes?: string) => {
+    try {
+      await dispatch(updateTaskStage({ taskId, stage, notes })).unwrap()
+      toast.success("Task stage updated successfully")
+      // Refresh tasks
+      if (activeTab === "my-tasks") {
+        dispatch(fetchMyTasks())
+      } else if (selectedDepartment) {
+        dispatch(fetchDepartmentTasks(selectedDepartment))
+      }
+    } catch (error) {
+      toast.error("Failed to update task stage")
+    }
+  }
+
+  const handleEditTask = (task: any) => {
+    setSelectedTaskId(task.id)
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    // Implement delete functionality if needed
+    toast.info("Delete functionality to be implemented")
+  }
 
   return (
     <div className="space-y-6">
@@ -148,33 +176,73 @@ export function TaskManagement() {
             </SelectContent>
           </Select>
         )}
+        
+        {/* View Toggle Buttons */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className={`rounded-full px-4 ${
+              viewMode === "list"
+                ? "bg-white text-blue-600 shadow-sm hover:bg-white"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+            }`}
+          >
+            <LayoutList className="w-4 h-4 mr-2" />
+            List
+          </Button>
+          <Button
+            variant={viewMode === "kanban" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("kanban")}
+            className={`rounded-full px-4 ${
+              viewMode === "kanban"
+                ? "bg-white text-blue-600 shadow-sm hover:bg-white"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4 mr-2" />
+            Kanban
+          </Button>
+        </div>
       </div>
 
       {/* Tasks Display */}
       {isLoading ? (
         <TaskPageSkeleton />
       ) : activeTab === "my-tasks" || (activeTab === "department-tasks" && selectedDepartment) ? (
-        <div className="space-y-4">
-          {filteredTasks.length > 0 ? (
-            filteredTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onClick={setSelectedTaskId} />
-            ))
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-4">
-                <List className="w-8 h-8 text-gray-400" />
+        viewMode === "list" ? (
+          <div className="space-y-4">
+            {filteredTasks.length > 0 ? (
+              filteredTasks.map((task) => (
+                <TaskCard key={task.id} task={task} onClick={setSelectedTaskId} />
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-4">
+                  <List className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</h3>
+                <p className="text-gray-600 mb-6">
+                  {searchTerm
+                    ? "No tasks match your current search."
+                    : activeTab === "department-tasks"
+                      ? "No tasks found for the selected department."
+                      : "You have no tasks assigned to you."}
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</h3>
-              <p className="text-gray-600 mb-6">
-                {searchTerm
-                  ? "No tasks match your current search."
-                  : activeTab === "department-tasks"
-                    ? "No tasks found for the selected department."
-                    : "You have no tasks assigned to you."}
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <TaskBoardView
+            tasks={filteredTasks}
+            loading={isLoading}
+            onUpdateStage={handleUpdateStage}
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+          />
+        )
       ) : activeTab === "department-tasks" && !selectedDepartment ? (
         <div className="text-center py-12">
           <p className="text-gray-600">Please select a department to view tasks.</p>

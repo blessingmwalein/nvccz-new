@@ -10,7 +10,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -123,10 +135,7 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
   const handleStageUpdate = async () => {
     try {
       await onUpdateStage(task.id, newStage, stageNotes)
-      toast({
-        title: "Stage updated",
-        description: `Task moved to ${newStage.replace("_", " ")}.`,
-      })
+      toast.success("Stage updated")
     } finally {
       setShowStageDialog(false)
       setStageNotes("")
@@ -296,7 +305,7 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
               <label className="text-sm font-medium">New Stage</label>
               <select 
                 value={newStage} 
-                onChange={(e) => setNewStage(e.target.value)}
+                onChange={(e) => setNewStage(e.target.value as any)}
                 className="w-full mt-1 p-2 border rounded-md"
               >
                 <option value="todo">To Do</option>
@@ -450,6 +459,23 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
 export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpdateStage, onEditTask, onDeleteTask }: TaskBoardViewProps) {
   const [draggedOver, setDraggedOver] = useState<string | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    taskId: string
+    taskTitle: string
+    fromStage: string
+    toStage: string
+  }>({
+    open: false,
+    taskId: "",
+    taskTitle: "",
+    fromStage: "",
+    toStage: ""
+  })
+
+  const getStageTitle = (stageId: string) => {
+    return stages.find(s => s.id === stageId)?.title || stageId
+  }
 
   const handleDragOver = (e: React.DragEvent, stageId: string) => {
     e.preventDefault()
@@ -468,12 +494,31 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
     const task = tasks.find(t => t.id === taskId)
     
     if (task && task.stage !== targetStage) {
-      setIsUpdating(true)
-      try {
-        await onUpdateStage(taskId, targetStage, `Moved from ${task.stage} to ${targetStage}`)
-      } finally {
-        setIsUpdating(false)
-      }
+      // Show confirmation dialog
+      setConfirmDialog({
+        open: true,
+        taskId: task.id,
+        taskTitle: task.title,
+        fromStage: task.stage,
+        toStage: targetStage
+      })
+    }
+  }
+
+  const handleConfirmStageChange = async () => {
+    setIsUpdating(true)
+    try {
+      await onUpdateStage(
+        confirmDialog.taskId,
+        confirmDialog.toStage,
+        `Moved from ${getStageTitle(confirmDialog.fromStage)} to ${getStageTitle(confirmDialog.toStage)}`
+      )
+      toast.success("Task moved successfully")
+    } catch (error) {
+      toast.error("Failed to move task")
+    } finally {
+      setIsUpdating(false)
+      setConfirmDialog({ open: false, taskId: "", taskTitle: "", fromStage: "", toStage: "" })
     }
   }
 
@@ -486,8 +531,9 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {stages.map((stage) => {
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stages.map((stage) => {
         const stageTasks = getTasksByStage(stage.id)
         
         return (
@@ -505,10 +551,10 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
 
             {/* Stage Column */}
             <div
-              className={`min-h-[400px] p-3 rounded-lg border-2 border-dashed transition-colors ${
+              className={`min-h-[400px] p-3 rounded-lg border-2 border-dashed transition-all duration-200 ${
                 draggedOver === stage.id 
-                  ? "border-primary bg-primary/5" 
-                  : "border-muted-foreground/20"
+                  ? "border-blue-500 bg-blue-50 border-solid shadow-lg scale-[1.02]" 
+                  : "border-gray-200 hover:border-gray-300 bg-gray-50/50"
               }`}
               onDragOver={(e) => handleDragOver(e, stage.id)}
               onDragLeave={handleDragLeave}
@@ -520,6 +566,7 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
                   <div className="text-center">
                     <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No tasks</p>
+                    <p className="text-xs mt-1">Drag tasks here</p>
                   </div>
                   </div>
                 ) : (
@@ -538,6 +585,46 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
           </div>
         )
       })}
-    </div>
+      </div>
+
+      {/* Drag & Drop Confirmation Dialog */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ ...confirmDialog, open: false })}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <Target className="w-5 h-5 text-blue-600" />
+              </div>
+              Confirm Task Move
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 pt-2">
+              <p className="text-sm">Are you sure you want to move this task?</p>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl space-y-3 border border-gray-200">
+                <p className="font-medium text-gray-900 text-sm leading-relaxed">{confirmDialog.taskTitle}</p>
+                <div className="flex items-center gap-3 text-sm">
+                  <Badge variant="outline" className="bg-white shadow-sm border-gray-300">
+                    {getStageTitle(confirmDialog.fromStage)}
+                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <div className="h-px w-4 bg-gray-300"></div>
+                    <span className="text-gray-400">→</span>
+                    <div className="h-px w-4 bg-blue-300"></div>
+                  </div>
+                  <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700 shadow-sm">
+                    {getStageTitle(confirmDialog.toStage)}
+                  </Badge>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmStageChange} className="bg-blue-600 hover:bg-blue-700 rounded-full">
+              Confirm Move
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 })
