@@ -49,9 +49,11 @@ import {
 import { Task } from "@/lib/store/slices/taskSlice"
 import { format } from "date-fns"
 import { TaskManagementSkeleton } from "@/components/ui/skeleton-loaders"
-import { TaskActivityDialog } from "@/components/performance/task-activity-dialog"
+import { TaskActivityModal } from "@/components/applications/task-activity-modal"
 import { useTaskStore } from "@/lib/store/slices/useTaskStore"
 import { toast } from "sonner"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { TaskDrawerView } from "./task-drawer-view"
 
 interface TaskBoardViewProps {
   tasks: Task[]
@@ -59,6 +61,7 @@ interface TaskBoardViewProps {
   onUpdateStage: (taskId: string, stage: string, notes?: string) => void
   onEditTask: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
+  onViewTask?: (task: Task) => void
 }
 
 interface TaskCardProps {
@@ -66,6 +69,7 @@ interface TaskCardProps {
   onUpdateStage: (taskId: string, stage: string, notes?: string) => void
   onEditTask: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
+  onViewTask?: (task: Task) => void
 }
 
 const stages = [
@@ -75,14 +79,12 @@ const stages = [
   { id: "overdue", title: "Overdue", color: "bg-red-100" }
 ]
 
-const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDeleteTask }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDeleteTask, onViewTask }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [showStageDialog, setShowStageDialog] = useState(false)
   const [newStage, setNewStage] = useState(task.stage)
   const [stageNotes, setStageNotes] = useState("")
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [showActivityDialog, setShowActivityDialog] = useState(false)
-  const { addTaskActivity } = useTaskStore()
+  const [showActivityModal, setShowActivityModal] = useState(false)
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -179,31 +181,22 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSelectedTask(task)}>
+                  <DropdownMenuItem onClick={() => onViewTask?.(task)}>
                     <List className="h-3 w-3 mr-2" />
                     View Details
                   </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowActivityDialog(true)}>
+                <DropdownMenuItem onClick={() => setShowActivityModal(true)}>
                   <Activity className="h-3 w-3 mr-2" />
-                  Add Activity
+                  Log Activity
                 </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onEditTask(task)}>
                     <Edit className="h-3 w-3 mr-2" />
-                    Edit
+                    Edit Task
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowStageDialog(true)}>
                     <Target className="h-3 w-3 mr-2" />
                     Change Stage
                   </DropdownMenuItem>
-                  {onDeleteTask && (
-                    <DropdownMenuItem 
-                      onClick={() => onDeleteTask(task.id)}
-                      className="text-red-600"
-                    >
-                      <Trash className="h-3 w-3 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -335,130 +328,25 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
           </div>
         </DialogContent>
       </Dialog>
-      <TaskActivityDialog
-        isOpen={showActivityDialog}
-        onClose={() => setShowActivityDialog(false)}
-        onSubmit={async (payload) => {
-          await addTaskActivity(task.id, payload)
+      {/* Task Activity Modal */}
+      <TaskActivityModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        taskId={task.id}
+        taskTitle={task.title}
+        onSuccess={() => {
+          setShowActivityModal(false)
+          toast.success("Activity logged successfully")
         }}
       />
-
-      {/* Task Details Dialog */}
-      {selectedTask && (
-        <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>{selectedTask.title}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {selectedTask.description && (
-                <div>
-                  <h4 className="font-medium">Description</h4>
-                  <p className="text-muted-foreground">{selectedTask.description}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <h4 className="font-medium">Priority</h4>
-                  <Badge className={getPriorityColor(selectedTask.priority)}>
-                    {selectedTask.priority}
-                  </Badge>
-                </div>
-                <div>
-                  <h4 className="font-medium">Stage</h4>
-                  <Badge>
-                    {selectedTask.stage}
-                  </Badge>
-                </div>
-                <div>
-                  <h4 className="font-medium">Due Date</h4>
-                  <p className="text-muted-foreground">{formatDate(selectedTask.date)}</p>
-                </div>
-                {selectedTask.department && (
-                  <div>
-                    <h4 className="font-medium">Department</h4>
-                    <p className="text-muted-foreground">{selectedTask.department}</p>
-                  </div>
-                )}
-                {selectedTask.goal && (
-                  <div>
-                    <h4 className="font-medium">Goal</h4>
-                    <p className="text-muted-foreground">{selectedTask.goal.title}</p>
-                  </div>
-                )}
-                <div>
-                  <h4 className="font-medium">Created By</h4>
-                  <p className="text-muted-foreground">
-                    {selectedTask.creator.firstName} {selectedTask.creator.lastName}
-                  </p>
-                </div>
-              </div>
-
-              {(selectedTask.monetaryValue || selectedTask.percentValue) && (
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedTask.monetaryValue && (
-                    <div>
-                      <h4 className="font-medium">Value</h4>
-                      <p className="text-muted-foreground">${parseInt(selectedTask.monetaryValue).toLocaleString()}</p>
-                    </div>
-                  )}
-                  {selectedTask.percentValue && (
-                    <div>
-                      <h4 className="font-medium">Progress</h4>
-                      <p className="text-muted-foreground">{selectedTask.percentValue}%</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedTask.team && selectedTask.team.length > 0 && (
-                <div>
-                  <h4 className="font-medium">Team</h4>
-                  <div className="flex -space-x-2 mt-2">
-                    {selectedTask.team.slice(0, 6).map((memberId, index) => (
-                      <Avatar key={index} className="h-8 w-8 border-2 border-white">
-                        <AvatarImage src="" />
-                        <AvatarFallback className="text-xs bg-gray-600 text-white">
-                          {memberId.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                    {selectedTask.team.length > 6 && (
-                      <Avatar className="h-8 w-8 border-2 border-white">
-                        <AvatarFallback className="text-xs text-white font-medium bg-gray-600">
-                          +{selectedTask.team.length - 6}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {selectedTask.activities && selectedTask.activities.length > 0 && (
-                <div>
-                  <h4 className="font-medium">Recent Activities</h4>
-                  <div className="space-y-2 mt-2">
-                    {selectedTask.activities.slice(0, 5).map((activity, index) => (
-                      <div key={index} className="text-sm text-muted-foreground">
-                        <p>{activity.activity}</p>
-                        <p className="text-xs">{formatDate(activity.date)}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   )
 })
 
-export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpdateStage, onEditTask, onDeleteTask }: TaskBoardViewProps) {
+export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpdateStage, onEditTask, onDeleteTask, onViewTask }: TaskBoardViewProps) {
   const [draggedOver, setDraggedOver] = useState<string | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [selectedTaskForView, setSelectedTaskForView] = useState<Task | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     taskId: string
@@ -577,6 +465,7 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
                   onUpdateStage={onUpdateStage}
                   onEditTask={onEditTask}
                   onDeleteTask={onDeleteTask}
+                  onViewTask={(task) => setSelectedTaskForView(task)}
                 />
                   ))
                 )}
@@ -625,6 +514,18 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Task Details Drawer */}
+      {selectedTaskForView && (
+        <Sheet open={!!selectedTaskForView} onOpenChange={(open) => !open && setSelectedTaskForView(null)}>
+          <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
+            <TaskDrawerView 
+              task={selectedTaskForView} 
+              onClose={() => setSelectedTaskForView(null)}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
     </>
   )
 })

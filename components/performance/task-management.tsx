@@ -241,6 +241,7 @@ export function TaskManagement() {
             onUpdateStage={handleUpdateStage}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            onViewTask={(task) => setSelectedTaskId(task.id)}
           />
         )
       ) : activeTab === "department-tasks" && !selectedDepartment ? (
