@@ -16,6 +16,8 @@ interface TimelineStageActionsProps {
   activityApprovalLoading?: boolean
   boardReviewData?: BoardReviewData | null
   voteSummary?: VoteSummaryData | null
+  termSheetData?: any
+  termSheetDataLoding?: boolean
   onInitiateDueDiligence?: () => Promise<void>
   onUpdateDueDiligence?: () => Promise<void>
   onCompleteDueDiligence?: () => Promise<void>
@@ -41,6 +43,8 @@ export function TimelineStageActions({
   activityApprovalData,
   activityApprovalLoading,
   boardReviewData,
+  termSheetData,
+  termSheetDataLoding,
   voteSummary,
   onInitiateDueDiligence,
   onUpdateDueDiligence,
@@ -60,22 +64,22 @@ export function TimelineStageActions({
 }: TimelineStageActionsProps) {
   // Permission checks for application-portal specific actions
   const { hasSpecificAction } = useRolePermissions()
-  
+
   const canInitiateDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_DUE_DILIGENCE)
   const canCreateDDTask = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DD_TASK)
   const canUpdateDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_DUE_DILIGENCE)
   const canCompleteDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.COMPLETE_DUE_DILIGENCE)
   const canApproveActivity = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.APPROVE_DD_ACTIVITY)
-  
+
   const canInitiateBoardReview = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_BOARD_REVIEW)
   const canUpdateBoardReview = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_BOARD_REVIEW)
   const canCompleteBoardReview = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.COMPLETE_BOARD_REVIEW)
   const canVote = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CAST_VOTE)
-  
+
   const canCreateTermSheet = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_TERM_SHEET)
   const canUpdateTermSheet = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_TERM_SHEET)
   const canFinalizeTermSheet = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.FINALIZE_TERM_SHEET)
-  
+
   const canInitiateFundDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_FUND_DISBURSEMENT)
   const canCreateDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DISBURSEMENT)
   const canApproveDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.APPROVE_DISBURSEMENT)
@@ -143,6 +147,8 @@ export function TimelineStageActions({
     return null
   }
 
+  // return <h3>{stageId}</h3>
+
   switch (stageId) {
     case "APPLICATION_SUBMISSION":
       return (
@@ -177,73 +183,55 @@ export function TimelineStageActions({
 
       // Check if we should show task button instead of update/complete buttons
       const shouldShowTaskButton =
-        dueDiligenceData?.status === "IN_PROGRESS" 
-        // &&
-        // (!dueDiligenceData?.tasks || dueDiligenceData.tasks.length === 0)
+        dueDiligenceData?.status === "IN_PROGRESS"
+      // &&
+      // (!dueDiligenceData?.tasks || dueDiligenceData.tasks.length === 0)
 
       // Check if we have any tasks with activity logs
-      const hasActivityLogs = dueDiligenceData?.tasks?.some((task: any) => 
+      const hasActivityLogs = dueDiligenceData?.tasks?.some((task: any) =>
         task.activityLogs && task.activityLogs.length > 0
       )
 
       // Check if we have any approved activities
-      const hasApprovedActivity = 
+      const hasApprovedActivity =
         activityApprovalData?.approvalStatus === "APPROVED"
 
       // Check if we have pending activity to approve
-      const hasPendingActivity = 
+      const hasPendingActivity =
         activityApprovalData?.approvalStatus === "PENDING"
 
-      if (shouldShowTaskButton) {
-        return (
-          <div className="flex">
-            {canCreateDDTask ? (
-              <Button
-                onClick={onCreateDueDiligenceTask}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Create DueDiligence Task
-              </Button>
-            ) : (
-              <p className="text-sm text-gray-500 italic py-2">You don't have permission to create tasks</p>
-            )}
-          </div>
-        )
-      }
+      // Show Create Task button if due diligence status is IN_PROGRESS, regardless of tasks/activity logs
+      const showCreateTaskButton = dueDiligenceData?.status === "IN_PROGRESS";
+      const createTaskButton = showCreateTaskButton && canCreateDDTask ? (
+        <Button
+          onClick={onCreateDueDiligenceTask}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full"
+        >
+          <UserPlus className="w-4 h-4 mr-2" />
+          Create DueDiligence Task
+        </Button>
+      ) : showCreateTaskButton ? (
+        <p className="text-sm text-gray-500 italic py-2">You don't have permission to create tasks</p>
+      ) : null;
 
       // If activity is pending approval, show Approve Activity button
-      if (hasPendingActivity && dueDiligenceData?.status === "IN_PROGRESS") {
-        return (
-          <div className="flex">
-            {canApproveActivity ? (
-              <Button
-                onClick={onApproveActivity}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
-              >
-                <ThumbsUp className="w-4 h-4 mr-2" />
-                Approve Activity
-              </Button>
-            ) : (
-              <p className="text-sm text-gray-500 italic py-2">You don't have permission to approve activities</p>
-            )}
-          </div>
-        )
-      }
+      // Approve Activity button now handled in due-diligence-section.tsx activity logs
 
-      // If no activity logs exist, show waiting message
-      if (!hasActivityLogs) {
-        return (
-          <div className="flex justify-center">
-            <p className="text-sm text-gray-500 italic py-2">Awaiting assigned user log activity</p>
-          </div>
-        )
-      }
+      // If no activity logs exist, show Create Task button and waiting message
+      // if (!hasActivityLogs) {
+      //   return (
+      //     <div className="flex gap-2 items-center">
+      //       {createTaskButton}
+      //       <p className="text-sm text-gray-500 italic py-2">Awaiting assigned user log activity</p>
+      //     </div>
+      //   )
+      // }
 
-      // Only show Update and Complete buttons if we have approved activities
-      if (hasApprovedActivity) {
+      // If we have activity logs, show Create Task button and Update/Complete buttons
+      if (hasActivityLogs) {
         return (
           <div className="flex gap-2">
+            {createTaskButton}
             {canUpdateDueDiligence && (
               <>
                 <Button
@@ -272,12 +260,12 @@ export function TimelineStageActions({
         )
       }
 
-      // If we have activity logs but no approved activities, show waiting message
       return (
-        <div className="flex justify-center">
-          <p className="text-sm text-gray-500 italic py-2">Awaiting signed user log activity</p>
+        <div className="flex gap-2 items-center">
+          {createTaskButton}
+          {/* <p className="text-sm text-gray-500 italic py-2">Awaiting assigned user log activity</p> */}
         </div>
-      )
+      );
 
     case "BOARD_GROUP":
       if (dueDiligenceLoading) { // Using dueDiligenceLoading as a proxy for boardReviewLoading
@@ -326,7 +314,7 @@ export function TimelineStageActions({
                 Cast Your Vote
               </Button>
             )}
-            
+
             {canUpdateBoardReview && (
               <Button
                 onClick={onUpdateBoardReview}
@@ -358,20 +346,42 @@ export function TimelineStageActions({
       )
 
     case "TERM_SHEET_GROUP":
-      return (
-        <div className="flex gap-2">
-          {canCreateTermSheet && (
-            <Button
-              onClick={onCreateTermSheet}
-              variant="outline"
-              className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Create Term Sheet
-            </Button>
-          )}
-          {canUpdateTermSheet && (
-            <>
+      if (termSheetDataLoding) {
+        return (
+          <div className="flex justify-center">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading term sheet data...</span>
+            </div>
+          </div>
+        );
+      }
+
+      // If no term sheet data, show Create button
+      if (!termSheetData) {
+        return (
+          <div className="flex gap-2">
+            {canCreateTermSheet ? (
+              <Button
+                onClick={onCreateTermSheet}
+                variant="outline"
+                className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Create Term Sheet
+              </Button>
+            ) : (
+              <p className="text-sm text-gray-500 italic py-2">You don't have permission to create term sheets</p>
+            )}
+          </div>
+        );
+      }
+
+      // If term sheet data exists, show Update and Finalize buttons
+      if (termSheetData) {
+        return (
+          <div className="flex gap-2">
+            {canUpdateTermSheet && (
               <Button
                 onClick={onUpdateTermSheet}
                 variant="outline"
@@ -380,22 +390,51 @@ export function TimelineStageActions({
                 <Edit className="w-4 h-4 mr-2" />
                 Update Term Sheet
               </Button>
-              {canFinalizeTermSheet && (
-                <Button
-                  onClick={onFinalizeTermSheet}
-                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Finalize Term Sheet
-                </Button>
-              )}
-            </>
-          )}
-          {!canCreateTermSheet && !canUpdateTermSheet && (
-            <p className="text-sm text-gray-500 italic py-2">You don't have permission to manage term sheets</p>
-          )}
-        </div>
-      )
+            )}
+            {canFinalizeTermSheet && (termSheetData.status === 'FINAL' || termSheetData.status === 'DRAFT' ) && (
+              <Button
+                onClick={onFinalizeTermSheet}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Finalize Term Sheet
+              </Button>
+            )}
+            {!canUpdateTermSheet && !canFinalizeTermSheet && (
+              <p className="text-sm text-gray-500 italic py-2">You don't have permission to manage term sheets</p>
+            )}
+          </div>
+        );
+      }
+    // return (
+    //   <div className="flex gap-2">
+
+    //     {canUpdateTermSheet && (
+    //       <>
+    //         <Button
+    //           onClick={onUpdateTermSheet}
+    //           variant="outline"
+    //           className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full"
+    //         >
+    //           <Edit className="w-4 h-4 mr-2" />
+    //           Update Term Sheet
+    //         </Button>
+    //         {canFinalizeTermSheet && (
+    //           <Button
+    //             onClick={onFinalizeTermSheet}
+    //             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
+    //           >
+    //             <CheckCircle className="w-4 h-4 mr-2" />
+    //             Finalize Term Sheet
+    //           </Button>
+    //         )}
+    //       </>
+    //     )}
+    //     {!canCreateTermSheet && !canUpdateTermSheet && (
+    //       <p className="text-sm text-gray-500 italic py-2">You don't have permission to manage term sheets</p>
+    //     )}
+    //   </div>
+    // )
 
     case "INVESTMENT_GROUP":
       const hasDisbursements = application.disbursements && application.disbursements.length > 0

@@ -2,27 +2,20 @@
 
 import { useEffect, useState } from "react"
 import { useAppDispatch, useAppSelector } from "@/lib/store"
-import { fetchApplication, fetchTimeline } from "@/lib/store/slices/applicationPortalSlice"
+import { fetchApplication, fetchTimeline, signTermSheet } from "@/lib/store/slices/applicationPortalSlice"
 import { ApplicationPortalLayout } from "@/components/layout/application-portal-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { DocumentPreviewModal } from "@/components/applications/document-preview-modal"
-import {
-    Clock,
-    CheckCircle,
-    History,
-    GitBranch,
-    FileText,
-    User,
-    Building2,
-    DollarSign,
-    Eye,
-    Users,
-    TrendingUp
-} from "lucide-react"
-import { DashboardSkeleton } from "@/components/ui/skeleton-loader"
+// import { ApplicationProgressTimeline } from "@/components/applicant-timeline/application-progress-timeline"
+// import { getStageColor } from "@/components/applicant-timeline/stage-config"
+import { Clock, CheckCircle, History, GitBranch } from "lucide-react"
+import { ApplicationProgressTimeline } from "@/components/application-portal/applicant-timeline/application-progress-timeline"
+import { getStageColor } from "@/components/application-portal/applicant-timeline/stage-config"
+import { TermSheet } from "@/lib/api/application-portal-api"
+import { SignTermSheetModal } from "@/components/applications/SignTermSheetModal"
+import { toast } from "sonner"
 
 // Custom Skeleton Loader Component
 const ApplicationDetailsSkeleton = () => {
@@ -46,25 +39,18 @@ const ApplicationDetailsSkeleton = () => {
 
                 {/* Content Card */}
                 <div className="border rounded-lg">
-                    {/* Card Header */}
                     <div className="p-6 border-b">
                         <div className="flex items-center gap-2">
                             <div className="h-5 w-5 bg-gray-200 rounded"></div>
                             <div className="h-6 w-48 bg-gray-200 rounded"></div>
                         </div>
                     </div>
-
-                    {/* Card Content - Timeline Items */}
                     <div className="p-6 space-y-6">
                         {[1, 2, 3, 4].map((item) => (
                             <div key={item} className="flex items-start gap-4">
-                                {/* Timeline Icon */}
                                 <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0"></div>
-
-                                {/* Timeline Content */}
                                 <div className="flex-1 space-y-3">
                                     <div className="border rounded-lg p-6 space-y-4">
-                                        {/* Title and Badge */}
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-2">
                                                 <div className="h-5 w-48 bg-gray-200 rounded"></div>
@@ -72,8 +58,6 @@ const ApplicationDetailsSkeleton = () => {
                                             </div>
                                             <div className="h-6 w-24 bg-gray-200 rounded-full"></div>
                                         </div>
-
-                                        {/* Accordion Trigger */}
                                         <div className="h-10 w-full bg-gray-100 rounded-lg"></div>
                                     </div>
                                 </div>
@@ -89,631 +73,35 @@ const ApplicationDetailsSkeleton = () => {
 export default function ApplicationDetailsPage() {
     const dispatch = useAppDispatch()
     const { application, applicationLoading, timeline, timelineLoading } = useAppSelector(
-        (state) => state.applicationPortal
+        (state) => state.applicationPortal,
     )
     const [activeTab, setActiveTab] = useState("progress")
     const [isDocPreviewOpen, setIsDocPreviewOpen] = useState(false)
     const [selectedDocIndex, setSelectedDocIndex] = useState(0)
+
+    const [showSignDialog, setShowSignDialog] = useState(false)
+    const [termSheetToSign, setTermSheetToSign] = useState<TermSheet | null>(null)
+
+    const [signError, setSignError] = useState<string | null>(null)
+
+    const [signing, setSigning] = useState(false)
+
+
+
 
     useEffect(() => {
         dispatch(fetchApplication())
         dispatch(fetchTimeline())
     }, [dispatch])
 
-    const getStageProgress = (stage: string) => {
-        const stageOrder = [
-            'SUBMITTED', 'INITIAL_SCREENING', 'SHORTLISTED',
-            'UNDER_DUE_DILIGENCE', 'DUE_DILIGENCE_COMPLETED',
-            'UNDER_BOARD_REVIEW', 'BOARD_APPROVED',
-            'TERM_SHEET', 'TERM_SHEET_SIGNED',
-            'INVESTMENT_IMPLEMENTATION', 'FUND_DISBURSED'
-        ]
-        const currentIndex = stageOrder.indexOf(stage)
-        if (currentIndex === -1) return 0
-        return Math.round((currentIndex / (stageOrder.length - 1)) * 100)
-    }
-
-    const getStageColor = (stage: string) => {
-        if (stage.includes('FUND_DISBURSED')) return 'bg-green-100 text-green-800'
-        if (stage.includes('BOARD')) return 'bg-purple-100 text-purple-800'
-        if (stage.includes('DILIGENCE')) return 'bg-blue-100 text-blue-800'
-        if (stage.includes('SCREEN')) return 'bg-amber-100 text-amber-800'
-        if (stage.includes('SHORTLIST')) return 'bg-cyan-100 text-cyan-800'
-        if (stage.includes('TERM_SHEET')) return 'bg-indigo-100 text-indigo-800'
-        return 'bg-gray-100 text-gray-800'
-    }
-
-    const getStageIcon = (stage: string) => {
-        const stages = [
-            'SUBMITTED', 'INITIAL_SCREENING', 'SHORTLISTED',
-            'UNDER_DUE_DILIGENCE', 'DUE_DILIGENCE_COMPLETED',
-            'UNDER_BOARD_REVIEW', 'BOARD_APPROVED',
-            'TERM_SHEET', 'TERM_SHEET_SIGNED',
-            'INVESTMENT_IMPLEMENTATION', 'FUND_DISBURSED'
-        ]
-        const currentIndex = stages.indexOf(stage)
-        return currentIndex
-    }
-
     const handlePreviewDocument = (index: number) => {
         setSelectedDocIndex(index)
         setIsDocPreviewOpen(true)
     }
 
-    const renderStageDetails = (stageId: string, index: number, currentStageIndex: number) => {
-        const isCompleted = index < currentStageIndex
-        const isCurrent = index === currentStageIndex
-
-        // Only show details for completed or current stages
-        if (index > currentStageIndex) return null
-
-        switch (stageId) {
-            case 'SUBMITTED':
-                return (
-                    <Accordion type="single" collapsible className="mt-4">
-                        <AccordionItem value="submitted-details" className="border-none">
-                            <AccordionTrigger className="hover:no-underline py-2">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                    <FileText className="w-4 h-4" />
-                                    View Application Details
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <div className="space-y-4 pt-2">
-                                    {/* Applicant Information */}
-                                    <div className="bg-blue-50 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <User className="w-4 h-4 text-blue-600" />
-                                            <h4 className="font-medium text-sm">Applicant Information</h4>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div>
-                                                <label className="text-gray-500">Name</label>
-                                                <p className="font-medium">{application?.applicantName}</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-gray-500">Email</label>
-                                                <p className="font-medium">{application?.applicantEmail}</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-gray-500">Phone</label>
-                                                <p className="font-medium">{application?.applicantPhone}</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-gray-500">Address</label>
-                                                <p className="font-medium">{application?.applicantAddress}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Business Information */}
-                                    <div className="bg-green-50 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Building2 className="w-4 h-4 text-green-600" />
-                                            <h4 className="font-medium text-sm">Business Information</h4>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div>
-                                                <label className="text-gray-500">Business Name</label>
-                                                <p className="font-medium">{application?.businessName}</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-gray-500">Industry</label>
-                                                <p className="font-medium">{application?.industry}</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-gray-500">Stage</label>
-                                                <p className="font-medium">{application?.businessStage}</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-gray-500">Founded</label>
-                                                <p className="font-medium">
-                                                    {application?.foundingDate && new Date(application.foundingDate).toLocaleDateString()}
-                                                </p>
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label className="text-gray-500">Description</label>
-                                                <p className="font-medium">{application?.businessDescription}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Financial Information */}
-                                    <div className="bg-purple-50 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <DollarSign className="w-4 h-4 text-purple-600" />
-                                            <h4 className="font-medium text-sm">Requested Amount</h4>
-                                        </div>
-                                        <p className="text-2xl font-bold text-purple-600">
-                                            ${Number(application?.requestedAmount || 0).toLocaleString()}
-                                        </p>
-                                    </div>
-
-                                    {/* Documents */}
-                                    <div className="bg-amber-50 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <FileText className="w-4 h-4 text-amber-600" />
-                                            <h4 className="font-medium text-sm">Submitted Documents</h4>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {application?.documents?.map((doc, index) => (
-                                                <div 
-                                                    key={doc.id} 
-                                                    className="flex items-center justify-between bg-white p-3 rounded border border-amber-200 hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer group"
-                                                    onClick={() => handlePreviewDocument(index)}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
-                                                            <FileText className="w-4 h-4 text-amber-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-medium">{doc.documentType.replaceAll('_', ' ')}</p>
-                                                            <p className="text-xs text-gray-500">{doc.fileName}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant={doc.isRequired ? 'default' : 'secondary'} className="text-xs">
-                                                            {doc.isRequired ? 'Required' : 'Optional'}
-                                                        </Badge>
-                                                        <Eye className="w-4 h-4 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                )
-
-            case 'UNDER_DUE_DILIGENCE':
-            case 'DUE_DILIGENCE_COMPLETED':
-                return (
-                    <Accordion type="single" collapsible className="mt-4">
-                        <AccordionItem value="due-diligence-details" className="border-none">
-                            <AccordionTrigger className="hover:no-underline py-2">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                    <Eye className="w-4 h-4" />
-                                    View Due Diligence Review
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                {application?.dueDiligenceReview ? (
-                                    <div className="space-y-4 pt-2">
-                                        {/* Status Overview */}
-                                        <div className="bg-amber-50 rounded-lg p-4">
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div>
-                                                    <label className="text-gray-500">Status</label>
-                                                    <Badge className={`mt-1 ${application.dueDiligenceReview.status === 'COMPLETED'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-amber-100 text-amber-800'
-                                                        }`}>
-                                                        {application.dueDiligenceReview.status}
-                                                    </Badge>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Overall Score</label>
-                                                    <p className="text-lg font-bold text-amber-600">
-                                                        {application.dueDiligenceReview.overallScore}%
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Recommendation</label>
-                                                    <Badge className={`mt-1 ${application.dueDiligenceReview.recommendation === 'APPROVE'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                        }`}>
-                                                        {application.dueDiligenceReview.recommendation}
-                                                    </Badge>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Reviewer</label>
-                                                    <p className="font-medium">
-                                                        {application.dueDiligenceReview.reviewer.firstName} {application.dueDiligenceReview.reviewer.lastName}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Assessment Areas */}
-                                        <div className="space-y-2">
-                                            {[
-                                                { label: 'Market Research', viable: application.dueDiligenceReview.marketResearchViable, comments: application.dueDiligenceReview.marketResearchComments },
-                                                { label: 'Financial Viability', viable: application.dueDiligenceReview.financialViable, comments: application.dueDiligenceReview.financialComments },
-                                                { label: 'Competitive Opportunities', viable: application.dueDiligenceReview.competitiveOpportunities, comments: application.dueDiligenceReview.competitiveComments },
-                                                { label: 'Management Team', viable: application.dueDiligenceReview.managementTeamQualified, comments: application.dueDiligenceReview.managementComments },
-                                                { label: 'Legal Compliance', viable: application.dueDiligenceReview.legalCompliant, comments: application.dueDiligenceReview.legalComments },
-                                                { label: 'Risk Assessment', viable: application.dueDiligenceReview.riskTolerable, comments: application.dueDiligenceReview.riskComments }
-                                            ].map((item, idx) => (
-                                                <div key={idx} className="bg-white border rounded-lg p-3">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-sm font-medium">{item.label}</span>
-                                                        <Badge className={item.viable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                                                            {item.viable ? 'Pass' : 'Fail'}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-xs text-gray-600">{item.comments}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        {/* Final Comments */}
-                                        {application.dueDiligenceReview.finalComments && (
-                                            <div className="bg-blue-50 rounded-lg p-4">
-                                                <label className="text-sm font-medium text-gray-700">Final Comments</label>
-                                                <p className="text-sm mt-1">{application.dueDiligenceReview.finalComments}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-4 text-sm text-gray-500">
-                                        Due diligence review not yet started
-                                    </div>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                )
-
-            case 'UNDER_BOARD_REVIEW':
-            case 'BOARD_APPROVED':
-                return (
-                    <Accordion type="single" collapsible className="mt-4">
-                        <AccordionItem value="board-review-details" className="border-none">
-                            <AccordionTrigger className="hover:no-underline py-2">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                    <Users className="w-4 h-4" />
-                                    View Board Review
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                {application?.boardReview ? (
-                                    <div className="space-y-4 pt-2">
-                                        {/* Status Overview */}
-                                        <div className="bg-purple-50 rounded-lg p-4">
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div>
-                                                    <label className="text-gray-500">Status</label>
-                                                    <Badge className={`mt-1 ${application.boardReview.status === 'COMPLETED'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-purple-100 text-purple-800'
-                                                        }`}>
-                                                        {application.boardReview.status}
-                                                    </Badge>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Overall Score</label>
-                                                    <p className="text-lg font-bold text-purple-600">
-                                                        {application.boardReview.overallScore}%
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Decision</label>
-                                                    <Badge className={`mt-1 ${application.boardReview.investmentApproved
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : application.boardReview.investmentRejected
-                                                                ? 'bg-red-100 text-red-800'
-                                                                : 'bg-yellow-100 text-yellow-800'
-                                                        }`}>
-                                                        {application.boardReview.investmentApproved ? 'Approved' :
-                                                            application.boardReview.investmentRejected ? 'Rejected' :
-                                                                application.boardReview.conditionalApproval ? 'Conditional' : 'Pending'}
-                                                    </Badge>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Reviewer</label>
-                                                    <p className="font-medium">
-                                                        {application.boardReview.reviewer.firstName} {application.boardReview.reviewer.lastName}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Review Details */}
-                                        <div className="space-y-3">
-                                            <div className="bg-white border rounded-lg p-3">
-                                                <label className="text-sm font-medium text-gray-700">Recommendation Report</label>
-                                                <p className="text-sm mt-1">{application.boardReview.recommendationReport}</p>
-                                            </div>
-
-                                            <div className="bg-white border rounded-lg p-3">
-                                                <label className="text-sm font-medium text-gray-700">Decision Reason</label>
-                                                <p className="text-sm mt-1">{application.boardReview.decisionReason}</p>
-                                            </div>
-
-                                            <div className="bg-white border rounded-lg p-3">
-                                                <label className="text-sm font-medium text-gray-700">Next Steps</label>
-                                                <p className="text-sm mt-1">{application.boardReview.nextSteps}</p>
-                                            </div>
-
-                                            {application.boardReview.finalComments && (
-                                                <div className="bg-blue-50 rounded-lg p-3">
-                                                    <label className="text-sm font-medium text-gray-700">Final Comments</label>
-                                                    <p className="text-sm mt-1">{application.boardReview.finalComments}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-4 text-sm text-gray-500">
-                                        Board review not yet started
-                                    </div>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                )
-
-            case 'TERM_SHEET':
-            case 'TERM_SHEET_SIGNED':
-                return (
-                    <Accordion type="single" collapsible className="mt-4">
-                        <AccordionItem value="term-sheet-details" className="border-none">
-                            <AccordionTrigger className="hover:no-underline py-2">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                    <FileText className="w-4 h-4" />
-                                    View Term Sheet
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                {application?.termSheet ? (
-                                    <div className="space-y-4 pt-2">
-                                        {/* Term Sheet Overview */}
-                                        <div className="bg-indigo-50 rounded-lg p-4">
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div>
-                                                    <label className="text-gray-500">Status</label>
-                                                    <Badge className={`mt-1 ${application.termSheet.status === 'SIGNED'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-indigo-100 text-indigo-800'
-                                                        }`}>
-                                                        {application.termSheet.status}
-                                                    </Badge>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Version</label>
-                                                    <p className="font-medium">{application.termSheet.version}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Investment Terms */}
-                                        <div className="bg-green-50 rounded-lg p-4">
-                                            <h4 className="font-medium text-sm mb-3">Investment Terms</h4>
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div>
-                                                    <label className="text-gray-500">Investment Amount</label>
-                                                    <p className="text-lg font-bold text-green-600">
-                                                        ${Number(application.termSheet.investmentAmount).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="text-gray-500">Equity</label>
-                                                    <p className="text-lg font-bold text-blue-600">
-                                                        {application.termSheet.equityPercentage}%
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-4 text-sm text-gray-500">
-                                        Term sheet not yet created
-                                    </div>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                )
-
-            case 'INVESTMENT_IMPLEMENTATION':
-            case 'DISBURSED':
-                return (
-                    <Accordion type="single" collapsible className="mt-4">
-                        <AccordionItem value="disbursement-details" className="border-none">
-                            <AccordionTrigger className="hover:no-underline py-2">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                    <DollarSign className="w-4 h-4" />
-                                    {stageId === 'DISBURSED' ? 'View Disbursement Details' : 'View Investment Implementation'}
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                {stageId === 'DISBURSED' ? (
-                                    <div className="space-y-4 pt-2">
-                                        {/* Completion Message */}
-                                        <div className="bg-green-50 rounded-lg p-6 text-center">
-                                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                <CheckCircle className="w-8 h-8 text-green-600" />
-                                            </div>
-                                            <h3 className="text-lg font-semibold text-green-900 mb-2">
-                                                Investment Successfully Completed
-                                            </h3>
-                                            <p className="text-sm text-green-700 mb-4">
-                                                All funds have been disbursed to your portfolio company.
-                                            </p>
-                                            <Badge className="bg-green-600 text-white">
-                                                Disbursed on {application?.updatedAt && new Date(application.updatedAt).toLocaleDateString()}
-                                            </Badge>
-                                        </div>
-
-                                        {/* Investment Summary */}
-                                        <div className="bg-blue-50 rounded-lg p-4">
-                                            <h4 className="font-medium text-sm mb-3 text-blue-900">Investment Summary</h4>
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div>
-                                                    <label className="text-blue-700">Approved Amount</label>
-                                                    <p className="text-xl font-bold text-blue-900">
-                                                        ${Number(application?.termSheet?.investmentAmount || application?.requestedAmount || 0).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="text-blue-700">Equity Stake</label>
-                                                    <p className="text-xl font-bold text-blue-900">
-                                                        {application?.termSheet?.equityPercentage || 0}%
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="text-blue-700">Valuation</label>
-                                                    <p className="font-medium text-blue-900">
-                                                        ${Number(application?.termSheet?.valuation || 0).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="text-blue-700">Business Name</label>
-                                                    <p className="font-medium text-blue-900">
-                                                        {application?.businessName}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Next Steps */}
-                                        <div className="bg-purple-50 rounded-lg p-4">
-                                            <h4 className="font-medium text-sm mb-2 text-purple-900">What's Next?</h4>
-                                            <ul className="space-y-2 text-sm text-purple-800">
-                                                <li className="flex items-start gap-2">
-                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                    <span>You will receive regular portfolio updates and reports</span>
-                                                </li>
-                                                <li className="flex items-start gap-2">
-                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                    <span>Your company information is now in our portfolio management system</span>
-                                                </li>
-                                                <li className="flex items-start gap-2">
-                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                    <span>Our team will contact you for onboarding and support</span>
-                                                </li>
-                                                <li className="flex items-start gap-2">
-                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                    <span>Access to mentorship and networking opportunities</span>
-                                                </li>
-                                            </ul>
-                                        </div>
-
-                                        {/* Contact Information */}
-                                        <div className="bg-amber-50 rounded-lg p-4">
-                                            <h4 className="font-medium text-sm mb-2 text-amber-900">Need Help?</h4>
-                                            <p className="text-sm text-amber-800">
-                                                If you have any questions about your investment or disbursement, 
-                                                please contact our portfolio management team.
-                                            </p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-8">
-                                        <TrendingUp className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-                                        <h4 className="font-medium text-emerald-900 mb-2">Investment in Progress</h4>
-                                        <p className="text-sm text-emerald-700">
-                                            Your investment is currently being processed. You'll be notified once funds are disbursed.
-                                        </p>
-                                    </div>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                )
-
-            default:
-                return null
-        }
-    }
-
-    const renderProgressTimeline = () => {
-        const stages = [
-            { id: 'SUBMITTED', title: 'Submitted', description: 'Application received' },
-            { id: 'INITIAL_SCREENING', title: 'Initial Screening', description: 'Application under review' },
-            { id: 'SHORTLISTED', title: 'Shortlisted', description: 'Selected for due diligence' },
-            { id: 'UNDER_DUE_DILIGENCE', title: 'Due Diligence', description: 'Comprehensive analysis in progress' },
-            { id: 'DUE_DILIGENCE_COMPLETED', title: 'Due Diligence Complete', description: 'Analysis completed' },
-            { id: 'UNDER_BOARD_REVIEW', title: 'Board Review', description: 'Under board evaluation' },
-            { id: 'BOARD_APPROVED', title: 'Board Approved', description: 'Investment approved by board' },
-            { id: 'TERM_SHEET', title: 'Term Sheet', description: 'Investment terms being finalized' },
-            { id: 'TERM_SHEET_SIGNED', title: 'Term Sheet Signed', description: 'Terms agreed and signed' },
-            { id: 'INVESTMENT_IMPLEMENTATION', title: 'Implementation', description: 'Investment being processed' },
-            { id: 'FUND_DISBURSED', title: 'Funded', description: 'Funds disbursed successfully' },
-            { id: 'DISBURSED', title: 'Completed', description: 'Investment successfully completed' }
-        ]
-
-        const currentStageIndex = stages.findIndex(s => s.id === application?.currentStage)
-
-        return (
-            <div className="space-y-4">
-                {stages.map((stage, index) => {
-                    const isCompleted = application?.currentStage === 'DISBURSED' 
-                        ? true 
-                        : index < currentStageIndex
-                    const isCurrent = index === currentStageIndex
-                    const isUpcoming = index > currentStageIndex
-
-                    return (
-                        <div key={stage.id} className="relative flex items-start">
-                            {/* Timeline Line */}
-                            {index < stages.length - 1 && (
-                                <div
-                                    className={`absolute left-6 top-12 w-0.5 h-full ${
-                                        application?.currentStage === 'DISBURSED' || isCompleted 
-                                            ? 'bg-green-500' 
-                                            : 'bg-gray-200'
-                                    }`}
-                                />
-                            )}
-
-                            {/* Timeline Icon */}
-                            <div className="relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-4 border-white bg-white shadow-lg">
-                                {isCompleted ? (
-                                    <CheckCircle className="w-6 h-6 text-green-500" />
-                                ) : isCurrent ? (
-                                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                                        <Clock className="w-4 h-4 text-white" />
-                                    </div>
-                                ) : (
-                                    <div className="w-6 h-6 rounded-full bg-gray-300" />
-                                )}
-                            </div>
-
-                            {/* Stage Content */}
-                            <div className="ml-6 flex-1 pb-8">
-                                <Card className={`transition-all duration-300 ${
-                                    isCurrent
-                                        ? 'border-2 border-blue-500 shadow-lg'
-                                        : isCompleted
-                                            ? 'border-green-200'
-                                            : 'border-gray-200 opacity-60'
-                                }`}>
-                                    <CardContent className="pt-6">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div>
-                                                <h4 className={`font-medium ${
-                                                    isCurrent ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-600'
-                                                }`}>
-                                                    {stage.title}
-                                                </h4>
-                                                <p className="text-sm text-gray-500">{stage.description}</p>
-                                            </div>
-                                            <div>
-                                                {isCompleted && (
-                                                    <Badge className="bg-green-100 text-green-800">Completed</Badge>
-                                                )}
-                                                {isCurrent && (
-                                                    <Badge className="bg-blue-100 text-blue-800">Current</Badge>
-                                                )}
-                                                {isUpcoming && (
-                                                    <Badge variant="secondary">Upcoming</Badge>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Stage Details */}
-                                        {renderStageDetails(stage.id, index, currentStageIndex)}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-        )
+    const handleSignTermSheet = (termSheet:TermSheet)  => {
+        setTermSheetToSign(termSheet)
+        setShowSignDialog(true)
     }
 
     if (applicationLoading) {
@@ -750,7 +138,7 @@ export default function ApplicationDetailsPage() {
                         <p className="text-muted-foreground">View your investment application status and details</p>
                     </div>
                     <Badge className={getStageColor(application.currentStage)}>
-                        {application.currentStage.replaceAll('_', ' ')}
+                        {application.currentStage.replaceAll("_", " ")}
                     </Badge>
                 </div>
 
@@ -767,22 +155,23 @@ export default function ApplicationDetailsPage() {
                         </TabsTrigger>
                     </TabsList>
 
-                    {/* Application Progress Tab */}
+                    {/* Application Progress Tab - Using new refactored component */}
                     <TabsContent value="progress" className="mt-6">
-                        <div className="space-y-6">
-                            {/* Progress Timeline */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <GitBranch className="w-5 h-5" />
-                                        Application Journey
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    {renderProgressTimeline()}
-                                </CardContent>
-                            </Card>
-                        </div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <GitBranch className="w-5 h-5" />
+                                    Application Journey
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ApplicationProgressTimeline
+                                    application={application}
+                                    onPreviewDocument={handlePreviewDocument}
+                                    onSignTermsheet={handleSignTermSheet}
+                                />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
 
                     {/* Activity Timeline Tab */}
@@ -809,7 +198,7 @@ export default function ApplicationDetailsPage() {
                                         {timeline.timeline.map((event, index) => (
                                             <div key={index} className="flex items-start gap-4">
                                                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                                    {event.status === 'completed' ? (
+                                                    {event.status === "completed" ? (
                                                         <CheckCircle className="w-5 h-5 text-green-600" />
                                                     ) : (
                                                         <Clock className="w-5 h-5 text-amber-600" />
@@ -850,6 +239,30 @@ export default function ApplicationDetailsPage() {
                     onClose={() => setIsDocPreviewOpen(false)}
                     documents={application.documents}
                     initialDocumentIndex={selectedDocIndex}
+                />
+            )}
+
+            {termSheetToSign && (
+                <SignTermSheetModal
+                    open={showSignDialog}
+                    onOpenChange={setShowSignDialog}
+                    loading={signing}
+                    onSubmit={async (signature) => {
+                        
+                        setSigning(true)
+                        setSignError(null)
+                        try {
+                            await dispatch(signTermSheet({ termSheetId: application.id, signature })).unwrap();
+                            toast.success('Term sheet signed successfully');
+                            // Optionally refresh application data
+                            dispatch(fetchApplication());
+                        } catch (err: any) {
+                            console.log(err);
+                            setSignError(err || "Failed to sign term sheet")
+                            toast.error(err || "Failed to sign term sheet");
+                        }
+                        setSigning(false)
+                    }}
                 />
             )}
         </ApplicationPortalLayout>

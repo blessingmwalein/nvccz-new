@@ -63,7 +63,7 @@ const stageColor = (stage: string) => {
 const getStageProgress = (stage: string) => {
   const stageOrder = [
     'SUBMITTED',
-    'INITIAL_SCREENING', 
+    'INITIAL_SCREENING',
     'SHORTLISTED',
     'UNDER_DUE_DILIGENCE',
     'DUE_DILIGENCE_COMPLETED',
@@ -74,7 +74,7 @@ const getStageProgress = (stage: string) => {
     'INVESTMENT_IMPLEMENTATION',
     'FUND_DISBURSED'
   ]
-  
+
   const currentIndex = stageOrder.indexOf(stage)
   if (currentIndex === -1) return 0
   return Math.round((currentIndex / (stageOrder.length - 1)) * 100)
@@ -202,16 +202,16 @@ export function UserApplications() {
           No applications found for the <strong>{stage.replaceAll('_', ' ').toLowerCase()}</strong> stage.
         </p>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="rounded-full"
             onClick={() => setSelectedStage('all')}
           >
             View All Applications
           </Button>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
           >
             <CiViewList className="w-4 h-4 mr-2" />
@@ -408,8 +408,8 @@ export function UserApplications() {
       ) : (
         <div className="space-y-4">
           {paginated.map((app) => (
-            <Card 
-              key={app.id} 
+            <Card
+              key={app.id}
               className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer hover:border-blue-300 hover:scale-[1.02]"
               onClick={() => openDrawer(app as ExtendedApplication)}
             >
@@ -546,138 +546,7 @@ export function UserApplications() {
         </SheetContent>
       </Sheet>
 
-      {/* Modals */}
-      <DueDiligenceModal
-        isOpen={dueDiligenceModalOpen}
-        onClose={() => setDueDiligenceModalOpen(false)}
-        applicationId={selected?.id || ''}
-        onSuccess={async () => {
-          setDueDiligenceModalOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      <BoardReviewModal
-        isOpen={boardReviewModalOpen}
-        onClose={() => setBoardReviewModalOpen(false)}
-        applicationId={selected?.id || ''}
-        onSuccess={async () => {
-          setBoardReviewModalOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      <TermSheetModal
-        isOpen={termSheetModalOpen}
-        onClose={() => setTermSheetModalOpen(false)}
-        applicationId={selected?.id || ''}
-        onSuccess={async () => {
-          setTermSheetModalOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      {selected?.portfolioCompanyId && (
-        <FundDisbursementModal
-          isOpen={initiateFundDisbursementModalOpen}
-          onClose={() => setInitiateFundDisbursementModalOpen(false)}
-          applicationId={selected.id}
-          portfolioCompanyId={selected.portfolioCompanyId}
-          onSuccess={async () => {
-            setInitiateFundDisbursementModalOpen(false)
-            await refreshSelectedApplication()
-            setRefreshTrigger(prev => prev + 1)
-          }}
-        />
-      )}
-
-      {selected?.investmentImplementation && (
-        <CreateFundDisbursementModal
-          isOpen={createFundDisbursementModalOpen}
-          onClose={() => setCreateFundDisbursementModalOpen(false)}
-          investmentImplementationId={selected.investmentImplementation?.id}
-          companyName={selected.businessName}
-          onSuccess={async () => {
-            setCreateFundDisbursementModalOpen(false)
-            await refreshSelectedApplication()
-            setRefreshTrigger(prev => prev + 1)
-          }}
-        />
-      )}
-
-      <DueDiligenceConfirmationDialog
-        isOpen={dueDiligenceConfirmationOpen}
-        onClose={() => setDueDiligenceConfirmationOpen(false)}
-        applicationId={selected?.id || ''}
-        applicationName={selected?.businessName || ''}
-        onSuccess={() => {
-          setDueDiligenceConfirmationOpen(false)
-          fetchApps()
-        }}
-      />
-
-      <CompleteDueDiligenceConfirmationDialog
-        isOpen={completeDueDiligenceConfirmationOpen}
-        onClose={() => setCompleteDueDiligenceConfirmationOpen(false)}
-        applicationId={selected?.id || ''}
-        applicationName={selected?.businessName || ''}
-        onSuccess={async () => {
-          setCompleteDueDiligenceConfirmationOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      <BoardReviewConfirmationDialog
-        isOpen={boardReviewConfirmationOpen}
-        onClose={() => setBoardReviewConfirmationOpen(false)}
-        applicationId={selected?.id || ''}
-        applicationName={selected?.businessName || ''}
-        onSuccess={async () => {
-          setBoardReviewConfirmationOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      <CompleteBoardReviewConfirmationDialog
-        isOpen={completeBoardReviewConfirmationOpen}
-        onClose={() => setCompleteBoardReviewConfirmationOpen(false)}
-        applicationId={selected?.id || ''}
-        applicationName={selected?.businessName || ''}
-        onSuccess={async () => {
-          setCompleteBoardReviewConfirmationOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      <TermSheetConfirmationDialog
-        isOpen={termSheetConfirmationOpen}
-        onClose={() => setTermSheetConfirmationOpen(false)}
-        applicationId={selected?.id || ''}
-        applicationName={selected?.businessName || ''}
-        onSuccess={async () => {
-          setTermSheetConfirmationOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
-
-      <FinalizeTermSheetConfirmationDialog
-        isOpen={finalizeTermSheetConfirmationOpen}
-        onClose={() => setFinalizeTermSheetConfirmationOpen(false)}
-        applicationId={selected?.id || ''}
-        applicationName={selected?.businessName || ''}
-        onSuccess={async () => {
-          setFinalizeTermSheetConfirmationOpen(false)
-          await refreshSelectedApplication()
-          setRefreshTrigger(prev => prev + 1)
-        }}
-      />
+      {/* Modals now handled in ApplicationTimeline */}
     </div>
   )
 }

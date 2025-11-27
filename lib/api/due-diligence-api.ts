@@ -27,6 +27,37 @@ export interface DueDiligenceTask {
     type: string
     activity: string
   }>
+  activityLogs?: Array<{
+    id: string
+    userId: string
+    activityType: string
+    title: string
+    description: string
+    goalId: string | null
+    taskId: string
+    kpiId: string | null
+    monetaryValueAchieved: string | null
+    percentValueAchieved: string | null
+    createdAt: string
+    user: {
+      id: string
+      firstName: string
+      lastName: string
+      email: string
+    }
+    documents?: Array<{
+      fileName: string
+      fileUrl: string
+      fileSize: number
+    }>
+    byUser: {
+      id: string
+      firstName: string
+      lastName: string
+      email: string
+    }
+    by: string
+  }>
 }
 
 export interface DueDiligenceData {

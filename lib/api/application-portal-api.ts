@@ -367,14 +367,27 @@ export interface TermSheet {
   title: string
   version: string
   status: string
-  investmentAmount: number
-  equityPercentage: number
-  valuation: number
+  investmentAmount: number | string
+  equityPercentage: number | null
+  valuation: number | null
+  keyTerms: string | null
+  conditions: string | null
+  timeline: string | null
+  documentUrl: string | null
+  documentFileName: string | null
+  documentSize: number | null
   isDraft: boolean
   isFinal: boolean
   isSigned: boolean
   signedAt: string | null
   createdAt: string
+  updatedAt: string
+  createdBy?: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
   application?: {
     id: string
     businessName: string
@@ -515,18 +528,20 @@ export const applicationPortalApiService = {
   },
 
   // Term Sheet endpoints
-  async signTermSheet(termSheetId: string): Promise<SignTermSheetResponse> {
-    return apiClient.post<SignTermSheetResponse>(`/term-sheets/${termSheetId}/sign`, {})
+  async signTermSheet(termSheetId: string, signature: Blob | File): Promise<SignTermSheetResponse> {
+    const formData = new FormData();
+    formData.append('signature', signature, 'signature.png');
+    return apiClient.post<SignTermSheetResponse>(`/term-sheets/${termSheetId}/sign`, formData);
   },
 
   async getMyTermSheets(params?: { page?: number; limit?: number }): Promise<MyTermSheetsResponse> {
     const queryParams = new URLSearchParams()
     if (params?.page) queryParams.append('page', params.page.toString())
     if (params?.limit) queryParams.append('limit', params.limit.toString())
-    
+
     const queryString = queryParams.toString()
     const url = queryString ? `/term-sheets/my?${queryString}` : '/term-sheets/my'
-    
+
     return apiClient.get<MyTermSheetsResponse>(url)
   },
 
@@ -554,7 +569,7 @@ export const applicationPortalApiService = {
     formData.append('title', data.title)
     formData.append('description', data.description)
     formData.append('templateVersion', data.templateVersion)
-    
+
     return apiClient.post<UploadFinancialReportResponse>('/applicant/financial-reports', formData)
   },
 

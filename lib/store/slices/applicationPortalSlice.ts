@@ -254,17 +254,16 @@ export const fetchReports = createAsyncThunk(
 
 export const signTermSheet = createAsyncThunk(
   'applicationPortal/signTermSheet',
-  async (termSheetId: string, { dispatch, rejectWithValue }) => {
+  async ({ termSheetId, signature }: { termSheetId: string, signature: Blob | File }, { dispatch, rejectWithValue }) => {
     try {
-      const response = await applicationPortalApiService.signTermSheet(termSheetId)
-      dispatch(fetchTermSheets())
-      return response
+      const response = await applicationPortalApiService.signTermSheet(termSheetId, signature);
+      dispatch(fetchTermSheets());
+      return response;
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to sign term sheet')
+      return rejectWithValue(error.message || 'Failed to sign term sheet');
     }
   }
-)
-
+);
 export const fetchTermSheets = createAsyncThunk(
   'applicationPortal/fetchTermSheets',
   async (params?: { page?: number; limit?: number }, { rejectWithValue }) => {
