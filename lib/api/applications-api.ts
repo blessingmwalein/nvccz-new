@@ -106,6 +106,7 @@ export interface TaskAssignmentRequest {
   description: string
   priority: 'low' | 'medium' | 'high'
   dueDate: string
+  category: string
 }
 
 export interface TaskAssignmentResponse {

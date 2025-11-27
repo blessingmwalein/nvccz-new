@@ -28,12 +28,22 @@ export function DueDiligenceTaskModal({ isOpen, onClose, applicationId, onSucces
   const [loading, setLoading] = useState(false)
   const [usersLoading, setUsersLoading] = useState(false)
   const [users, setUsers] = useState<InvestmentUser[]>([])
+
+  const categories = [
+    { key: 'market', label: 'Market Research', category: 'Market Research' },
+    { key: 'financial', label: 'Financial Assessment', category: 'Financial Assessment' },
+    { key: 'competitive', label: 'Competitive Analysis', category: 'Competitive Analysis' },
+    { key: 'management', label: 'Management Team Evaluation', category: 'Management Team Evaluation' },
+    { key: 'legal', label: 'Legal Compliance', category: 'Legal Compliance' },
+    { key: 'risk', label: 'Risk Assessment', category: 'Risk Assessment' }
+  ]
   const [formData, setFormData] = useState<TaskAssignmentRequest>({
     assigneeId: '',
     title: '',
     description: '',
     priority: 'medium',
-    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // Default 7 days from now
+    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days from now
+    category: ''
   })
   const [dueDate, setDueDate] = useState<Date>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
 
@@ -67,6 +77,10 @@ export function DueDiligenceTaskModal({ isOpen, onClose, applicationId, onSucces
     }
     if (!formData.description.trim()) {
       toast.error('Please enter a task description')
+      return
+    }
+    if (!formData.category) {
+      toast.error('Please select a category')
       return
     }
 
@@ -185,6 +199,25 @@ export function DueDiligenceTaskModal({ isOpen, onClose, applicationId, onSucces
                   rows={4}
                   className="rounded-lg"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category" className="text-sm font-normal">Category *</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger className="rounded-full">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.key} value={cat.category}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
