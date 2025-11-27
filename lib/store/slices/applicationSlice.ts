@@ -44,7 +44,37 @@ export interface ApplicationFormData {
   fetchError?: string
   investmentUsers: any[]
   usersLoading: boolean
+  // Additional fetched data caches
+  dueDiligenceByApp: Record<string, any>
+  dueDiligenceLoadingByApp: Record<string, boolean>
+  boardReviewByApp: Record<string, any>
+  boardReviewLoadingByApp: Record<string, boolean>
+  termSheetByApp: Record<string, any>
+  termSheetLoadingByApp: Record<string, boolean>
+  fundDisbursementByApp: Record<string, any>
+  fundDisbursementLoadingByApp: Record<string, boolean>
+  voteSummaryByApp: Record<string, any>
+  voteSummaryLoadingByApp: Record<string, boolean>
+  belowThresholdApplications: Application[]
+  belowThresholdLoading: boolean
+  latestApplication?: Application
+
+  latestApplicationLoading?: boolean
+
+// Async thunk for fetching latest application by ID
 }
+
+export const fetchLatestApplicationById = createAsyncThunk(
+  'application/fetchLatestApplicationById',
+  async (applicationId: string, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.getById(applicationId)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch application')
+    }
+  }
+)
 
 const initialState: ApplicationFormData = {
   firstName: '',
@@ -70,6 +100,19 @@ const initialState: ApplicationFormData = {
   fetchError: undefined,
   investmentUsers: [],
   usersLoading: false
+  ,
+  dueDiligenceByApp: {},
+  dueDiligenceLoadingByApp: {},
+  boardReviewByApp: {},
+  boardReviewLoadingByApp: {},
+  termSheetByApp: {},
+  termSheetLoadingByApp: {},
+  fundDisbursementByApp: {},
+  fundDisbursementLoadingByApp: {},
+  voteSummaryByApp: {},
+  voteSummaryLoadingByApp: {},
+  belowThresholdApplications: [],
+  belowThresholdLoading: false
 }
 
 // Async thunk for submitting application
@@ -137,6 +180,88 @@ export const fetchInvestmentUsers = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch investment users')
+    }
+  }
+)
+
+// Async thunk for fetching due diligence by application id
+export const fetchDueDiligenceByApplication = createAsyncThunk(
+  'application/fetchDueDiligenceByApplication',
+  async (applicationId: string, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/due-diligence-api')
+      const response = await module.dueDiligenceApi.getByApplicationId(applicationId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch due diligence' })
+    }
+  }
+)
+
+// Async thunk for fetching board review by application id
+export const fetchBoardReviewByApplication = createAsyncThunk(
+  'application/fetchBoardReviewByApplication',
+  async (applicationId: string, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/board-review-api')
+      const response = await module.boardReviewApi.getByApplicationId(applicationId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch board review' })
+    }
+  }
+)
+
+// Async thunk for fetching term sheet by application id
+export const fetchTermSheetByApplication = createAsyncThunk(
+  'application/fetchTermSheetByApplication',
+  async (applicationId: string, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/term-sheet-api')
+      const response = await module.termSheetApi.getByApplicationId(applicationId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch term sheet' })
+    }
+  }
+)
+
+// Async thunk for fetching fund disbursement by application id
+export const fetchFundDisbursementByApplication = createAsyncThunk(
+  'application/fetchFundDisbursementByApplication',
+  async (applicationId: string, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/fund-disbursement-api')
+      const response = await module.fundDisbursementApi.getByApplicationId(applicationId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch fund disbursement' })
+    }
+  }
+)
+
+export const fetchVoteSummaryByApplication = createAsyncThunk(
+  'application/fetchVoteSummaryByApplication',
+  async (applicationId: string, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/board-review-api')
+      const response = await module.boardReviewApi.getVoteSummary(applicationId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch vote summary' })
+    }
+  }
+)
+
+// Async thunk for fetching below-threshold applications
+export const fetchBelowThresholdApplications = createAsyncThunk(
+  'application/fetchBelowThresholdApplications',
+  async ({ page = 1, limit = 10 }: { page?: number; limit?: number }, { rejectWithValue }) => {
+    try {
+      const response = await applicationsApi.getBelowThresholdApplications(page, limit)
+      return response.data.applications
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch below threshold applications')
     }
   }
 )
@@ -211,11 +336,12 @@ const applicationSlice = createSlice({
   initialState,
   reducers: {
     updateFormField: (state, action: PayloadAction<{ field: keyof ApplicationFormData; value: any }>) => {
-      const { field, value } = action.payload
-      state[field] = value
+      const field: keyof ApplicationFormData = action.payload.field;
+      const value = action.payload.value;
+      (state as any)[field] = value;
       // Clear error for this field when updated
-      if (state.errors[field]) {
-        delete state.errors[field]
+      if (state.errors[field as string]) {
+        delete state.errors[field as string];
       }
     },
     
@@ -271,6 +397,16 @@ const applicationSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchLatestApplicationById.pending, (state) => {
+        state.latestApplicationLoading = true
+      })
+      .addCase(fetchLatestApplicationById.fulfilled, (state, action) => {
+        state.latestApplicationLoading = false
+        state.latestApplication = action.payload
+      })
+      .addCase(fetchLatestApplicationById.rejected, (state) => {
+        state.latestApplicationLoading = false
+      })
       .addCase(submitApplication.pending, (state) => {
         state.isSubmitting = true
         state.submitError = undefined
@@ -309,6 +445,96 @@ const applicationSlice = createSlice({
       .addCase(fetchInvestmentUsers.rejected, (state, action) => {
         state.usersLoading = false
         state.fetchError = action.payload as string
+      })
+      .addCase(fetchDueDiligenceByApplication.pending, (state, action) => {
+        const appId = action.meta.arg
+        state.dueDiligenceLoadingByApp[appId] = true
+      })
+      .addCase(fetchDueDiligenceByApplication.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.dueDiligenceLoadingByApp[applicationId] = false
+        state.dueDiligenceByApp[applicationId] = data
+      })
+      .addCase(fetchDueDiligenceByApplication.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.dueDiligenceLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchBoardReviewByApplication.pending, (state, action) => {
+        const appId = action.meta.arg
+        state.boardReviewLoadingByApp[appId] = true
+      })
+      .addCase(fetchBoardReviewByApplication.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.boardReviewLoadingByApp[applicationId] = false
+        state.boardReviewByApp[applicationId] = data
+      })
+      .addCase(fetchBoardReviewByApplication.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.boardReviewLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchTermSheetByApplication.pending, (state, action) => {
+        const appId = action.meta.arg
+        state.termSheetLoadingByApp[appId] = true
+      })
+      .addCase(fetchTermSheetByApplication.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.termSheetLoadingByApp[applicationId] = false
+        state.termSheetByApp[applicationId] = data
+      })
+      .addCase(fetchTermSheetByApplication.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.termSheetLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchFundDisbursementByApplication.pending, (state, action) => {
+        const appId = action.meta.arg
+        state.fundDisbursementLoadingByApp[appId] = true
+      })
+      .addCase(fetchFundDisbursementByApplication.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.fundDisbursementLoadingByApp[applicationId] = false
+        state.fundDisbursementByApp[applicationId] = data
+      })
+      .addCase(fetchFundDisbursementByApplication.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.fundDisbursementLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchVoteSummaryByApplication.pending, (state, action) => {
+        const appId = action.meta.arg
+        state.voteSummaryLoadingByApp[appId] = true
+      })
+      .addCase(fetchVoteSummaryByApplication.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.voteSummaryLoadingByApp[applicationId] = false
+        state.voteSummaryByApp[applicationId] = data
+      })
+      .addCase(fetchVoteSummaryByApplication.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.voteSummaryLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchBelowThresholdApplications.pending, (state) => {
+        state.belowThresholdLoading = true
+      })
+      .addCase(fetchBelowThresholdApplications.fulfilled, (state, action) => {
+        state.belowThresholdLoading = false
+        state.belowThresholdApplications = action.payload
+      })
+      .addCase(fetchBelowThresholdApplications.rejected, (state) => {
+        state.belowThresholdLoading = false
       })
       .addCase(assignDueDiligenceTask.pending, (state) => {
         state.isSubmitting = true

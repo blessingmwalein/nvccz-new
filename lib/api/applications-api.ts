@@ -1,3 +1,25 @@
+// Below-threshold API response
+export interface BelowThresholdApplicationsResponse {
+  success: boolean;
+  data: {
+    applications: Application[];
+  };
+}
+export type ExtendedApplication = Application & {
+  portfolioCompanyId: string;
+  fundId: string;
+  portfolioCompany: {
+    id: string;
+    name: string;
+    industry: string;
+    status: string;
+  };
+  investmentImplementation: {
+    id: string;
+    portfolioCompanyId: string;
+  } | null;
+  disbursements: any[];
+};
 import { apiClient } from './api-client'
 
 export interface Application {
@@ -211,6 +233,11 @@ class ApplicationsApiService {
   // Get investment department users
   async getInvestmentUsers(): Promise<InvestmentUsersResponse> {
     return apiClient.get<InvestmentUsersResponse>('/applications/due-diligence/investments-users')
+  }
+
+  // Get below-threshold applications
+  async getBelowThresholdApplications(page: number = 1, limit: number = 10): Promise<BelowThresholdApplicationsResponse> {
+    return apiClient.get<BelowThresholdApplicationsResponse>(`/applications/below-threshold?page=${page}&limit=${limit}`);
   }
 
   // Assign task to user for due diligence

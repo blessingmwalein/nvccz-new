@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, memo } from "react"
+import { useState, useEffect, memo } from "react"
 // Removed Card usage per new design
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -165,12 +165,6 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
                     <Flag className="h-3 w-3 mr-1" />
                     {task.priority}
                   </Badge>
-                  {task.isOverdue && (
-                    <Badge variant="destructive" className="text-xs">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Overdue
-                    </Badge>
-                  )}
                 </div>
               </div>
               
@@ -221,68 +215,9 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
                   <span className="truncate">{task.goal.title}</span>
                 </div>
               )}
-
-              {task.department && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <User className="h-3 w-3" />
-                  <span>{task.department}</span>
-                </div>
-              )}
             </div>
 
-            {/* Team Members */}
-            {task.team && task.team.length > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="flex -space-x-1">
-                  {task.team.slice(0, 3).map((memberId, index) => {
-                    // Different background colors for each team member - darker for better contrast
-                    const backgroundColors = [
-                      "bg-blue-600",
-                      "bg-green-600", 
-                      "bg-purple-600",
-                      "bg-orange-600",
-                      "bg-pink-600",
-                      "bg-indigo-600",
-                      "bg-teal-600",
-                      "bg-red-600"
-                    ]
-                    const bgColor = backgroundColors[index % backgroundColors.length]
-                    
-                    return (
-                      <Avatar key={index} className="h-6 w-6 border-2 border-white">
-                        <AvatarImage src="" />
-                        <AvatarFallback className={`text-xs text-white font-medium ${bgColor}`}>
-                          {memberId.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    )
-                  })}
-                  {task.team.length > 3 && (
-                    <Avatar className="h-6 w-6 border-2 border-white">
-                      <AvatarFallback className="text-xs text-white font-medium bg-gray-600">
-                        +{task.team.length - 3}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Performance Metrics */}
-            {task.isPerformanceTask && (
-              <div className="flex gap-2 text-xs">
-                {task.monetaryValue && (
-                    <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                    ${parseInt(task.monetaryValue).toLocaleString()}
-                  </div>
-                )}
-                {task.percentValue && (
-                  <div className="bg-green-50 text-green-700 px-2 py-1 rounded">
-                    {task.percentValue}%
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -345,7 +280,7 @@ const TaskCard = memo(function TaskCard({ task, onUpdateStage, onEditTask, onDel
 
 export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpdateStage, onEditTask, onDeleteTask, onViewTask }: TaskBoardViewProps) {
   const [draggedOver, setDraggedOver] = useState<string | null>(null)
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [localTasks, setLocalTasks] = useState<Task[]>(tasks)
   const [selectedTaskForView, setSelectedTaskForView] = useState<Task | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
@@ -360,6 +295,11 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
     fromStage: "",
     toStage: ""
   })
+
+  // Update local tasks when props change
+  useEffect(() => {
+    setLocalTasks(tasks)
+  }, [tasks])
 
   const getStageTitle = (stageId: string) => {
     return stages.find(s => s.id === stageId)?.title || stageId
@@ -379,7 +319,7 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
     setDraggedOver(null)
     
     const taskId = e.dataTransfer.getData("text/plain")
-    const task = tasks.find(t => t.id === taskId)
+    const task = localTasks.find(t => t.id === taskId)
     
     if (task && task.stage !== targetStage) {
       // Show confirmation dialog
@@ -394,27 +334,42 @@ export const TaskBoardView = memo(function TaskBoardView({ tasks, loading, onUpd
   }
 
   const handleConfirmStageChange = async () => {
-    setIsUpdating(true)
+    const taskId = confirmDialog.taskId
+    const newStage = confirmDialog.toStage as Task['stage']
+    
+    // Optimistically update the local state
+    setLocalTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId ? { ...task, stage: newStage } : task
+      )
+    )
+    
+    // Close the dialog immediately
+    setConfirmDialog({ open: false, taskId: "", taskTitle: "", fromStage: "", toStage: "" })
+    
     try {
       await onUpdateStage(
-        confirmDialog.taskId,
-        confirmDialog.toStage,
-        `Moved from ${getStageTitle(confirmDialog.fromStage)} to ${getStageTitle(confirmDialog.toStage)}`
+        taskId,
+        newStage,
+        `Moved from ${getStageTitle(confirmDialog.fromStage)} to ${getStageTitle(newStage)}`
       )
       toast.success("Task moved successfully")
     } catch (error) {
+      // Revert the optimistic update on failure
+      setLocalTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === taskId ? { ...task, stage: confirmDialog.fromStage as Task['stage'] } : task
+        )
+      )
       toast.error("Failed to move task")
-    } finally {
-      setIsUpdating(false)
-      setConfirmDialog({ open: false, taskId: "", taskTitle: "", fromStage: "", toStage: "" })
     }
   }
 
   const getTasksByStage = (stageId: string) => {
-    return tasks.filter(task => task.stage === stageId)
+    return localTasks.filter(task => task.stage === stageId)
   }
 
-  if (loading || isUpdating) {
+  if (loading) {
     return <TaskManagementSkeleton />
   }
 

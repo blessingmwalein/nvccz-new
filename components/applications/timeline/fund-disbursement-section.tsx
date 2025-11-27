@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, DollarSign, Loader2 } from "lucide-react"
+import { FundDisbursementSkeleton } from "@/components/ui/skeleton-loader"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -18,10 +19,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { FundDisbursementData } from "@/lib/api/fund-disbursement-api"
-import type { Application } from "../applications-dashboard"
+import type { ExtendedApplication } from '@/lib/api/applications-api'
 
 interface FundDisbursementSectionProps {
-  application: Application
+  application: ExtendedApplication
   data: FundDisbursementData | null
   loading: boolean
   error: string | null
@@ -83,7 +84,7 @@ export function FundDisbursementSection({
   }
 
   if (loading) {
-    return <div className="text-sm text-gray-500">Loading disbursement details...</div>
+    return <FundDisbursementSkeleton />
   }
 
   if (error) {
@@ -95,7 +96,13 @@ export function FundDisbursementSection({
   }
 
   const disbursements = application.disbursements || []
-  
+
+  // Placeholder milestone grouping and progress
+  const milestoneName = "Milestone 1: Initial Release";
+  const milestoneProgress = Math.round(
+    (disbursements.filter(d => d.status === 'COMPLETED').length / (disbursements.length || 1)) * 100
+  );
+
   if (disbursements.length === 0 && !data) {
     return null
   }
@@ -119,6 +126,19 @@ export function FundDisbursementSection({
   return (
     <>
       <div className="mt-4 space-y-3">
+        {/* Milestone header and progress */}
+        <div className="mb-2">
+          <h4 className="text-sm font-semibold text-gray-800">{milestoneName}</h4>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-32 bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-green-500 h-2 rounded-full"
+                style={{ width: `${milestoneProgress}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-600">{milestoneProgress}% Complete</span>
+          </div>
+        </div>
         <h4 className="text-sm font-medium text-gray-700">Disbursements</h4>
         {disbursements.map((disbursement: any) => (
           <div key={disbursement.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">

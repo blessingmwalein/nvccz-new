@@ -18,11 +18,16 @@ import {
   UserPlus
 } from "lucide-react"
 import { CiFileOn } from "react-icons/ci"
-import { dueDiligenceApi, DueDiligenceData } from "@/lib/api/due-diligence-api"
-import { boardReviewApi, BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
-import { termSheetApi, TermSheetData } from "@/lib/api/term-sheet-api"
-import { fundDisbursementApi, FundDisbursementData } from "@/lib/api/fund-disbursement-api"
-import { applicationsApi } from "@/lib/api/applications-api"
+import { useAppDispatch, useAppSelector } from '@/lib/store'
+import {
+  fetchDueDiligenceByApplication,
+  fetchBoardReviewByApplication,
+  fetchTermSheetByApplication,
+  fetchFundDisbursementByApplication,
+  fetchVoteSummaryByApplication,
+  getActivityForApproval,
+  fetchLatestApplicationById
+} from '@/lib/store/slices/applicationSlice'
 import { FundDisbursementForm } from "./fund-disbursement-form"
 import { FundDisbursementConfirmationDialog } from "./fund-disbursement-confirmation-dialog"
 import { ApplicationDataSection } from "./timeline/application-data-section"
@@ -31,8 +36,9 @@ import { BoardReviewSection } from "./timeline/board-review-section"
 import { TermSheetSection } from "./timeline/term-sheet-section"
 import { FundDisbursementSection } from "./timeline/fund-disbursement-section"
 import { TimelineStageActions } from "./timeline/timeline-stage-actions"
-import type { Application } from './applications-dashboard'
+import type { ExtendedApplication } from '@/lib/api/applications-api'
 import { toast } from "sonner"
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,10 +54,11 @@ import { Label } from "@/components/ui/label"
 import { DueDiligenceTaskModal } from "./due-diligence-task-modal"
 import { ActivityApprovalModal } from "./activity-approval-modal"
 import { BoardVoteModal } from "./board-voting-modal"
+import { TimelineSkeleton } from "@/components/ui/skeleton-loader"
 // import { BoardVoteModal } from "./board-vote-modal"
 
 interface ApplicationTimelineProps {
-  application: Application
+  application: ExtendedApplication
   onInitiateDueDiligence?: () => void
   onUpdateDueDiligence?: () => void
   onCompleteDueDiligence?: () => void
@@ -70,54 +77,63 @@ interface ApplicationTimelineProps {
 
 const stages = [
   {
-    id: "SHORTLISTED",
-    title: "Application Review",
-    description: "Review application details and documents",
+    id: "APPLICATION_SUBMISSION",
+    statusCodes: ["SHORTLISTED"],
+    title: "Application Submission",
+    description: "Applicant submits form; documents linked; status visible to applicant.",
     icon: FileText,
     color: "bg-blue-500",
     completedColor: "bg-green-500"
   },
   {
-    id: "UNDER_DUE_DILIGENCE",
+    id: "DUE_DILIGENCE_GROUP",
+    statusCodes: ["UNDER_DUE_DILIGENCE", "DUE_DILIGENCE_COMPLETED"],
     title: "Due Diligence",
-    description: "Comprehensive business and financial analysis",
+    description: "Due diligence review in progress by Investments team; completed when finished.",
     icon: Eye,
     color: "bg-amber-500",
     completedColor: "bg-green-500"
   },
   {
-    id: "UNDER_BOARD_REVIEW",
-    title: "Board Review",
-    description: "Board evaluation and decision making",
-    icon: Users,
-    color: "bg-purple-500",
-    completedColor: "bg-green-500"
-  },
-  {
-    id: "TERM_SHEET",
+    id: "TERM_SHEET_GROUP",
+    statusCodes: ["TERM_SHEET_NEGOTIATION", "TERM_SHEET", "TERM_SHEET_SIGNED"],
     title: "Term Sheet",
-    description: "Investment terms negotiation and finalization",
+    description: "Negotiating the term sheet before finalizing the deal; term sheet generated, finalized, and signed by applicant.",
     icon: FileText,
     color: "bg-indigo-500",
     completedColor: "bg-green-500"
   },
   {
-    id: "INVESTMENT_IMPLEMENTATION",
-    title: "Fund Disbursement",
-    description: "Investment implementation and fund release",
+    id: "BOARD_GROUP",
+    statusCodes: ["UNDER_BOARD_REVIEW", "BOARD_APPROVED", "BOARD_CONDITIONAL", "BOARD_REJECTED"],
+    title: "Board Review & Decision",
+    description: "Application queued for board review; board outcomes determine next steps.",
+    icon: Users,
+    color: "bg-purple-500",
+    completedColor: "bg-green-500"
+  },
+  {
+    id: "INVESTMENT_GROUP",
+    statusCodes: ["INVESTMENT_IMPLEMENTATION", "DISBURSED", "FUNDED"],
+    title: "Investment Implementation & Disbursement",
+    description: "Implementation plan started; all disbursements approved/disbursed and investment marked as funded.",
     icon: DollarSign,
     color: "bg-emerald-500",
     completedColor: "bg-green-500"
   },
   {
-    id: "DISBURSED",
-    title: "Completed",
-    description: "Funds successfully disbursed",
-    icon: CheckCircle,
-    color: "bg-green-500",
-    completedColor: "bg-green-500"
+    id: "REJECTION_PATH",
+    statusCodes: ["REJECTED", "BELOW_THRESHOLD"],
+    title: "Rejection Path",
+    description: "Application may move here from any stage if criteria are not met.",
+    icon: X,
+    color: "bg-red-500",
+    completedColor: "bg-red-500"
   }
 ]
+
+
+
 
 export function ApplicationTimeline({
   application,
@@ -136,205 +152,69 @@ export function ApplicationTimeline({
   onRefresh,
   onClose
 }: ApplicationTimelineProps) {
+  // Fund disbursement state
+  const [approvingDisbursementId, setApprovingDisbursementId] = useState<string | null>(null);
+  const [disbursingFundId, setDisbursingFundId] = useState<string | null>(null);
+  const [transactionReference, setTransactionReference] = useState<string>('');
+
+  const { latestApplication, latestApplicationLoading, } = useAppSelector((s) => s.application)
+
+  // Data selectors for board review, term sheet, due diligence, fund disbursement
+  const boardReviewData = (latestApplication as any)?.boardReview || null;
+  const boardReviewLoading = useAppSelector((s) => s.application.boardReviewLoadingByApp?.[application.id] || false);
+  const termSheetData = (latestApplication as any)?.termSheet || null;
+  const termSheetLoading = useAppSelector((s) => s.application.termSheetLoadingByApp?.[application.id] || false);
+  const dueDiligenceLoading = useAppSelector((s) => s.application.dueDiligenceLoadingByApp?.[application.id] || false);
+  const fundDisbursementData = useAppSelector((s) => s.application.fundDisbursementByApp[application.id] || null);
+  const fundDisbursementLoading = useAppSelector((s) => s.application.fundDisbursementLoadingByApp?.[application.id] || false);
+  const voteSummaryLoading = useAppSelector((s) => s.application.voteSummaryLoadingByApp?.[application.id] || false);
+
+  // const { dueDiligenceByApp}
+  //get dueDiligenceByApp from state  
+  const dueDiligenceByApp = useAppSelector((s) => s.application.dueDiligenceByApp || {});
+
+  // Activity approval data
+  const [activityApprovalData, setActivityApprovalData] = useState<any>(null);
+  const [activityApprovalLoading, setActivityApprovalLoading] = useState(false);
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
-  const [dueDiligenceData, setDueDiligenceData] = useState<DueDiligenceData | null>(null)
-  const [dueDiligenceLoading, setDueDiligenceLoading] = useState(false)
-  const [dueDiligenceError, setDueDiligenceError] = useState<string | null>(null)
-  const [boardReviewData, setBoardReviewData] = useState<BoardReviewData | null>(null)
-  const [boardReviewLoading, setBoardReviewLoading] = useState(false)
-  const [boardReviewError, setBoardReviewError] = useState<string | null>(null)
-  const [termSheetData, setTermSheetData] = useState<TermSheetData | null>(null)
-  const [termSheetLoading, setTermSheetLoading] = useState(false)
-  const [termSheetError, setTermSheetError] = useState<string | null>(null)
-  const [fundDisbursementData, setFundDisbursementData] = useState<FundDisbursementData | null>(null)
-  const [fundDisbursementLoading, setFundDisbursementLoading] = useState(false)
-  const [fundDisbursementError, setFundDisbursementError] = useState<string | null>(null)
-  const [showFundDisbursementForm, setShowFundDisbursementForm] = useState(false)
-  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false)
-  const [pendingDisbursement, setPendingDisbursement] = useState<{
-    amount: number
-    disbursementDate: Date
-    paymentMethod: string
-    referenceNumber: string
-    notes: string
-  } | null>(null)
-  const [approvingDisbursementId, setApprovingDisbursementId] = useState<string | null>(null)
-  const [disbursingFundId, setDisbursingFundId] = useState<string | null>(null)
-  const [transactionReference, setTransactionReference] = useState('')
-  const [showTaskModal, setShowTaskModal] = useState(false)
-  const [showActivityApprovalModal, setShowActivityApprovalModal] = useState(false)
-  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
-  const [activityApprovalData, setActivityApprovalData] = useState<any>(null)
-  const [activityApprovalLoading, setActivityApprovalLoading] = useState(false)
-  const [voteSummary, setVoteSummary] = useState<VoteSummaryData | null>(null)
-  const [voteSummaryLoading, setVoteSummaryLoading] = useState(false)
-  const [showVoteModal, setShowVoteModal] = useState(false)
+  const dispatch = useAppDispatch()
+
+  // Use latestApplication for all subcomponent payloads
+  const dueDiligenceData = dueDiligenceByApp[application.id] || (latestApplication as any)?.dueDiligenceReview || null;
+  const voteSummary = useAppSelector((s) => s.application.voteSummaryByApp[application.id] || null);
+
+  // UI state hooks
+  const [showVoteModal, setShowVoteModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showActivityApprovalModal, setShowActivityApprovalModal] = useState(false);
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [showFundDisbursementForm, setShowFundDisbursementForm] = useState(false);
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [pendingDisbursement, setPendingDisbursement] = useState<any>(null);
 
   useEffect(() => {
-    let stageIndex = stages.findIndex(stage => stage.id === application.currentStage)
-
-    // Special handling for BOARD_APPROVED - it should show TERM_SHEET as current
-    if (application.currentStage === "BOARD_APPROVED") {
-      stageIndex = stages.findIndex(stage => stage.id === "TERM_SHEET")
-    }
-
-    // Special handling for DUE_DILIGENCE_COMPLETED - it should show UNDER_BOARD_REVIEW as current
-    if (application.currentStage === "DUE_DILIGENCE_COMPLETED") {
-      stageIndex = stages.findIndex(stage => stage.id === "UNDER_BOARD_REVIEW")
-    }
-
-    // Special handling for DISBURSED - all stages should be completed
-    if (application.currentStage === "DISBURSED") {
-      stageIndex = stages.findIndex(stage => stage.id === "DISBURSED")
-    }
+    let stageIndex = stages.findIndex(stage => stage.statusCodes.includes(latestApplication?.currentStage || application.currentStage))
 
     setCurrentStageIndex(stageIndex >= 0 ? stageIndex : 0)
-  }, [application.currentStage])
+  }, [latestApplication?.currentStage, application.currentStage])
 
   // Fetch due diligence data for all applications when component mounts
   useEffect(() => {
-    fetchDueDiligenceData()
-  }, [application.id])
-
-  // Fetch board review data for all applications when component mounts
-  useEffect(() => {
-    fetchBoardReviewData()
-    if (application.currentStage === 'UNDER_BOARD_REVIEW' || application.currentStage === 'BOARD_APPROVED') {
-      fetchVoteSummary()
-    }
-  }, [application.id, application.currentStage])
-
-  // Fetch term sheet data for all applications when component mounts
-  useEffect(() => {
-    fetchTermSheetData()
-  }, [application.id])
-
-  // Fetch fund disbursement data when component mounts or application changes
-  useEffect(() => {
-    if (application.currentStage === 'INVESTMENT_IMPLEMENTATION' ||
-      application.currentStage === 'FUND_DISBURSED' ||
-      application.currentStage === 'DISBURSED') {
-      fetchFundDisbursementData()
-    }
-  }, [application.id, application.currentStage])
+    dispatch(fetchLatestApplicationById(application.id))
+    dispatch(fetchDueDiligenceByApplication(application.id))
+    dispatch(fetchBoardReviewByApplication(application.id))
+    dispatch(fetchTermSheetByApplication(application.id))
+    dispatch(fetchFundDisbursementByApplication(application.id))
+    dispatch(fetchVoteSummaryByApplication(application.id))
+  }, [dispatch, application.id, application.currentStage])
 
   // Refresh due diligence data when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
-      fetchDueDiligenceData()
+      dispatch(fetchDueDiligenceByApplication(application.id))
     }
   }, [refreshTrigger])
 
-  const fetchDueDiligenceData = async () => {
-    setDueDiligenceLoading(true)
-    setDueDiligenceError(null)
-    try {
-      const response = await dueDiligenceApi.getByApplicationId(application.id)
-      setDueDiligenceData(response.data)
-      
-      // After successfully fetching due diligence, fetch activity approval data if available
-      if (response.data?.tasks?.length > 0 && response.data.tasks[0]?.activityLogs?.length > 0) {
-        const firstActivityLogId = response.data.tasks[0].activityLogs[0].id
-        await fetchActivityApprovalData(firstActivityLogId)
-      } else {
-        setActivityApprovalData(null)
-      }
-    } catch (error: any) {
-      // If it's a 404 or similar "not found" error, don't treat it as an error
-      if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('No due diligence data')) {
-        setDueDiligenceData(null)
-        setDueDiligenceError(null)
-      } else {
-        setDueDiligenceError(error.message || 'Failed to load due diligence data')
-      }
-    } finally {
-      setDueDiligenceLoading(false)
-    }
-  }
-
-  const fetchActivityApprovalData = async (activityId: string) => {
-    try {
-      setActivityApprovalLoading(true)
-      const response = await applicationsApi.getActivityForApproval(activityId)
-      setActivityApprovalData(response.data)
-      setSelectedActivityId(activityId)
-    } catch (error: any) {
-      console.error('Error fetching activity approval data:', error)
-      setActivityApprovalData(null)
-    } finally {
-      setActivityApprovalLoading(false)
-    }
-  }
-
-  const fetchVoteSummary = async () => {
-    setVoteSummaryLoading(true);
-    try {
-      const response = await boardReviewApi.getVoteSummary(application.id)
-      setVoteSummary(response.data)
-    } catch (error) {
-      console.error('Error fetching vote summary:', error)
-      setVoteSummary(null)
-    } finally {
-      setVoteSummaryLoading(false)
-    }
-  }
-
-  const fetchBoardReviewData = async () => {
-    setBoardReviewLoading(true)
-    setBoardReviewError(null)
-    try {
-      const response = await boardReviewApi.getByApplicationId(application.id)
-      setBoardReviewData(response.data)
-    } catch (error: any) {
-      // If it's a 404 or similar "not found" error, don't treat it as an error
-      if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('No board review data')) {
-        setBoardReviewData(null)
-        setBoardReviewError(null)
-      } else {
-        setBoardReviewError(error.message || 'Failed to load board review data')
-      }
-    } finally {
-      setBoardReviewLoading(false)
-    }
-  }
-
-  const fetchTermSheetData = async () => {
-    setTermSheetLoading(true)
-    setTermSheetError(null)
-    try {
-      const response = await termSheetApi.getByApplicationId(application.id)
-      setTermSheetData(response.data)
-    } catch (error: any) {
-      // If it's a 404 or similar "not found" error, don't treat it as an error
-      if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('No term sheet data')) {
-        setTermSheetData(null)
-        setTermSheetError(null)
-      } else {
-        setTermSheetError(error.message || 'Failed to load term sheet data')
-      }
-    } finally {
-      setTermSheetLoading(false)
-    }
-  }
-
-  const fetchFundDisbursementData = async () => {
-    setFundDisbursementLoading(true)
-    setFundDisbursementError(null)
-    try {
-      const response = await fundDisbursementApi.getByApplicationId(application.id)
-      setFundDisbursementData(response.data)
-    } catch (error: any) {
-      // If it's a 404 or similar "not found" error, don't treat it as an error
-      if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('No fund disbursement data')) {
-        setFundDisbursementData(null)
-        setFundDisbursementError(null)
-      } else {
-        setFundDisbursementError(error.message || 'Failed to load fund disbursement data')
-      }
-    } finally {
-      setFundDisbursementLoading(false)
-    }
-  }
 
   const handleInitiateFundDisbursement = () => {
     setShowFundDisbursementForm(true)
@@ -355,17 +235,8 @@ export function ApplicationTimeline({
     if (!pendingDisbursement) return
 
     try {
-      await fundDisbursementApi.create(application.id, {
-        amount: pendingDisbursement.amount,
-        disbursementDate: pendingDisbursement.disbursementDate.toISOString(),
-        bankDetails: {
-          accountName: application.applicantName,
-          accountNumber: 'N/A',
-          bankName: 'N/A',
-          branchCode: 'N/A'
-        },
-        notes: pendingDisbursement.notes || undefined
-      })
+      // TODO: Implement createFundDisbursement thunk dispatch when available
+      // await dispatch(createFundDisbursement({ ... }))
 
       // Close the dialogs and reset state
       setShowConfirmationDialog(false)
@@ -382,7 +253,8 @@ export function ApplicationTimeline({
 
   const handleApproveDisbursement = async (disbursementId: string) => {
     try {
-      await fundDisbursementApi.approveDisbursement(disbursementId)
+      // TODO: Implement approveFundDisbursement thunk dispatch when available
+      // await dispatch(approveFundDisbursement({ disbursementId }))
       toast.success('Disbursement approved successfully', {
         description: 'The disbursement has been approved and is ready for processing.'
       })
@@ -402,7 +274,8 @@ export function ApplicationTimeline({
     }
 
     try {
-      await fundDisbursementApi.disburseFund(disbursingFundId, transactionReference)
+      // TODO: Implement disburseFund thunk dispatch when available
+      // await dispatch(disburseFund({ disbursingFundId, transactionReference }))
       toast.success('Disbursement completed successfully', {
         description: 'The funds have been marked as disbursed.'
       })
@@ -423,36 +296,39 @@ export function ApplicationTimeline({
     if (onRefresh) {
       onRefresh()
     }
-    fetchDueDiligenceData()
-    fetchBoardReviewData()
-    fetchTermSheetData()
-    fetchFundDisbursementData()
+    dispatch(fetchDueDiligenceByApplication(application.id))
+    dispatch(fetchBoardReviewByApplication(application.id))
+    dispatch(fetchTermSheetByApplication(application.id))
+    dispatch(fetchFundDisbursementByApplication(application.id))
+  }
 
-    // if (onClose) {
-    //   onClose()
-    // }
+  const isStageCompleted = (stageId: string) => {
+    switch (stageId) {
+      case "APPLICATION_SUBMISSION":
+        return latestApplication?.currentStage !== 'SHORTLISTED'
+      case "DUE_DILIGENCE_GROUP":
+        return (latestApplication as any)?.dueDiligenceReview?.status === 'COMPLETED'
+      case "TERM_SHEET_GROUP":
+        return (latestApplication as any)?.termSheet?.status === 'SIGNED'
+      case "BOARD_GROUP":
+        return (latestApplication as any)?.boardReview?.status === 'COMPLETED' || latestApplication?.currentStage && ['BOARD_APPROVED', 'BOARD_CONDITIONAL', 'BOARD_REJECTED'].includes(latestApplication.currentStage)
+      case "INVESTMENT_GROUP":
+        return latestApplication?.currentStage !== 'INVESTMENT_IMPLEMENTATION' && (!!(latestApplication as any)?.investmentImplementation || latestApplication?.currentStage && ['DISBURSED', 'FUNDED'].includes(latestApplication.currentStage))
+      case "REJECTION_PATH":
+        return latestApplication?.currentStage && ['REJECTED', 'BELOW_THRESHOLD'].includes(latestApplication.currentStage)
+      default:
+        return false
+    }
   }
 
   const getStageStatus = (stageIndex: number) => {
-    // Special handling for DISBURSED stage - mark all as completed
-    if (application.currentStage === "DISBURSED") {
+    const stage = stages[stageIndex]
+    if (isStageCompleted(stage.id)) {
       return "completed"
     }
-
-    if (application.currentStage === "BOARD_APPROVED") {
-      if (stageIndex < 3) return "completed"
-      if (stageIndex === 3) return "current"
-      return "upcoming"
+    if (latestApplication?.currentStage && stage.statusCodes.includes(latestApplication.currentStage)) {
+      return "current"
     }
-
-    if (application.currentStage === "DUE_DILIGENCE_COMPLETED") {
-      if (stageIndex < 2) return "completed"
-      if (stageIndex === 2) return "current"
-      return "upcoming"
-    }
-
-    if (stageIndex < currentStageIndex) return "completed"
-    if (stageIndex === currentStageIndex) return "current"
     return "upcoming"
   }
 
@@ -550,7 +426,11 @@ export function ApplicationTimeline({
   const handleVoteSuccess = async () => {
     setShowVoteModal(false)
     await handleActionWithRefresh()
-    fetchVoteSummary()
+    dispatch(fetchVoteSummaryByApplication(application.id))
+  }
+
+  if (latestApplicationLoading) {
+    return (<TimelineSkeleton />)
   }
 
   return (
@@ -561,17 +441,17 @@ export function ApplicationTimeline({
         <p className="text-sm text-gray-600">Track the progress of this investment application</p>
 
         {/* Close Button */}
-        
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onClose}
-            className="absolute -top-2 right-0 rounded-full h-10 w-10 bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-md hover:shadow-lg transition-all"
-            aria-label="Close drawer"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-      
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onClose}
+          className="absolute -top-2 right-0 rounded-full h-10 w-10 bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-md hover:shadow-lg transition-all"
+          aria-label="Close drawer"
+        >
+          <X className="w-5 h-5" />
+        </Button>
+
       </div>
 
       {/* Timeline Steps */}
@@ -643,6 +523,23 @@ export function ApplicationTimeline({
           const isCurrent = status === "current"
           const isUpcoming = status === "upcoming"
 
+
+          // Show accordion for current or completed stage, or if data exists
+          let showAccordion = false;
+          if (stage.id === "APPLICATION_SUBMISSION") {
+            showAccordion = true;
+          } else if (isCurrent || isCompleted) {
+            showAccordion = true;
+          } else if (stage.id === "DUE_DILIGENCE_GROUP" && dueDiligenceData) {
+            showAccordion = true;
+          } else if (stage.id === "BOARD_GROUP" && boardReviewData) {
+            showAccordion = true;
+          } else if (stage.id === "TERM_SHEET_GROUP" && termSheetData) {
+            showAccordion = true;
+          } else if (stage.id === "INVESTMENT_GROUP" && (fundDisbursementData || (latestApplication as any)?.investmentImplementation)) {
+            showAccordion = true;
+          }
+
           return (
             <div key={`${stage.id}-${application.id}`} className="relative flex items-start">
               {index < stages.length - 1 && (
@@ -663,12 +560,12 @@ export function ApplicationTimeline({
 
               <div className="ml-6 flex-1 pb-8">
                 <Card className={`transition-all duration-300 ${isCurrent
-                    ? 'border-2 border-blue-500 shadow-lg bg-white'
-                    : isCompleted
-                      ? 'border-green-200 bg-white'
-                      : isUpcoming
-                        ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
-                        : 'border-gray-200 bg-white'
+                  ? 'border-2 border-blue-500 shadow-lg bg-white'
+                  : isCompleted
+                    ? 'border-green-200 bg-white'
+                    : isUpcoming
+                      ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                      : 'border-gray-200 bg-white'
                   }`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -695,7 +592,7 @@ export function ApplicationTimeline({
                             Upcoming
                           </Badge>
                         )}
-                        {stage.id === 'UNDER_BOARD_REVIEW' && voteSummary?.boardStatus === 'IN_PROGRESS' && !voteSummary.isVotingComplete && (
+                        {stage.id === 'BOARD_GROUP' && voteSummary?.boardStatus === 'IN_PROGRESS' && !voteSummary.isVotingComplete && (
                           <Badge className="bg-yellow-100 text-yellow-800">
                             Voting in Progress
                           </Badge>
@@ -706,7 +603,7 @@ export function ApplicationTimeline({
 
                   <CardContent>
                     <div className="space-y-4">
-                      {stage.id === "SHORTLISTED" && !isUpcoming && (
+                      {stage.id === "APPLICATION_SUBMISSION" && showAccordion && (
                         <Accordion type="single" collapsible className="w-full">
                           <AccordionItem value="application-data">
                             <AccordionTrigger className="text-left hover:bg-blue-50 transition-colors duration-200 cursor-pointer">
@@ -724,144 +621,142 @@ export function ApplicationTimeline({
                         </Accordion>
                       )}
 
-                      {(stage.id === "UNDER_DUE_DILIGENCE" || stage.id === "UNDER_BOARD_REVIEW" || stage.id === "TERM_SHEET" || stage.id === "INVESTMENT_IMPLEMENTATION") && !isUpcoming && (
+                      {stage.id === "DUE_DILIGENCE_GROUP" && showAccordion && (
                         <Accordion type="single" collapsible className="w-full">
-                          {stage.id === "UNDER_DUE_DILIGENCE" && (
-                            <AccordionItem value="due-diligence-data">
-                              <AccordionTrigger className="text-left hover:bg-amber-50 transition-colors duration-200 cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-200 flex items-center justify-center">
-                                    <Eye className="w-4 h-4 text-amber-500" />
-                                  </div>
-                                  <span>Due Diligence Report</span>
+                          <AccordionItem value="due-diligence-data">
+                            <AccordionTrigger className="text-left hover:bg-amber-50 transition-colors duration-200 cursor-pointer">
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-200 flex items-center justify-center">
+                                  <Eye className="w-4 h-4 text-amber-500" />
                                 </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <DueDiligenceSection
-                                  data={dueDiligenceData}
-                                  loading={dueDiligenceLoading}
-                                  error={dueDiligenceError}
-                                  currentStage={application.currentStage}
-                                  activityApprovalData={activityApprovalData}
-                                  onRefresh={fetchDueDiligenceData}
-                                  onInitiate={onInitiateDueDiligence}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          )}
+                                <span>Due Diligence Report</span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <DueDiligenceSection
+                                data={dueDiligenceData}
+                                loading={dueDiligenceLoading}
+                                error={dueDiligenceData?.error}
+                                currentStage={latestApplication?.currentStage || application.currentStage}
+                                activityApprovalData={activityApprovalData}
+                                onRefresh={() => dispatch(fetchDueDiligenceByApplication(application.id))}
+                                onInitiate={onInitiateDueDiligence}
+                              />
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      )}
 
-                          {stage.id === "UNDER_BOARD_REVIEW" && (
-                            <AccordionItem value="board-review-data">
-                              <AccordionTrigger className="text-left hover:bg-purple-50 transition-colors duration-200 cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-violet-200 flex items-center justify-center">
-                                    <Users className="w-4 h-4 text-purple-500" />
-                                  </div>
-                                  <span>Board Review Report</span>
+                      {stage.id === "BOARD_GROUP" && showAccordion && (
+                        <Accordion type="single" collapsible className="w-full">
+                          <AccordionItem value="board-review-data">
+                            <AccordionTrigger className="text-left hover:bg-purple-50 transition-colors duration-200 cursor-pointer">
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-violet-200 flex items-center justify-center">
+                                  <Users className="w-4 h-4 text-purple-500" />
                                 </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <BoardReviewSection
-                                  data={boardReviewData}
-                                  loading={boardReviewLoading}
-                                  error={boardReviewError}
-                                  currentStage={application.currentStage}
-                                  voteSummary={voteSummary}
-                                  voteSummaryLoading={voteSummaryLoading}
-                                  onRefresh={fetchBoardReviewData}
-                                  onInitiate={onInitiateBoardReview}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          )}
+                                <span>Board Review Report</span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <BoardReviewSection
+                                data={boardReviewData}
+                                loading={boardReviewLoading}
+                                error={boardReviewData?.error}
+                                currentStage={latestApplication?.currentStage || application.currentStage}
+                                voteSummary={voteSummary}
+                                voteSummaryLoading={voteSummaryLoading}
+                                onRefresh={() => dispatch(fetchBoardReviewByApplication(application.id))}
+                                onInitiate={onInitiateBoardReview}
+                              />
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      )}
 
-                          {stage.id === "TERM_SHEET" && (
-                            <AccordionItem value="term-sheet-data">
-                              <AccordionTrigger className="text-left hover:bg-indigo-50 transition-colors duration-200 cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-blue-200 flex items-center justify-center">
-                                    <FileText className="w-4 h-4 text-indigo-500" />
-                                  </div>
-                                  <span>Term Sheet Details</span>
+                      {stage.id === "TERM_SHEET_GROUP" && showAccordion && (
+                        <Accordion type="single" collapsible className="w-full">
+                          <AccordionItem value="term-sheet-data">
+                            <AccordionTrigger className="text-left hover:bg-indigo-50 transition-colors duration-200 cursor-pointer">
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-blue-200 flex items-center justify-center">
+                                  <FileText className="w-4 h-4 text-indigo-500" />
                                 </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <TermSheetSection
-                                  data={termSheetData}
-                                  loading={termSheetLoading}
-                                  error={termSheetError}
-                                  currentStage={application.currentStage}
-                                  onRefresh={fetchTermSheetData}
-                                  onCreate={onCreateTermSheet}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          )}
+                                <span>Term Sheet Details</span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <TermSheetSection
+                                data={termSheetData}
+                                loading={termSheetLoading}
+                                error={termSheetData?.error}
+                                currentStage={latestApplication?.currentStage || application.currentStage}
+                                onRefresh={() => dispatch(fetchTermSheetByApplication(application.id))}
+                                onCreate={onCreateTermSheet}
+                              />
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      )}
 
-                          {stage.id === "INVESTMENT_IMPLEMENTATION" && (
-                            <AccordionItem value="fund-disbursement-data">
-                              <AccordionTrigger className="text-left hover:bg-emerald-50 transition-colors duration-200 cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-100 to-green-200 flex items-center justify-center">
-                                    <DollarSign className="w-4 h-4 text-emerald-500" />
-                                  </div>
-                                  <span>Fund Disbursement Details</span>
+                      {stage.id === "INVESTMENT_GROUP" && showAccordion && (
+                        <Accordion type="single" collapsible className="w-full">
+                          <AccordionItem value="fund-disbursement-data">
+                            <AccordionTrigger className="text-left hover:bg-emerald-50 transition-colors duration-200 cursor-pointer">
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-100 to-green-200 flex items-center justify-center">
+                                  <DollarSign className="w-4 h-4 text-emerald-500" />
                                 </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <FundDisbursementSection
-                                  application={application}
-                                  data={fundDisbursementData}
-                                  loading={fundDisbursementLoading}
-                                  error={fundDisbursementError}
-                                  approvingDisbursementId={approvingDisbursementId}
-                                  disbursingFundId={disbursingFundId}
-                                  transactionReference={transactionReference}
-                                  onSetApprovingId={setApprovingDisbursementId}
-                                  onSetDisbursingId={setDisbursingFundId}
-                                  onSetTransactionReference={setTransactionReference}
-                                  onApproveDisbursement={handleApproveDisbursement}
-                                  onDisburseFund={handleDisburseFund}
-                                  onRefresh={handleActionWithRefresh}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          )}
+                                <span>Fund Disbursement Details</span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <FundDisbursementSection
+                                application={application}
+                                data={fundDisbursementData}
+                                loading={fundDisbursementLoading}
+                                error={fundDisbursementData?.error}
+                                approvingDisbursementId={approvingDisbursementId}
+                                disbursingFundId={disbursingFundId}
+                                transactionReference={transactionReference}
+                                onSetApprovingId={setApprovingDisbursementId}
+                                onSetDisbursingId={setDisbursingFundId}
+                                onSetTransactionReference={setTransactionReference}
+                                onApproveDisbursement={handleApproveDisbursement}
+                                onDisburseFund={handleDisburseFund}
+                                onRefresh={handleActionWithRefresh}
+                              />
+                            </AccordionContent>
+                          </AccordionItem>
                         </Accordion>
                       )}
 
                       <div className="pt-4 border-t border-gray-200">
-                        {!isUpcoming ? (
-                          <TimelineStageActions
-                            stageId={stage.id}
-                            application={application}
-                            dueDiligenceData={dueDiligenceData}
-                            dueDiligenceLoading={dueDiligenceLoading || boardReviewLoading}
-                            activityApprovalData={activityApprovalData}
-                            activityApprovalLoading={activityApprovalLoading}
-                            boardReviewData={boardReviewData}
-                            voteSummary={voteSummary}
-                            onInitiateDueDiligence={handleInitiateDueDiligence}
-                            onUpdateDueDiligence={handleUpdateDueDiligence}
-                            onCompleteDueDiligence={handleCompleteDueDiligence}
-                            onCreateDueDiligenceTask={handleCreateTask}
-                            onApproveActivity={handleApproveActivity}
-                            onInitiateBoardReview={handleInitiateBoardReview}
-                            onUpdateBoardReview={handleUpdateBoardReview}
-                            onCompleteBoardReview={handleCompleteBoardReview}
-                            onVote={() => setShowVoteModal(true)}
-                            onCreateTermSheet={handleCreateTermSheet}
-                            onUpdateTermSheet={handleUpdateTermSheet}
-                            onFinalizeTermSheet={handleFinalizeTermSheet}
-                            onInitiateFundDisbursement={handleInitiateFundDisbursementAction}
-                            onCreateFundDisbursement={onCreateFundDisbursement}
-                            onRefresh={handleActionWithRefresh}
-                          />
-                        ) : (
-                          <div className="text-center py-4">
-                            <p className="text-sm text-gray-500 italic">This stage is not yet available</p>
-                          </div>
-                        )}
+                        <TimelineStageActions
+                          stageId={stage.id}
+                          application={application}
+                          dueDiligenceData={dueDiligenceData}
+                          dueDiligenceLoading={dueDiligenceLoading || boardReviewLoading}
+                          activityApprovalData={activityApprovalData}
+                          activityApprovalLoading={activityApprovalLoading}
+                          boardReviewData={boardReviewData}
+                          voteSummary={voteSummary}
+                          onInitiateDueDiligence={handleInitiateDueDiligence}
+                          onUpdateDueDiligence={handleUpdateDueDiligence}
+                          onCompleteDueDiligence={handleCompleteDueDiligence}
+                          onCreateDueDiligenceTask={handleCreateTask}
+                          onApproveActivity={handleApproveActivity}
+                          onInitiateBoardReview={handleInitiateBoardReview}
+                          onUpdateBoardReview={handleUpdateBoardReview}
+                          onCompleteBoardReview={handleCompleteBoardReview}
+                          onVote={() => setShowVoteModal(true)}
+                          onCreateTermSheet={handleCreateTermSheet}
+                          onUpdateTermSheet={handleUpdateTermSheet}
+                          onFinalizeTermSheet={handleFinalizeTermSheet}
+                          onInitiateFundDisbursement={handleInitiateFundDisbursementAction}
+                          onCreateFundDisbursement={onCreateFundDisbursement}
+                          onRefresh={handleActionWithRefresh}
+                        />
                       </div>
                     </div>
                   </CardContent>

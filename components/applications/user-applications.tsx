@@ -1,4 +1,15 @@
 "use client"
+function toExtendedApplication(app: Application | ExtendedApplication): import('@/lib/api/applications-api').ExtendedApplication {
+  return {
+    ...app,
+    portfolioCompanyId: (app as any).portfolioCompanyId ?? '',
+    fundId: (app as any).fundId ?? '',
+    portfolioCompany: (app as any).portfolioCompany ?? { id: '', name: '', industry: '', status: '' },
+    investmentImplementation: (app as any).investmentImplementation ?? null,
+    disbursements: (app as any).disbursements ?? [],
+  };
+}
+import type { Application } from '@/lib/api/applications-api'
 
 import { useEffect, useMemo, useState } from "react"
 import { useAppSelector, useAppDispatch } from "@/lib/store"
@@ -25,44 +36,8 @@ import { FinalizeTermSheetConfirmationDialog } from "./finalize-term-sheet-confi
 import { FundDisbursementModal } from "./fund-disbursement-modal"
 import { CreateFundDisbursementModal } from "./create-fund-disbursement-modal"
 import { toast } from "sonner"
-import { se } from "date-fns/locale"
 
-type Application = {
-  id: string
-  applicantName: string
-  applicantEmail: string
-  applicantPhone: string
-  applicantAddress: string
-  businessName: string
-  businessDescription: string
-  industry: string
-  businessStage: string
-  foundingDate: string
-  requestedAmount: string
-  currentStage: string
-  submittedAt: string | null
-  updatedAt: string
-  createdAt: string
-  portfolioCompanyId: string
-  fundId: string
-  portfolioCompany?: {
-    id: string
-    name: string
-    industry: string
-    status: string
-  }
-  investmentImplementation?: {
-    id: string
-    portfolioCompanyId: string
-  } | null
-  documents: Array<{
-    id: string
-    documentType: string
-    fileName: string
-    isRequired: boolean
-    isSubmitted: boolean
-  }>
-}
+import type { ExtendedApplication } from '@/lib/api/applications-api'
 
 const humanizeDocType = (type: string) => {
   const map: Record<string, string> = {
@@ -123,7 +98,7 @@ export function UserApplications() {
   const [selectedStage, setSelectedStage] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(6)
-  const [selected, setSelected] = useState<Application | null>(null)
+  const [selected, setSelected] = useState<ExtendedApplication | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [dueDiligenceModalOpen, setDueDiligenceModalOpen] = useState(false)
   const [dueDiligenceConfirmationOpen, setDueDiligenceConfirmationOpen] = useState(false)
@@ -137,6 +112,10 @@ export function UserApplications() {
   const [termSheetConfirmationOpen, setTermSheetConfirmationOpen] = useState(false)
   const [finalizeTermSheetConfirmationOpen, setFinalizeTermSheetConfirmationOpen] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [activeTab, setActiveTab] = useState<'all' | 'below-threshold'>('all')
+  const [belowThresholdApps, setBelowThresholdApps] = useState<Application[]>([])
+  const [belowThresholdLoading, setBelowThresholdLoading] = useState(false)
+  const [belowThresholdError, setBelowThresholdError] = useState<string | null>(null)
 
   const fetchApps = async () => {
     const result = await dispatch(fetchApplications())
@@ -151,7 +130,7 @@ export function UserApplications() {
     try {
       const freshApps = await fetchApps()
       if (freshApps) {
-        const updatedSelected = freshApps.find((app: Application) => app.id === selected.id)
+        const updatedSelected = freshApps.find((app: Application) => app.id === selected.id) as ExtendedApplication | undefined
         if (updatedSelected) {
           setSelected(updatedSelected)
         }
@@ -165,14 +144,38 @@ export function UserApplications() {
     dispatch(fetchApplications())
   }, [dispatch])
 
+  useEffect(() => {
+    if (activeTab === 'below-threshold') {
+      setBelowThresholdLoading(true)
+      setBelowThresholdError(null)
+      fetch('https://nvccz-pi.vercel.app/api/applications/below-threshold?page=1&limit=10', {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWlmdDI1eDgwMDA3anIwNDFja2diN2VkIiwicm9sZUlkIjoiY21oM2JjbmVwMDAwMnVudW95aWNmcHlrdSIsInJvbGVOYW1lIjoiUFJPQ19NR1IiLCJlbWFpbCI6ImJsZXNzaW5nbXdhbGVpbis1MEBnbWFpbC5jb20iLCJmaXJzdE5hbWUiOiJQcm9jIiwibGFzdE5hbWUiOiJNYW5hZ2VyIiwiZGVwYXJ0bWVudCI6IlByb2N1cmVtZW50Iiwicm9sZUNvZGUiOiJQUk9DX01HUiIsImlhdCI6MTc2NDE1MDQ0MSwiZXhwIjoxNzY0NzU1MjQxfQ.xqBqw4-9lBmE6kuGpsf3cPM_vtjebcj9_e4AUcSDA9g'
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          setBelowThresholdApps(data?.data?.applications || [])
+          setBelowThresholdLoading(false)
+        })
+        .catch(err => {
+          setBelowThresholdError('Failed to fetch below-threshold applications')
+          setBelowThresholdLoading(false)
+        })
+    }
+  }, [activeTab])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return apps.filter((a) => {
+    const source = activeTab === 'below-threshold' ? belowThresholdApps : apps
+    return source.filter((a) => {
       const matchesQuery = !q || a.businessName.toLowerCase().includes(q) || a.applicantName.toLowerCase().includes(q)
       const matchesStage = selectedStage === 'all' || a.currentStage === selectedStage
       return matchesQuery && matchesStage
     })
-  }, [apps, query, selectedStage])
+  }, [apps, belowThresholdApps, query, selectedStage, activeTab])
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -184,7 +187,7 @@ export function UserApplications() {
   }, [query, selectedStage])
 
   const openDrawer = (app: Application) => {
-    setSelected(app)
+    setSelected(toExtendedApplication(app))
     setDrawerOpen(true)
   }
 
@@ -282,11 +285,49 @@ export function UserApplications() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Tab Bar - match FinancialReports design */}
+      <div className="mb-4">
+        <div className="flex items-center overflow-x-auto border-b">
+          <div className="flex space-x-1 min-w-max">
+            {[{
+              id: 'all',
+              label: 'All Applications',
+              gradient: 'from-blue-400 to-blue-600',
+              icon: require('lucide-react').FileText,
+            }, {
+              id: 'below-threshold',
+              label: 'Below Threshold',
+              gradient: 'from-amber-400 to-amber-600',
+              icon: require('lucide-react').AlertCircle,
+            }].map(tab => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as 'all' | 'below-threshold')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-t-lg border-b-2 transition-all duration-200 ${isActive ? 'text-blue-600 border-blue-600' : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300'}`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-gradient-to-br ${isActive ? tab.gradient : 'from-gray-300 to-gray-400'}`}>
+                    <Icon className="w-3 h-3 text-white" />
+                  </div>
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl text-gray-900">Applications Management</h1>
-          <p className="text-gray-600">Filter and review all applications</p>
+          <h1 className="text-3xl text-gray-900">
+            {activeTab === 'all' ? 'Applications Management' : 'Below Threshold Applications'}
+          </h1>
+          <p className="text-gray-600">
+            {activeTab === 'all' ? 'Filter and review all applications' : 'Applications flagged as below threshold'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={fetchApps} disabled={loading}>
@@ -296,46 +337,48 @@ export function UserApplications() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="text-sm font-medium text-gray-700 mb-2 block">Stage</label>
-          <Select value={selectedStage} onValueChange={(v) => setSelectedStage(v)}>
-            <SelectTrigger className="h-10 rounded-full">
-              <SelectValue placeholder="All Stages" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              <SelectItem value="SUBMITTED">Submitted</SelectItem>
-              <SelectItem value="INITIAL_SCREENING">Initial Screening</SelectItem>
-              <SelectItem value="SHORTLISTED">Shortlisted</SelectItem>
-              <SelectItem value="UNDER_DUE_DILIGENCE">Under Due Diligence</SelectItem>
-              <SelectItem value="DUE_DILIGENCE_COMPLETED">Due Diligence Completed</SelectItem>
-              <SelectItem value="UNDER_BOARD_REVIEW">Under Board Review</SelectItem>
-              <SelectItem value="BOARD_APPROVED">Board Approved</SelectItem>
-              <SelectItem value="TERM_SHEET">Term Sheet</SelectItem>
-              <SelectItem value="TERM_SHEET_SIGNED">Term Sheet Signed</SelectItem>
-              <SelectItem value="INVESTMENT_IMPLEMENTATION">Investment Implementation</SelectItem>
-              <SelectItem value="FUND_DISBURSED">Fund Disbursed</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="WITHDRAWN">Withdrawn</SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Filters - hide when below-threshold tab is active */}
+      {activeTab === 'all' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Stage</label>
+            <Select value={selectedStage} onValueChange={(v) => setSelectedStage(v)}>
+              <SelectTrigger className="h-10 rounded-full">
+                <SelectValue placeholder="All Stages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                <SelectItem value="INITIAL_SCREENING">Initial Screening</SelectItem>
+                <SelectItem value="SHORTLISTED">Shortlisted</SelectItem>
+                <SelectItem value="UNDER_DUE_DILIGENCE">Under Due Diligence</SelectItem>
+                <SelectItem value="DUE_DILIGENCE_COMPLETED">Due Diligence Completed</SelectItem>
+                <SelectItem value="UNDER_BOARD_REVIEW">Under Board Review</SelectItem>
+                <SelectItem value="BOARD_APPROVED">Board Approved</SelectItem>
+                <SelectItem value="TERM_SHEET">Term Sheet</SelectItem>
+                <SelectItem value="TERM_SHEET_SIGNED">Term Sheet Signed</SelectItem>
+                <SelectItem value="INVESTMENT_IMPLEMENTATION">Investment Implementation</SelectItem>
+                <SelectItem value="FUND_DISBURSED">Fund Disbursed</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="WITHDRAWN">Withdrawn</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Company Name</label>
+            <Input placeholder="Search by company..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Applicant Name</label>
+            <Input placeholder="Search by applicant..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
         </div>
-        <div>
-          <label className="text-sm font-medium text-gray-700 mb-2 block">Company Name</label>
-          <Input placeholder="Search by company..." value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-gray-700 mb-2 block">Applicant Name</label>
-          <Input placeholder="Search by applicant..." value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
-      </div>
+      )}
 
 
 
       {/* Applications List (no current card) */}
-      {loading ? (
+      {(activeTab === 'below-threshold' ? belowThresholdLoading : loading) ? (
         <div className="space-y-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="bg-white border border-gray-200 rounded-2xl">
@@ -356,14 +399,19 @@ export function UserApplications() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyStateWidget stage={selectedStage} />
+        <>
+          <EmptyStateWidget stage={selectedStage} />
+          {activeTab === 'below-threshold' && belowThresholdError && (
+            <div className="text-red-500 text-center mt-2">{belowThresholdError}</div>
+          )}
+        </>
       ) : (
         <div className="space-y-4">
           {paginated.map((app) => (
             <Card 
               key={app.id} 
               className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer hover:border-blue-300 hover:scale-[1.02]"
-              onClick={() => openDrawer(app)}
+              onClick={() => openDrawer(app as ExtendedApplication)}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -378,7 +426,7 @@ export function UserApplications() {
                       className="rounded-full w-10 h-10 p-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                       onClick={(e) => {
                         e.stopPropagation()
-                        openDrawer(app)
+                        openDrawer(app as ExtendedApplication)
                       }}
                       title="View Details"
                     >
@@ -465,7 +513,7 @@ export function UserApplications() {
 
       {/* Detail Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-[50vw] min-w-[1000px] max-w-[1600px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
+        <SheetContent className="w-[70vw] min-w-[1200px] max-w-[1800px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
           <SheetHeader>
             <SheetTitle className="text-2xl font-normal flex items-center gap-2">
               <CiFileOn className="w-6 h-6" /> {selected?.businessName}
@@ -550,7 +598,7 @@ export function UserApplications() {
         <CreateFundDisbursementModal
           isOpen={createFundDisbursementModalOpen}
           onClose={() => setCreateFundDisbursementModalOpen(false)}
-          investmentImplementationId={selected.investmentImplementation.id}
+          investmentImplementationId={selected.investmentImplementation?.id}
           companyName={selected.businessName}
           onSuccess={async () => {
             setCreateFundDisbursementModalOpen(false)

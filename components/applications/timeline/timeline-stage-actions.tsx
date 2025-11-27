@@ -2,14 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { FileText, Users, Edit, Play, CheckCircle, DollarSign, UserPlus, Loader2, ThumbsUp, Vote } from "lucide-react"
-import type { Application } from "../applications-dashboard"
+import type { ExtendedApplication } from '@/lib/api/applications-api'
 import { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
 import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { APPLICATION_PORTAL_ACTIONS } from "@/lib/config/role-permissions"
 
 interface TimelineStageActionsProps {
   stageId: string
-  application: Application
+  application: ExtendedApplication
   dueDiligenceData?: any
   dueDiligenceLoading?: boolean
   activityApprovalData?: any
@@ -157,8 +157,9 @@ export function TimelineStageActions({
 
       // Check if we should show task button instead of update/complete buttons
       const shouldShowTaskButton =
-        dueDiligenceData?.status === "IN_PROGRESS" &&
-        (!dueDiligenceData?.tasks || dueDiligenceData.tasks.length === 0)
+        dueDiligenceData?.status === "IN_PROGRESS" 
+        // &&
+        // (!dueDiligenceData?.tasks || dueDiligenceData.tasks.length === 0)
 
       // Check if we have any tasks with activity logs
       const hasActivityLogs = dueDiligenceData?.tasks?.some((task: any) => 
@@ -296,7 +297,7 @@ export function TimelineStageActions({
       return (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {canVote && canCastVote && (
+            {canVote && (
               <Button
                 onClick={onVote}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"

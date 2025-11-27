@@ -704,7 +704,7 @@ export function ApplicationsDashboard() {
 
       {/* Application Detail Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-[50vw] min-w-[1000px] max-w-[1600px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
+        <SheetContent className="w-[60vw] min-w-[1000px] max-w-[1600px] overflow-y-auto p-5 [&>button[aria-label='Close']]:hidden">
           <SheetHeader>
             <SheetTitle className="text-2xl font-normal flex items-center gap-2">
               <CiFileOn className="w-6 h-6" /> {selectedApplication?.businessName}

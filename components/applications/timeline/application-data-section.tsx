@@ -9,8 +9,10 @@ import { Building2, Eye } from "lucide-react"
 import type { Application } from '../applications-dashboard'
 import { DocumentPreviewModal } from '../document-preview-modal'
 
+import type { ExtendedApplication } from '@/lib/api/applications-api'
+
 interface ApplicationDataSectionProps {
-  application: Application
+  application: ExtendedApplication
 }
 
 export function ApplicationDataSection({ application }: ApplicationDataSectionProps) {

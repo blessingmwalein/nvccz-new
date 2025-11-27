@@ -12,6 +12,7 @@ import financialDataSlice from "./slices/financialDataSlice"
 import performanceSlice from "./slices/performanceSlice"
 import payrollSlice from "./slices/payrollSlice"
 import procurementSlice from "./slices/procurementSlice"
+import procurementV2Slice from "./slices/procurementV2Slice"
 import currenciesSlice from "./slices/currenciesSlice"
 import usersSlice from "./slices/usersSlice"
 import taskSlice from "./slices/taskSlice"
@@ -43,6 +44,7 @@ export const store = configureStore({
     performance: performanceSlice,
     payroll: payrollSlice,
     procurement: procurementSlice,
+    procurementV2: procurementV2Slice,
     currencies: currenciesSlice,
     users: usersSlice,
     tasks: taskSlice,

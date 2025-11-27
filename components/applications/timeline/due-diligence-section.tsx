@@ -1,13 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { CheckCircle, XCircle, AlertCircle, RefreshCw, Calendar, User, DollarSign, FileText, CheckSquare, Eye, Clock } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { CheckCircle, XCircle, AlertCircle, RefreshCw, Calendar, User, DollarSign, FileText, CheckSquare, Eye, Clock, Play, UserPlus, ChevronDown, ChevronRight } from "lucide-react"
 import { format } from "date-fns"
 import { DueDiligenceSkeleton } from "@/components/ui/skeleton-loader"
-import type { DueDiligenceData } from "@/lib/api/due-diligence-api"
+import type { DueDiligenceData, DueDiligenceTask } from "@/lib/api/due-diligence-api"
 
 interface DueDiligenceSectionProps {
   data: DueDiligenceData | null
@@ -17,6 +19,7 @@ interface DueDiligenceSectionProps {
   activityApprovalData?: any
   onRefresh: () => void
   onInitiate?: () => void
+  onCreateTask?: (category: string) => void
 }
 
 export function DueDiligenceSection({
@@ -26,7 +29,8 @@ export function DueDiligenceSection({
   currentStage,
   activityApprovalData,
   onRefresh,
-  onInitiate
+  onInitiate,
+  onCreateTask
 }: DueDiligenceSectionProps) {
   if (loading) {
     return <DueDiligenceSkeleton />
@@ -73,8 +77,6 @@ export function DueDiligenceSection({
     )
   }
 
-  const firstTask = data?.tasks?.[0]
-
   const getApprovalStatusColor = (status: string) => {
     switch (status) {
       case 'APPROVED':
@@ -87,6 +89,31 @@ export function DueDiligenceSection({
         return 'bg-gray-100 text-gray-800'
     }
   }
+
+  // Due diligence areas for tabs
+  const areas = [
+    { key: 'market', label: 'Market Research', category: 'Market Research' },
+    { key: 'financial', label: 'Financial Assessment', category: 'Financial Assessment' },
+    { key: 'competitive', label: 'Competitive Analysis', category: 'Competitive Analysis' },
+    { key: 'management', label: 'Management Team Evaluation', category: 'Management Team Evaluation' },
+    { key: 'legal', label: 'Legal Compliance', category: 'Legal Compliance' },
+    { key: 'risk', label: 'Risk Assessment', category: 'Risk Assessment' },
+  ];
+  const [activeArea, setActiveArea] = useState(areas[0].key);
+
+  // Group tasks by category
+  const tasksByCategory = data?.tasks?.reduce((acc: Record<string, DueDiligenceTask[]>, task: DueDiligenceTask) => {
+    const category = task.category || 'Uncategorized';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(task);
+    return acc;
+  }, {}) || {};
+
+  const getTasksForArea = (areaCategory: string) => {
+    return tasksByCategory[areaCategory] || [];
+  };
 
   return (
     <div className="space-y-4">
@@ -141,22 +168,47 @@ export function DueDiligenceSection({
         </CardContent>
       </Card>
 
-      {/* Assessment Details */}
-      <Card className="border-l-4 border-l-blue-500">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-normal flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
-              <FileText className="w-4 h-4 text-blue-500" />
+      {/* Due Diligence Area Tabs */}
+      <div className="flex gap-1 mb-2">
+        {areas.map(area => (
+          <Button
+            key={area.key}
+            variant={activeArea === area.key ? 'default' : 'outline'}
+            className={`rounded-full px-2 py-0.5 text-xs ${activeArea === area.key ? 'bg-blue-600 text-white' : ''}`}
+            onClick={() => setActiveArea(area.key)}
+          >
+            {area.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Assessment Details - show only selected area */}
+      {activeArea === 'market' && (
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-normal flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-blue-500" />
+                </div>
+                Market Research
+              </CardTitle>
+              {onCreateTask && (
+                <Button
+                  onClick={() => onCreateTask('Market Research')}
+                  size="sm"
+                  className="rounded-full bg-blue-600 hover:bg-blue-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              )}
             </div>
-            Assessment Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Market Research */}
-            <div className="p-4 bg-gray-50 rounded-lg">
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">Market Research</h4>
+                <h4 className="font-medium">Market Research Assessment</h4>
                 <Badge className={data.marketResearchViable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
                   {data.marketResearchViable ? 'Viable' : 'Not Viable'}
                 </Badge>
@@ -166,8 +218,94 @@ export function DueDiligenceSection({
               )}
             </div>
 
-            {/* Financial Assessment */}
-            <div className="p-4 bg-gray-50 rounded-lg">
+            {/* Tasks for this area */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-gray-700">Tasks ({getTasksForArea('Market Research').length})</h4>
+              {getTasksForArea('Market Research').length > 0 ? (
+                getTasksForArea('Market Research').map((task) => (
+                  <div key={task.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{task.title}</h5>
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge className={`text-xs ${
+                            task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {task.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            task.stage === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.stage.replace('_', ' ')}
+                          </Badge>
+                          {task.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        {task.team?.slice(0, 2).map((member: any, index: number) => (
+                          <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
+                            <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {task.team && task.team.length > 2 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{task.team.length - 2}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>Due: {format(new Date(task.date), 'MMM dd, yyyy')}</span>
+                      <span>Created by: {task.creator.firstName} {task.creator.lastName}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  No tasks assigned to this area yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {activeArea === 'financial' && (
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-normal flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-green-500" />
+                </div>
+                Financial Assessment
+              </CardTitle>
+              {onCreateTask && (
+                <Button
+                  onClick={() => onCreateTask('Financial Assessment')}
+                  size="sm"
+                  className="rounded-full bg-green-600 hover:bg-green-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg mb-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">Financial Assessment</h4>
                 <Badge className={data.financialViable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
@@ -179,10 +317,470 @@ export function DueDiligenceSection({
               )}
             </div>
 
-            {/* ...existing assessment sections... */}
-          </div>
-        </CardContent>
-      </Card>
+            {/* Tasks for this area */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-gray-700">Tasks ({getTasksForArea('Financial Assessment').length})</h4>
+              {getTasksForArea('Financial Assessment').length > 0 ? (
+                getTasksForArea('Financial Assessment').map((task) => (
+                  <div key={task.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{task.title}</h5>
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge className={`text-xs ${
+                            task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {task.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            task.stage === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.stage.replace('_', ' ')}
+                          </Badge>
+                          {task.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        {task.team?.slice(0, 2).map((member: any, index: number) => (
+                          <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
+                            <AvatarFallback className="text-xs bg-green-100 text-green-800">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {task.team && task.team.length > 2 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{task.team.length - 2}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>Due: {format(new Date(task.date), 'MMM dd, yyyy')}</span>
+                      <span>Created by: {task.creator.firstName} {task.creator.lastName}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  No tasks assigned to this area yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeArea === 'competitive' && (
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-normal flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-violet-200 flex items-center justify-center">
+                  <CheckSquare className="w-4 h-4 text-purple-500" />
+                </div>
+                Competitive Analysis
+              </CardTitle>
+              {onCreateTask && (
+                <Button
+                  onClick={() => onCreateTask('Competitive Analysis')}
+                  size="sm"
+                  className="rounded-full bg-purple-600 hover:bg-purple-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium">Competitive Analysis</h4>
+                <Badge className={data.competitiveOpportunities ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                  {data.competitiveOpportunities ? 'Viable' : 'Not Viable'}
+                </Badge>
+              </div>
+              {data.competitiveComments && (
+                <p className="text-sm text-gray-600">{data.competitiveComments}</p>
+              )}
+            </div>
+
+            {/* Tasks for this area */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-gray-700">Tasks ({getTasksForArea('Competitive Analysis').length})</h4>
+              {getTasksForArea('Competitive Analysis').length > 0 ? (
+                getTasksForArea('Competitive Analysis').map((task) => (
+                  <div key={task.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{task.title}</h5>
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge className={`text-xs ${
+                            task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {task.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            task.stage === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.stage.replace('_', ' ')}
+                          </Badge>
+                          {task.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        {task.team?.slice(0, 2).map((member: any, index: number) => (
+                          <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
+                            <AvatarFallback className="text-xs bg-purple-100 text-purple-800">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {task.team && task.team.length > 2 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{task.team.length - 2}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>Due: {format(new Date(task.date), 'MMM dd, yyyy')}</span>
+                      <span>Created by: {task.creator.firstName} {task.creator.lastName}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  No tasks assigned to this area yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeArea === 'management' && (
+        <Card className="border-l-4 border-l-orange-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-normal flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-100 to-amber-200 flex items-center justify-center">
+                  <User className="w-4 h-4 text-orange-500" />
+                </div>
+                Management Team Evaluation
+              </CardTitle>
+              {onCreateTask && (
+                <Button
+                  onClick={() => onCreateTask('Management Team Evaluation')}
+                  size="sm"
+                  className="rounded-full bg-orange-600 hover:bg-orange-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium">Management Team Evaluation</h4>
+                <Badge className={data.managementTeamQualified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                  {data.managementTeamQualified ? 'Qualified' : 'Not Qualified'}
+                </Badge>
+              </div>
+              {data.managementComments && (
+                <p className="text-sm text-gray-600">{data.managementComments}</p>
+              )}
+            </div>
+
+            {/* Tasks for this area */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-gray-700">Tasks ({getTasksForArea('Management Team Evaluation').length})</h4>
+              {getTasksForArea('Management Team Evaluation').length > 0 ? (
+                getTasksForArea('Management Team Evaluation').map((task) => (
+                  <div key={task.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{task.title}</h5>
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge className={`text-xs ${
+                            task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {task.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            task.stage === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.stage.replace('_', ' ')}
+                          </Badge>
+                          {task.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        {task.team?.slice(0, 2).map((member: any, index: number) => (
+                          <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
+                            <AvatarFallback className="text-xs bg-orange-100 text-orange-800">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {task.team && task.team.length > 2 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{task.team.length - 2}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>Due: {format(new Date(task.date), 'MMM dd, yyyy')}</span>
+                      <span>Created by: {task.creator.firstName} {task.creator.lastName}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  No tasks assigned to this area yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeArea === 'legal' && (
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-normal flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-red-100 to-rose-200 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-red-500" />
+                </div>
+                Legal Compliance
+              </CardTitle>
+              {onCreateTask && (
+                <Button
+                  onClick={() => onCreateTask('Legal Compliance')}
+                  size="sm"
+                  className="rounded-full bg-red-600 hover:bg-red-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium">Legal Compliance</h4>
+                <Badge className={data.legalCompliant ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                  {data.legalCompliant ? 'Compliant' : 'Not Compliant'}
+                </Badge>
+              </div>
+              {data.legalComments && (
+                <p className="text-sm text-gray-600">{data.legalComments}</p>
+              )}
+            </div>
+
+            {/* Tasks for this area */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-gray-700">Tasks ({getTasksForArea('Legal Compliance').length})</h4>
+              {getTasksForArea('Legal Compliance').length > 0 ? (
+                getTasksForArea('Legal Compliance').map((task) => (
+                  <div key={task.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{task.title}</h5>
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge className={`text-xs ${
+                            task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {task.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            task.stage === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.stage.replace('_', ' ')}
+                          </Badge>
+                          {task.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        {task.team?.slice(0, 2).map((member: any, index: number) => (
+                          <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
+                            <AvatarFallback className="text-xs bg-red-100 text-red-800">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {task.team && task.team.length > 2 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{task.team.length - 2}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>Due: {format(new Date(task.date), 'MMM dd, yyyy')}</span>
+                      <span>Created by: {task.creator.firstName} {task.creator.lastName}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  No tasks assigned to this area yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeArea === 'risk' && (
+        <Card className="border-l-4 border-l-yellow-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-normal flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-100 to-amber-200 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                </div>
+                Risk Assessment
+              </CardTitle>
+              {onCreateTask && (
+                <Button
+                  onClick={() => onCreateTask('Risk Assessment')}
+                  size="sm"
+                  className="rounded-full bg-yellow-600 hover:bg-yellow-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium">Risk Assessment</h4>
+                <Badge className={data.riskTolerable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                  {data.riskTolerable ? 'Tolerable' : 'Not Tolerable'}
+                </Badge>
+              </div>
+              {data.riskComments && (
+                <p className="text-sm text-gray-600">{data.riskComments}</p>
+              )}
+            </div>
+
+            {/* Tasks for this area */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-gray-700">Tasks ({getTasksForArea('Risk Assessment').length})</h4>
+              {getTasksForArea('Risk Assessment').length > 0 ? (
+                getTasksForArea('Risk Assessment').map((task) => (
+                  <div key={task.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{task.title}</h5>
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge className={`text-xs ${
+                            task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {task.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            task.stage === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.stage.replace('_', ' ')}
+                          </Badge>
+                          {task.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        {task.team?.slice(0, 2).map((member: any, index: number) => (
+                          <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
+                            <AvatarFallback className="text-xs bg-yellow-100 text-yellow-800">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {task.team && task.team.length > 2 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{task.team.length - 2}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>Due: {format(new Date(task.date), 'MMM dd, yyyy')}</span>
+                      <span>Created by: {task.creator.firstName} {task.creator.lastName}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  No tasks assigned to this area yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Final Comments */}
       {data.finalComments && (
@@ -199,141 +797,6 @@ export function DueDiligenceSection({
             <p className="text-sm text-gray-700">{data.finalComments}</p>
           </CardContent>
         </Card>
-      )}
-
-      {/* Tasks Section */}
-      {data && data.tasks && data.tasks.length > 0 && (
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="tasks">
-            <AccordionTrigger className="text-left hover:bg-blue-50 transition-colors duration-200 cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
-                  <CheckSquare className="w-4 h-4 text-blue-500" />
-                </div>
-                <span>Due Diligence Tasks ({data.tasks.length})</span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 mt-4">
-                {firstTask && (
-                  <Card className="border-l-4 border-l-blue-500">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-normal">{firstTask.title}</CardTitle>
-                        <Badge variant={firstTask.stage === 'completed' ? 'default' : 'secondary'}>
-                          {firstTask.stage}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{firstTask.description}</p>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-600">Due: {format(new Date(firstTask.date), "MMM dd, yyyy")}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <User className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-600">
-                            {firstTask.creator?.firstName} {firstTask.creator?.lastName}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Assigned Team Members */}
-                      {firstTask.team && firstTask.team.length > 0 && (
-                        <div className="pt-3 border-t">
-                          <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
-                            <User className="w-4 h-4" />
-                            Assigned Team ({firstTask.team.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {firstTask.team.map((member: any) => (
-                              <Badge key={member.id} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                {member.firstName} {member.lastName}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {firstTask.monetaryValueAchieved && parseFloat(firstTask.monetaryValueAchieved) > 0 && (
-                        <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                          <DollarSign className="w-5 h-5 text-green-600" />
-                          <div>
-                            <p className="text-xs text-gray-600">Task Value Achieved</p>
-                            <p className="text-lg font-semibold text-green-600">
-                              ${parseFloat(firstTask.monetaryValueAchieved).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Activity Log with Approval Data */}
-                      {activityApprovalData && (
-                        <div className="mt-4 pt-4 border-t">
-                          <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                            <FileText className="w-4 h-4" />
-                            Latest Activity
-                          </h4>
-                          <Card className="border-l-4 border-l-purple-500">
-                            <CardContent className="pt-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium">{activityApprovalData.title}</p>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary">{activityApprovalData.activityType}</Badge>
-                                  <Badge className={getApprovalStatusColor(activityApprovalData.approvalStatus)}>
-                                    {activityApprovalData.approvalStatus}
-                                  </Badge>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2 text-xs text-gray-600">
-                                <User className="w-3 h-3" />
-                                <span>
-                                  {activityApprovalData.user?.firstName} {activityApprovalData.user?.lastName}
-                                </span>
-                                <span>•</span>
-                                <Calendar className="w-3 h-3" />
-                                <span>{format(new Date(activityApprovalData.createdAt), "MMM dd, yyyy")}</span>
-                              </div>
-
-                              {activityApprovalData.monetaryValueAchieved && parseFloat(activityApprovalData.monetaryValueAchieved) > 0 && (
-                                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                                  <DollarSign className="w-5 h-5 text-green-600" />
-                                  <div>
-                                    <p className="text-xs text-gray-600">Activity Value Achieved</p>
-                                    <p className="text-lg font-semibold text-green-600">
-                                      ${parseFloat(activityApprovalData.monetaryValueAchieved).toLocaleString()}
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Approval Status Details */}
-                              <div className="pt-3 border-t">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-600">Approval Status</span>
-                                  <Badge className={getApprovalStatusColor(activityApprovalData.approvalStatus)}>
-                                    {activityApprovalData.approvalStatus === 'PENDING' && <Clock className="w-3 h-3 mr-1" />}
-                                    {activityApprovalData.approvalStatus === 'APPROVED' && <CheckCircle className="w-3 h-3 mr-1" />}
-                                    {activityApprovalData.approvalStatus === 'REJECTED' && <XCircle className="w-3 h-3 mr-1" />}
-                                    {activityApprovalData.approvalStatus}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
       )}
     </div>
   )

@@ -1,5 +1,34 @@
 import { apiClient } from './api-client'
 
+export interface DueDiligenceTask {
+  id: string
+  title: string
+  description: string
+  category: string | null
+  stage: string
+  priority: string
+  date: string
+  team: Array<{
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }>
+  creator: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  isOverdue: boolean
+  activities: Array<{
+    by: string
+    date: string
+    type: string
+    activity: string
+  }>
+}
+
 export interface DueDiligenceData {
   id: string
   applicationId: string
@@ -46,6 +75,7 @@ export interface DueDiligenceData {
     lastName: string
     email: string
   }
+  tasks?: DueDiligenceTask[]
 }
 
 export interface DueDiligenceUpdateRequest {

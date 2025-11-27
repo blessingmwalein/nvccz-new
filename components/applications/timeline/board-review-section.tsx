@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, FileText, Play, ThumbsUp, ThumbsDown, Check, Hourglass, User, MessageSquare, Calendar } from "lucide-react"
 import type { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
 import { Progress } from "@/components/ui/progress"
+import { BoardReviewSkeleton } from "@/components/ui/skeleton-loader"
 import { format } from 'date-fns'
 
 interface BoardReviewSectionProps {
@@ -30,7 +31,7 @@ export function BoardReviewSection({
   onInitiate
 }: BoardReviewSectionProps) {
   if (loading) {
-    return <div>Loading...</div>
+    return <BoardReviewSkeleton />
   }
 
   if (error) {

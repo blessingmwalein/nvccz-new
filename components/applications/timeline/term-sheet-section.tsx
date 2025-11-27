@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FileText, DollarSign, Eye } from "lucide-react"
+import { TermSheetSkeleton } from "@/components/ui/skeleton-loader"
 import type { TermSheetData } from "@/lib/api/term-sheet-api"
 
 interface TermSheetSectionProps {
@@ -24,7 +25,7 @@ export function TermSheetSection({
   onCreate
 }: TermSheetSectionProps) {
   if (loading) {
-    return <div>Loading...</div>
+    return <TermSheetSkeleton />
   }
 
   if (error) {

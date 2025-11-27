@@ -449,3 +449,91 @@ export function TermSheetSkeleton() {
     </div>
   )
 }
+
+export function FundDisbursementSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Card className="border-l-4 border-l-emerald-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-6 h-6 rounded-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+                <Skeleton className="h-3 w-full mb-2" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export function TimelineSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="text-center mb-8">
+        <Skeleton className="h-7 w-64 mx-auto mb-2" />
+        <Skeleton className="h-4 w-80 mx-auto" />
+      </div>
+
+      <div className="relative">
+        {Array.from({ length: 6 }).map((_, idx) => (
+          <div key={idx} className="relative flex items-start">
+            {idx < 5 && (
+              <div className="absolute left-6 top-12 w-0.5 h-full bg-gray-200" />
+            )}
+
+            <div className="relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-4 border-white bg-white shadow-lg">
+              <Skeleton className="w-6 h-6 rounded-full" />
+            </div>
+
+            <div className="ml-6 flex-1 pb-8">
+              <Card className="border-gray-200 bg-white">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Skeleton className="h-5 w-32 mb-2" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex gap-2">
+                        <Skeleton className="h-10 w-40 rounded-full" />
+                        <Skeleton className="h-10 w-24 rounded-full" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
