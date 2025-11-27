@@ -523,6 +523,9 @@ export function ApplicationTimeline({
           const isCurrent = status === "current"
           const isUpcoming = status === "upcoming"
 
+          //get actula application stage 
+          const actualStage = application.currentStage
+
 
           // Show accordion for current or completed stage, or if data exists
           let showAccordion = false;

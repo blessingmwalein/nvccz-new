@@ -118,13 +118,33 @@ export function TimelineStageActions({
     )
   }
 
-  // Only show actions for the current stage
-  if (application.currentStage !== stageId) {
+  // Only show actions for the current stage group
+  const isCurrentStageGroup = () => {
+    // Handle grouped stage IDs
+    switch (stageId) {
+      case "APPLICATION_SUBMISSION":
+        return application.currentStage === "SHORTLISTED"
+      case "DUE_DILIGENCE_GROUP":
+        return ["UNDER_DUE_DILIGENCE", "DUE_DILIGENCE_COMPLETED"].includes(application.currentStage)
+      case "TERM_SHEET_GROUP":
+        return ["TERM_SHEET_NEGOTIATION", "TERM_SHEET", "TERM_SHEET_SIGNED"].includes(application.currentStage)
+      case "BOARD_GROUP":
+        return ["UNDER_BOARD_REVIEW", "BOARD_APPROVED", "BOARD_CONDITIONAL", "BOARD_REJECTED"].includes(application.currentStage)
+      case "INVESTMENT_GROUP":
+        return ["INVESTMENT_IMPLEMENTATION", "DISBURSED", "FUNDED"].includes(application.currentStage)
+      case "REJECTION_PATH":
+        return ["REJECTED", "BELOW_THRESHOLD"].includes(application.currentStage)
+      default:
+        return application.currentStage === stageId
+    }
+  }
+
+  if (!isCurrentStageGroup()) {
     return null
   }
 
   switch (stageId) {
-    case "SHORTLISTED":
+    case "APPLICATION_SUBMISSION":
       return (
         <div className="flex gap-2">
           {canInitiateDueDiligence && (
@@ -142,7 +162,7 @@ export function TimelineStageActions({
         </div>
       )
 
-    case "UNDER_DUE_DILIGENCE":
+    case "DUE_DILIGENCE_GROUP":
       // Show loading state while fetching due diligence data
       if (dueDiligenceLoading || activityApprovalLoading) {
         return (
@@ -259,7 +279,7 @@ export function TimelineStageActions({
         </div>
       )
 
-    case "UNDER_BOARD_REVIEW":
+    case "BOARD_GROUP":
       if (dueDiligenceLoading) { // Using dueDiligenceLoading as a proxy for boardReviewLoading
         return (
           <div className="flex justify-center">
@@ -337,7 +357,7 @@ export function TimelineStageActions({
         </div>
       )
 
-    case "TERM_SHEET":
+    case "TERM_SHEET_GROUP":
       return (
         <div className="flex gap-2">
           {canCreateTermSheet && (
@@ -377,7 +397,7 @@ export function TimelineStageActions({
         </div>
       )
 
-    case "INVESTMENT_IMPLEMENTATION":
+    case "INVESTMENT_GROUP":
       const hasDisbursements = application.disbursements && application.disbursements.length > 0
 
       return (
