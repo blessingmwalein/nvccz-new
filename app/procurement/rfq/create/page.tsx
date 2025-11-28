@@ -7,14 +7,16 @@
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/lib/store'
 import {
   fetchRequisitions,
   selectAllRequisitions,
   fetchVendors,
   selectAllVendors,
-  createRFQ,
+  createRfq,
 } from '@/lib/store/slices/procurementV2Slice'
+
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,7 +44,7 @@ import {
 } from 'lucide-react'
 import { UserAvatarWithName } from '@/components/procurement/user-avatar'
 import { CopyBadge } from '@/components/procurement/copy-helper'
-import type { CreateRFQDto } from '@/lib/api/types/procurement.types'
+// import type { CreateRFQDto } from '@/lib/api/types/procurement.types'
 
 export default function CreateRFQPage() {
   const router = useRouter()
@@ -89,7 +91,7 @@ export default function CreateRFQPage() {
 
     setIsSubmitting(true)
     try {
-      const dto: CreateRFQDto = {
+      const dto: any = {
         requisitionId: selectedRequisitionId,
         title,
         description,
@@ -98,7 +100,7 @@ export default function CreateRFQPage() {
         requirements,
       }
 
-      await dispatch(createRFQ(dto)).unwrap()
+      await dispatch(createRfq(dto)).unwrap()
       router.push('/procurement/rfq')
     } catch (error) {
       console.error('Failed to create RFQ:', error)

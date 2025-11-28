@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useEffect } from 'react'
-// import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
+// import { useAppDispatch, useAppSelector } from '@/lib/store'
 import { fetchDashboard } from '@/lib/store/slices/procurementV2Slice'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

@@ -278,7 +278,7 @@ Consider adding:
 ### Page Pattern
 ```typescript
 'use client'
-import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/lib/store'
 import { fetchEntity, selectAllEntities } from '@/lib/store/slices/procurementV2Slice'
 
 export default function EntityPage() {

@@ -6,7 +6,7 @@
 'use client'
 
 import React, { useEffect } from 'react'
-// import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
+// import { useAppDispatch, useAppSelector } from '@/lib/store'
 import { fetchDashboard } from '@/lib/store/slices/procurementV2Slice'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'

@@ -6,7 +6,7 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
+// import { useAppDispatch, useAppSelector } from '@/lib/store'
 import {
   fetchQuotationsByRFQ,
   acceptQuotation,
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/table'
 import { CheckCircle2, XCircle, DollarSign, TrendingUp, TrendingDown } from 'lucide-react'
 import type { VendorQuotation } from '@/lib/api/types/procurement.types'
+import { useAppDispatch, useAppSelector } from '@/lib/store'
 
 interface QuotationComparisonModalProps {
   rfqId: string

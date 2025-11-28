@@ -559,6 +559,29 @@ const procurementV2Slice = createSlice({
 // EXPORTS
 // ============================================================================
 
+// Selectors
+import { createSelector } from '@reduxjs/toolkit'
+import type { RootState } from '../store'
+
+export const selectProcurementState = (state: RootState) => state.procurementV2
+export const selectAllRequisitions = createSelector(selectProcurementState, (state) => state.requisitions)
+export const selectAllVendors = createSelector(selectProcurementState, (state) => state.vendors)
+export const selectAllRFQs = createSelector(selectProcurementState, (state) => state.rfqs)
+export const selectAllQuotations = createSelector(selectProcurementState, (state) => state.quotations)
+export const selectQuotationsState = createSelector(selectProcurementState, (state) => ({
+  quotations: state.quotations,
+  quotationsCount: state.quotationsCount,
+  quotationsLoading: state.quotationsLoading,
+  error: state.error,
+}))
+export const selectRFQsState = createSelector(selectProcurementState, (state) => ({
+  rfqs: state.rfqs,
+  rfqsCount: state.rfqsCount,
+  rfqsLoading: state.rfqsLoading,
+  error: state.error,
+}))
+
+
 export const {
   clearError,
   clearSuccessMessage,
