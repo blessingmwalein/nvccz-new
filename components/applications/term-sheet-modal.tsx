@@ -27,7 +27,12 @@ export function TermSheetModal({ isOpen, onClose, applicationId, onSuccess }: Te
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState<TermSheetCreateRequest>({
     title: '',
-    investmentAmount: 0
+    investmentAmount: 0,
+    equityPercentage: 0,
+    valuation: 0,
+    keyTerms: '',
+    conditions: '',
+    timeline: ''
   })
 
   const [existingData, setExistingData] = useState<any>(null)
@@ -48,7 +53,12 @@ export function TermSheetModal({ isOpen, onClose, applicationId, onSuccess }: Te
         setHasExistingData(true)
         setFormData({
           title: response.data.title,
-          investmentAmount: parseFloat(response.data.investmentAmount) || 0
+          investmentAmount: parseFloat(response.data.investmentAmount) || 0,
+          equityPercentage: parseFloat(response.data.equityPercentage) || 0,
+          valuation: parseFloat(response.data.valuation) || 0,
+          keyTerms: response.data.keyTerms || '',
+          conditions: response.data.conditions || '',
+          timeline: response.data.timeline || ''
         })
       }
     } catch (error: any) {
@@ -57,7 +67,12 @@ export function TermSheetModal({ isOpen, onClose, applicationId, onSuccess }: Te
         setExistingData(null)
         setFormData({
           title: '',
-          investmentAmount: 0
+          investmentAmount: 0,
+          equityPercentage: 0,
+          valuation: 0,
+          keyTerms: '',
+          conditions: '',
+          timeline: ''
         })
       } else {
         console.error('Error loading existing data:', error)
@@ -187,6 +202,64 @@ export function TermSheetModal({ isOpen, onClose, applicationId, onSuccess }: Te
                     required
                   />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="equityPercentage">Equity Percentage (%)</Label>
+                    <Input
+                      id="equityPercentage"
+                      type="number"
+                      step="0.1"
+                      value={formData.equityPercentage}
+                      onChange={(e) => setFormData(prev => ({ ...prev, equityPercentage: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0.0"
+                      className="rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="valuation">Valuation ($)</Label>
+                    <Input
+                      id="valuation"
+                      type="number"
+                      value={formData.valuation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, valuation: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0"
+                      className="rounded-lg"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="keyTerms">Key Terms</Label>
+                  <Textarea
+                    id="keyTerms"
+                    value={formData.keyTerms}
+                    onChange={(e) => setFormData(prev => ({ ...prev, keyTerms: e.target.value }))}
+                    placeholder="Enter key terms..."
+                    className="rounded-lg min-h-[100px]"
+                    rows={4}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="conditions">Conditions</Label>
+                  <Textarea
+                    id="conditions"
+                    value={formData.conditions}
+                    onChange={(e) => setFormData(prev => ({ ...prev, conditions: e.target.value }))}
+                    placeholder="Enter conditions..."
+                    className="rounded-lg min-h-[100px]"
+                    rows={4}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="timeline">Timeline</Label>
+                  <Textarea
+                    id="timeline"
+                    value={formData.timeline}
+                    onChange={(e) => setFormData(prev => ({ ...prev, timeline: e.target.value }))}
+                    placeholder="Enter timeline..."
+                    className="rounded-lg"
+                    rows={3}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -294,45 +367,7 @@ export function TermSheetModal({ isOpen, onClose, applicationId, onSuccess }: Te
           </div>
 
           {/* Additional Info Display (Read-only from existing data) */}
-          {hasExistingData && (
-            <div className="space-y-4">
-              <h3 className="text-base font-normal text-gray-900">Additional Information</h3>
-              <Card>
-                <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {existingData.equityPercentage && (
-                    <div>
-                      <Label className="text-sm text-gray-500">Equity Percentage</Label>
-                      <p className="text-base font-medium">{existingData.equityPercentage}%</p>
-                    </div>
-                  )}
-                  {existingData.valuation && (
-                    <div>
-                      <Label className="text-sm text-gray-500">Valuation</Label>
-                      <p className="text-base font-medium">${parseFloat(existingData.valuation).toLocaleString()}</p>
-                    </div>
-                  )}
-                  {existingData.keyTerms && (
-                    <div className="col-span-2">
-                      <Label className="text-sm text-gray-500">Key Terms</Label>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{existingData.keyTerms}</p>
-                    </div>
-                  )}
-                  {existingData.conditions && (
-                    <div className="col-span-2">
-                      <Label className="text-sm text-gray-500">Conditions</Label>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{existingData.conditions}</p>
-                    </div>
-                  )}
-                  {existingData.timeline && (
-                    <div className="col-span-2">
-                      <Label className="text-sm text-gray-500">Timeline</Label>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{existingData.timeline}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+       
         </form>
 
         <div className="flex justify-end gap-3 pt-6 border-t">

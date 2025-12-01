@@ -12,6 +12,7 @@ import { CompleteDueDiligenceConfirmationDialog } from "./complete-due-diligence
 import { BoardReviewConfirmationDialog } from "./board-review-confirmation-dialog"
 import { CompleteBoardReviewConfirmationDialog } from "./complete-board-review-confirmation-dialog"
 import { TermSheetConfirmationDialog } from "./term-sheet-confirmation-dialog"
+import { SignTermSheetModal } from "./SignTermSheetModal"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -37,8 +38,10 @@ import {
   fetchFundDisbursementByApplication,
   fetchVoteSummaryByApplication,
   getActivityForApproval,
-  fetchLatestApplicationById
+  fetchLatestApplicationById,
+  investorSignTermSheet
 } from '@/lib/store/slices/applicationSlice'
+import { fundDisbursementApi } from '@/lib/api/fund-disbursement-api'
 import { FundDisbursementForm } from "./fund-disbursement-form"
 import { FundDisbursementConfirmationDialog } from "./fund-disbursement-confirmation-dialog"
 import { ApplicationDataSection } from "./timeline/application-data-section"
@@ -65,6 +68,8 @@ import { Label } from "@/components/ui/label"
 import { DueDiligenceTaskModal } from "./due-diligence-task-modal"
 import { ActivityApprovalModal } from "./activity-approval-modal"
 import { BoardVoteModal } from "./board-voting-modal"
+import { MilestoneModal } from "./milestone-modal"
+import { ChecklistModal } from "./checklist-modal"
 import { TimelineSkeleton } from "@/components/ui/skeleton-loader"
 // import { BoardVoteModal } from "./board-vote-modal"
 
@@ -79,6 +84,7 @@ interface ApplicationTimelineProps {
   onCreateTermSheet?: () => void
   onUpdateTermSheet?: () => void
   onFinalizeTermSheet?: () => void
+  onInvestorSignTermSheet?: () => void
   onInitiateFundDisbursement?: () => void
   onCreateFundDisbursement?: () => void
   refreshTrigger?: number
@@ -157,6 +163,7 @@ export function ApplicationTimeline({
   onCreateTermSheet,
   onUpdateTermSheet,
   onFinalizeTermSheet,
+  onInvestorSignTermSheet,
   onInitiateFundDisbursement,
   onCreateFundDisbursement,
   refreshTrigger,
@@ -211,6 +218,8 @@ export function ApplicationTimeline({
   const [createFundDisbursementModalOpen, setCreateFundDisbursementModalOpen] = useState(false);
   const [termSheetConfirmationOpen, setTermSheetConfirmationOpen] = useState(false);
   const [finalizeTermSheetConfirmationOpen, setFinalizeTermSheetConfirmationOpen] = useState(false);
+  const [investorSignModalOpen, setInvestorSignModalOpen] = useState(false);
+  const [signingAsInvestor, setSigningAsInvestor] = useState(false);
 
   // Refresh logic for selected application
   const [localRefreshTrigger, setLocalRefreshTrigger] = useState(0);
@@ -234,6 +243,7 @@ export function ApplicationTimeline({
   const handleCreateTermSheet = async () => { setTermSheetModalOpen(true); };
   const handleUpdateTermSheet = async () => { setTermSheetModalOpen(true); };
   const handleFinalizeTermSheet = async () => { setFinalizeTermSheetConfirmationOpen(true); };
+  const handleInvestorSignTermSheet = async () => { setInvestorSignModalOpen(true); };
   // Fetch required data once when drawer opens
   useEffect(() => {
     dispatch(fetchLatestApplicationById(application.id))
@@ -247,6 +257,57 @@ export function ApplicationTimeline({
   const handleInitiateFundDisbursement = async () => { setInitiateFundDisbursementModalOpen(true); };
   const handleUpdateFundDisbursement = async () => { setInitiateFundDisbursementModalOpen(true); };
   const handleCreateFundDisbursement = async () => { setCreateFundDisbursementModalOpen(true); };
+  
+  // Approve disbursement handler
+  const handleApproveDisbursement = async (disbursementId: string) => {
+    try {
+      await fundDisbursementApi.approveDisbursement(disbursementId);
+      toast.success('Disbursement approved successfully');
+      
+      // Refresh data
+      await refreshSelectedApplication();
+      await dispatch(fetchFundDisbursementByApplication(application.id));
+      if ((window as any).__refetchImplementationData) {
+        await (window as any).__refetchImplementationData();
+      }
+      
+      // Close the approving dialog
+      setApprovingDisbursementId(null);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to approve disbursement';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  // Disburse fund handler
+  const handleDisburseFund = async () => {
+    if (!disbursingFundId || !transactionReference.trim()) {
+      toast.error('Transaction reference is required');
+      return;
+    }
+
+    try {
+      await fundDisbursementApi.disburseFund(disbursingFundId, transactionReference);
+      toast.success('Disbursement marked as completed successfully');
+      
+      // Refresh data
+      await refreshSelectedApplication();
+      await dispatch(fetchFundDisbursementByApplication(application.id));
+      if ((window as any).__refetchImplementationData) {
+        await (window as any).__refetchImplementationData();
+      }
+      
+      // Close the disbursing dialog and reset form
+      setDisbursingFundId(null);
+      setTransactionReference('');
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to mark disbursement as completed';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
   // Fund disbursement state
   const [approvingDisbursementId, setApprovingDisbursementId] = useState<string | null>(null);
   const [disbursingFundId, setDisbursingFundId] = useState<string | null>(null);
@@ -258,7 +319,8 @@ export function ApplicationTimeline({
   // Data selectors for board review, term sheet, due diligence, fund disbursement
   const boardReviewData = (latestApplication as any)?.boardReview || null;
   const boardReviewLoading = useAppSelector((s) => s.application.boardReviewLoadingByApp?.[application.id] || false);
-  const termSheetData = termSheetByApp[application.id] || (latestApplication as any)?.termSheet || null;
+  // Prioritize latestApplication.termSheet as it has signature data, fallback to termSheetByApp
+  const termSheetData = (latestApplication as any)?.termSheet || termSheetByApp[application.id] || null;
   const termSheetLoading = useAppSelector((s) => s.application.termSheetLoadingByApp?.[application.id] || false);
   const dueDiligenceLoading = useAppSelector((s) => s.application.dueDiligenceLoadingByApp?.[application.id] || false);
   const fundDisbursementData = useAppSelector((s) => s.application.fundDisbursementByApp[application.id] || null);
@@ -282,6 +344,8 @@ export function ApplicationTimeline({
   const [showFundDisbursementForm, setShowFundDisbursementForm] = useState(false);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [pendingDisbursement, setPendingDisbursement] = useState<any>(null);
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
 
   const handleCreateTask = () => {
     setShowTaskModal(true)
@@ -307,6 +371,26 @@ export function ApplicationTimeline({
     setShowVoteModal(false)
     await refreshSelectedApplication();
     dispatch(fetchVoteSummaryByApplication(application.id));
+  }
+
+  const handleMilestoneSuccess = async () => {
+    setShowMilestoneModal(false)
+    await refreshSelectedApplication();
+    await dispatch(fetchFundDisbursementByApplication(application.id));
+    // Trigger implementation data refresh
+    if ((window as any).__refetchImplementationData) {
+      await (window as any).__refetchImplementationData();
+    }
+  }
+
+  const handleChecklistSuccess = async () => {
+    setShowChecklistModal(false)
+    await refreshSelectedApplication();
+    await dispatch(fetchFundDisbursementByApplication(application.id));
+    // Trigger implementation data refresh
+    if ((window as any).__refetchImplementationData) {
+      await (window as any).__refetchImplementationData();
+    }
   }
 
   if (latestApplicationLoading) {
@@ -374,6 +458,11 @@ export function ApplicationTimeline({
           onSuccess={async () => {
             setInitiateFundDisbursementModalOpen(false);
             await refreshSelectedApplication();
+            await dispatch(fetchFundDisbursementByApplication(application.id));
+            // Trigger implementation data refresh if available
+            if ((window as any).__refetchImplementationData) {
+              await (window as any).__refetchImplementationData();
+            }
           }}
         />
       )}
@@ -387,6 +476,11 @@ export function ApplicationTimeline({
           onSuccess={async () => {
             setCreateFundDisbursementModalOpen(false);
             await refreshSelectedApplication();
+            await dispatch(fetchFundDisbursementByApplication(application.id));
+            // Trigger implementation data refresh if available
+            if ((window as any).__refetchImplementationData) {
+              await (window as any).__refetchImplementationData();
+            }
           }}
         />
       )}
@@ -456,6 +550,27 @@ export function ApplicationTimeline({
           await refreshSelectedApplication();
         }}
       />
+
+      {/* Investor Sign Term Sheet Modal */}
+      <SignTermSheetModal
+        open={investorSignModalOpen}
+        onOpenChange={setInvestorSignModalOpen}
+        loading={signingAsInvestor}
+        onSubmit={async (signature) => {
+          setSigningAsInvestor(true)
+          try {
+            await dispatch(investorSignTermSheet({ applicationId: application.id, signature })).unwrap()
+            toast.success('Term sheet signed successfully as investor')
+            setInvestorSignModalOpen(false)
+            await refreshSelectedApplication()
+          } catch (err: any) {
+            const errorMessage = err?.message || err?.data?.message || (typeof err === 'string' ? err : 'Failed to sign term sheet')
+            toast.error(errorMessage)
+          }
+          setSigningAsInvestor(false)
+        }}
+      />
+
       {/* Timeline Steps */}
       <div className="relative">
         {/* Modals and Dialogs */}
@@ -517,6 +632,21 @@ export function ApplicationTimeline({
           onClose={() => setShowVoteModal(false)}
           applicationId={application.id}
           onSuccess={handleVoteSuccess}
+        />
+
+        <MilestoneModal
+          open={showMilestoneModal}
+          onOpenChange={setShowMilestoneModal}
+          implementationId={application.investmentImplementation?.portfolioCompanyId || ''}
+          onSuccess={handleMilestoneSuccess}
+        />
+
+        <ChecklistModal
+          open={showChecklistModal}
+          onOpenChange={setShowChecklistModal}
+          implementationId={application.investmentImplementation?.portfolioCompanyId || ''}
+          currentChecklist={(latestApplication as any)?.investmentImplementation?.checklist}
+          onSuccess={handleChecklistSuccess}
         />
 
         {stages.map((stage, index) => {
@@ -702,6 +832,8 @@ export function ApplicationTimeline({
                                 currentStage={latestApplication?.currentStage || application.currentStage}
                                 onRefresh={() => dispatch(fetchTermSheetByApplication(application.id))}
                                 onCreate={onCreateTermSheet}
+                                onInvestorSign={handleInvestorSignTermSheet}
+                                applicationData={latestApplication || application}
                               />
                             </AccordionContent>
                           </AccordionItem>
@@ -731,9 +863,11 @@ export function ApplicationTimeline({
                                 onSetApprovingId={setApprovingDisbursementId}
                                 onSetDisbursingId={setDisbursingFundId}
                                 onSetTransactionReference={setTransactionReference}
-                                onApproveDisbursement={handleCreateFundDisbursement}
-                                onDisburseFund={handleCreateFundDisbursement}
+                                onApproveDisbursement={handleApproveDisbursement}
+                                onDisburseFund={handleDisburseFund}
                                 onRefresh={async () => { await dispatch(fetchFundDisbursementByApplication(application.id)); }}
+                                onCreateMilestone={() => setShowMilestoneModal(true)}
+                                onUpdateChecklist={() => setShowChecklistModal(true)}
                               />
                             </AccordionContent>
                           </AccordionItem>
@@ -764,9 +898,16 @@ export function ApplicationTimeline({
                           onCreateTermSheet={handleCreateTermSheet}
                           onUpdateTermSheet={handleUpdateTermSheet}
                           onFinalizeTermSheet={handleFinalizeTermSheet}
+                          onSignAsInvestor={() => setInvestorSignModalOpen(true)}
                           onInitiateFundDisbursement={handleInitiateFundDisbursement}
                           onCreateFundDisbursement={handleCreateFundDisbursement}
+                          onUpdateChecklist={() => setShowChecklistModal(true)}
                           onRefresh={async () => { }}
+                          onRefreshImplementationData={async () => {
+                            if ((window as any).__refetchImplementationData) {
+                              await (window as any).__refetchImplementationData();
+                            }
+                          }}
                         />
                       </div>
                     </div>

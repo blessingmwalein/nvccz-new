@@ -1,11 +1,13 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Users, Edit, Play, CheckCircle, DollarSign, UserPlus, Loader2, ThumbsUp, Vote } from "lucide-react"
+import { FileText, Users, Edit, Play, CheckCircle, DollarSign, UserPlus, Loader2, ThumbsUp, Vote, PenLine, CheckSquare } from "lucide-react"
 import type { ExtendedApplication } from '@/lib/api/applications-api'
 import { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
 import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { APPLICATION_PORTAL_ACTIONS } from "@/lib/config/role-permissions"
+import { useState, useEffect } from "react"
+import { investmentImplementationApi, type InvestmentImplementationData } from "@/lib/api/investment-implementation-api"
 
 interface TimelineStageActionsProps {
   stageId: string
@@ -30,9 +32,12 @@ interface TimelineStageActionsProps {
   onCreateTermSheet?: () => Promise<void>
   onUpdateTermSheet?: () => Promise<void>
   onFinalizeTermSheet?: () => Promise<void>
+  onSignAsInvestor?: () => void
   onInitiateFundDisbursement?: () => Promise<void>
   onCreateFundDisbursement?: () => void
+  onUpdateChecklist?: () => void
   onRefresh: () => Promise<void>
+  onRefreshImplementationData?: () => Promise<void>
 }
 
 export function TimelineStageActions({
@@ -58,12 +63,60 @@ export function TimelineStageActions({
   onCreateTermSheet,
   onUpdateTermSheet,
   onFinalizeTermSheet,
+  onSignAsInvestor,
   onInitiateFundDisbursement,
   onCreateFundDisbursement,
-  onRefresh
+  onUpdateChecklist,
+  onRefresh,
+  onRefreshImplementationData
 }: TimelineStageActionsProps) {
   // Permission checks for application-portal specific actions
   const { hasSpecificAction } = useRolePermissions()
+  
+  const [implementationData, setImplementationData] = useState<InvestmentImplementationData | null>(null)
+  const [loadingImplementation, setLoadingImplementation] = useState(false)
+
+  // Fetch implementation data when investment implementation exists
+  useEffect(() => {
+    const fetchImplementationData = async () => {
+      if (!application.investmentImplementation?.portfolioCompanyId) return
+      
+      setLoadingImplementation(true)
+      try {
+        const response = await investmentImplementationApi.getById(application.investmentImplementation.portfolioCompanyId)
+        setImplementationData(response.data)
+      } catch (err) {
+        console.error('Error fetching implementation data:', err)
+      } finally {
+        setLoadingImplementation(false)
+      }
+    }
+
+    fetchImplementationData()
+  }, [application.investmentImplementation?.portfolioCompanyId])
+
+  // Expose refetch function for parent component
+  useEffect(() => {
+    if (onRefreshImplementationData && application.investmentImplementation?.portfolioCompanyId) {
+      // Store the refetch function reference
+      const refetch = async () => {
+        if (!application.investmentImplementation?.portfolioCompanyId) return
+        
+        setLoadingImplementation(true)
+        try {
+          const response = await investmentImplementationApi.getById(application.investmentImplementation.portfolioCompanyId)
+          setImplementationData(response.data)
+        } catch (err) {
+          console.error('Error fetching implementation data:', err)
+        } finally {
+          setLoadingImplementation(false)
+        }
+      }
+      
+      // Immediately assign it (this pattern allows parent to call it)
+      (window as any).__refetchImplementationData = refetch
+    }
+  }, [application.investmentImplementation?.portfolioCompanyId, onRefreshImplementationData])
 
   const canInitiateDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_DUE_DILIGENCE)
   const canCreateDDTask = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DD_TASK)
@@ -83,6 +136,7 @@ export function TimelineStageActions({
   const canInitiateFundDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_FUND_DISBURSEMENT)
   const canCreateDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DISBURSEMENT)
   const canApproveDisbursement = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.APPROVE_DISBURSEMENT)
+  const canUpdateChecklist = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_CHECKLIST)
 
   // Special handling for BOARD_APPROVED - show TERM_SHEET actions
   if (application.currentStage === "BOARD_APPROVED" && stageId === "TERM_SHEET") {
@@ -305,7 +359,7 @@ export function TimelineStageActions({
       return (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {canVote && (
+            {!isVotingComplete && canVote && (
               <Button
                 onClick={onVote}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
@@ -340,6 +394,15 @@ export function TimelineStageActions({
           {voteSummary?.boardStatus === 'IN_PROGRESS' && !isVotingComplete && !canVote && (
             <div className="flex justify-center">
               <p className="text-sm text-gray-500 italic py-2">Voting in progress... You have already voted.</p>
+            </div>
+          )}
+          
+          {isVotingComplete && !canCompleteBoardReview && (
+            <div className="flex justify-center">
+              <p className="text-sm text-green-600 italic py-2 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Voting completed. Awaiting board review completion.
+              </p>
             </div>
           )}
         </div>
@@ -379,9 +442,12 @@ export function TimelineStageActions({
 
       // If term sheet data exists, show Update and Finalize buttons
       if (termSheetData) {
+        const bothPartiesSigned = termSheetData.applicantSignedAt && termSheetData.investorSignedAt;
+        const canInvestorSign = termSheetData.applicantSignedAt && !termSheetData.investorSignedAt;
+
         return (
           <div className="flex gap-2">
-            {canUpdateTermSheet && (
+            {canUpdateTermSheet && !bothPartiesSigned && (
               <Button
                 onClick={onUpdateTermSheet}
                 variant="outline"
@@ -391,7 +457,16 @@ export function TimelineStageActions({
                 Update Term Sheet
               </Button>
             )}
-            {canFinalizeTermSheet && (termSheetData.status === 'FINAL' || termSheetData.status === 'DRAFT' ) && (
+            {canInvestorSign && onSignAsInvestor && (
+              <Button
+                onClick={onSignAsInvestor}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+              >
+                <PenLine className="w-4 h-4 mr-2" />
+                Sign as Investor
+              </Button>
+            )}
+            {canFinalizeTermSheet && bothPartiesSigned && termSheetData.status !== 'SIGNED' && (
               <Button
                 onClick={onFinalizeTermSheet}
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full"
@@ -400,12 +475,20 @@ export function TimelineStageActions({
                 Finalize Term Sheet
               </Button>
             )}
-            {!canUpdateTermSheet && !canFinalizeTermSheet && (
+            {!bothPartiesSigned && termSheetData.status === 'FINAL' && !canInvestorSign && (
+              <p className="text-sm text-amber-600 italic py-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                Waiting for both parties to sign before finalization
+              </p>
+            )}
+            {!canUpdateTermSheet && !canFinalizeTermSheet && !canInvestorSign && (
               <p className="text-sm text-gray-500 italic py-2">You don't have permission to manage term sheets</p>
             )}
           </div>
         );
       }
+
+      return null;
     // return (
     //   <div className="flex gap-2">
 
@@ -438,10 +521,26 @@ export function TimelineStageActions({
 
     case "INVESTMENT_GROUP":
       const hasDisbursements = application.disbursements && application.disbursements.length > 0
+      const investmentImpl = application.investmentImplementation
+      const disbursementMode = implementationData?.disbursementMode
+      const hasMilestones = implementationData?.milestones && implementationData.milestones.length > 0
+
+      // Show loading state while fetching implementation data
+      if (loadingImplementation && investmentImpl) {
+        return (
+          <div className="flex justify-center py-4">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Loading investment details...</span>
+            </div>
+          </div>
+        )
+      }
 
       return (
         <div className="space-y-4">
-          {!application.investmentImplementation ? (
+          {!implementationData ? (
+            // No investment implementation - show Initiate button
             <div className="flex gap-2">
               {canInitiateFundDisbursement ? (
                 <Button
@@ -455,7 +554,44 @@ export function TimelineStageActions({
                 <p className="text-sm text-gray-500 italic py-2">You don't have permission to initiate fund disbursement</p>
               )}
             </div>
-          ) : !hasDisbursements ? (
+          ) : disbursementMode === 'MILESTONE_BASED' && hasMilestones ? (
+            // MILESTONE_BASED mode with milestones - show checklist and create disbursement buttons
+            <div className="flex flex-wrap gap-2">
+              {canUpdateChecklist && onUpdateChecklist && (
+                <Button
+                  onClick={onUpdateChecklist}
+                  variant="outline"
+                  className="border-green-500 text-green-600 hover:bg-green-50 rounded-full"
+                >
+                  <CheckSquare className="w-4 h-4 mr-2" />
+                  Update Checklist
+                </Button>
+              )}
+              {canCreateDisbursement && onCreateFundDisbursement && (
+                <Button
+                  onClick={async () => {
+                    await onCreateFundDisbursement()
+                    await onRefresh()
+                  }}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Create Disbursement
+                </Button>
+              )}
+              {!canUpdateChecklist && !canCreateDisbursement && (
+                <p className="text-sm text-gray-500 italic py-2">Milestones created. Manage disbursements below.</p>
+              )}
+            </div>
+          ) : disbursementMode === 'MILESTONE_BASED' && !hasMilestones ? (
+            // MILESTONE_BASED mode without milestones - prompt to create milestones
+            <div className="flex gap-2">
+              <p className="text-sm text-amber-600 italic py-2">
+                Please create milestones below before creating disbursements.
+              </p>
+            </div>
+          ) : disbursementMode === 'ONE_TIME' && !hasDisbursements ? (
+            // ONE_TIME mode - show Create Disbursement if none exist
             <div className="flex gap-2">
               {canCreateDisbursement ? (
                 <Button
@@ -474,7 +610,10 @@ export function TimelineStageActions({
                 <p className="text-sm text-gray-500 italic py-2">You don't have permission to create disbursements</p>
               )}
             </div>
-          ) : null}
+          ) : (
+            // Disbursements exist - management handled in fund-disbursement-section
+            null
+          )}
         </div>
       )
 

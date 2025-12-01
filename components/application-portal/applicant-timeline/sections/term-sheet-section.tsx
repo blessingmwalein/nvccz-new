@@ -3,8 +3,9 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Eye, User, Calendar } from "lucide-react"
+import { FileText, Eye, User, Calendar, PenLine } from "lucide-react"
 import type { ApplicationData } from "../timeline-types"
+import { SignatureView } from "@/components/application-portal/signature-view"
 
 interface TermSheetSectionProps {
   application: ApplicationData
@@ -189,6 +190,30 @@ export function TermSheetSection({ application }: TermSheetSectionProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Signatures Section */}
+      {(termSheet.applicantSignatureUrl || termSheet.investorSignatureUrl) && (
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <PenLine className="w-5 h-5" />
+            Signatures
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SignatureView
+              type="applicant"
+              signatureUrl={termSheet.applicantSignatureUrl}
+              signedAt={termSheet.applicantSignedAt}
+              signerName={application.applicantName}
+            />
+            <SignatureView
+              type="investor"
+              signatureUrl={termSheet.investorSignatureUrl}
+              signedAt={termSheet.investorSignedAt}
+              signerName={termSheet.createdBy ? `${termSheet.createdBy.firstName} ${termSheet.createdBy.lastName}` : 'Investor'}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

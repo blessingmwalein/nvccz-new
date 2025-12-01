@@ -226,6 +226,20 @@ export const fetchTermSheetByApplication = createAsyncThunk(
   }
 )
 
+// Async thunk for investor signing term sheet
+export const investorSignTermSheet = createAsyncThunk(
+  'application/investorSignTermSheet',
+  async ({ applicationId, signature }: { applicationId: string; signature: Blob | File }, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/term-sheet-api')
+      const response = await module.termSheetApi.investorSign(applicationId, signature)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to sign term sheet' })
+    }
+  }
+)
+
 // Async thunk for fetching fund disbursement by application id
 export const fetchFundDisbursementByApplication = createAsyncThunk(
   'application/fetchFundDisbursementByApplication',
@@ -488,6 +502,22 @@ const applicationSlice = createSlice({
         state.termSheetByApp[applicationId] = data
       })
       .addCase(fetchTermSheetByApplication.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.termSheetLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(investorSignTermSheet.pending, (state, action) => {
+        const appId = action.meta.arg.applicationId
+        state.termSheetLoadingByApp[appId] = true
+      })
+      .addCase(investorSignTermSheet.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.termSheetLoadingByApp[applicationId] = false
+        state.termSheetByApp[applicationId] = data
+      })
+      .addCase(investorSignTermSheet.rejected, (state, action) => {
         const maybe = action.payload as any
         if (maybe && maybe.applicationId) {
           state.termSheetLoadingByApp[maybe.applicationId] = false

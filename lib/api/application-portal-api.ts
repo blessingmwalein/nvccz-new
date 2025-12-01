@@ -380,6 +380,14 @@ export interface TermSheet {
   isFinal: boolean
   isSigned: boolean
   signedAt: string | null
+  applicantSignatureUrl?: string | null
+  applicantSignatureFileName?: string | null
+  applicantSignedById?: string | null
+  applicantSignedAt?: string | null
+  investorSignatureUrl?: string | null
+  investorSignatureFileName?: string | null
+  investorSignedById?: string | null
+  investorSignedAt?: string | null
   createdAt: string
   updatedAt: string
   createdBy?: {

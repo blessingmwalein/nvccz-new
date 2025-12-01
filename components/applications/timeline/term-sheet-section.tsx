@@ -3,9 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileText, DollarSign, Eye } from "lucide-react"
+import { FileText, DollarSign, Eye, PenLine } from "lucide-react"
 import { TermSheetSkeleton } from "@/components/ui/skeleton-loader"
 import type { TermSheetData } from "@/lib/api/term-sheet-api"
+import { SignatureView } from "@/components/application-portal/signature-view"
 
 interface TermSheetSectionProps {
   data: TermSheetData | null
@@ -14,6 +15,8 @@ interface TermSheetSectionProps {
   currentStage: string
   onRefresh: () => void
   onCreate?: () => void
+  onInvestorSign?: () => void
+  applicationData?: any
 }
 
 export function TermSheetSection({
@@ -22,8 +25,15 @@ export function TermSheetSection({
   error,
   currentStage,
   onRefresh,
-  onCreate
+  onCreate,
+  onInvestorSign,
+  applicationData
 }: TermSheetSectionProps) {
+  
+  // Debug logging
+  console.log('TermSheetSection - data:', data);
+  console.log('TermSheetSection - applicationData:', applicationData);
+  
   if (loading) {
     return <TermSheetSkeleton />
   }
@@ -203,6 +213,43 @@ export function TermSheetSection({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Signatures Section */}
+      {(data.isFinal || data.applicantSignatureUrl || data.investorSignatureUrl) && (
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <PenLine className="w-5 h-5" />
+            Signatures
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SignatureView
+              type="applicant"
+              signatureUrl={data.applicantSignatureUrl}
+              signedAt={data.applicantSignedAt}
+              signerName={applicationData?.applicantName || data.application?.applicantName}
+            />
+            <SignatureView
+              type="investor"
+              signatureUrl={data.investorSignatureUrl}
+              signedAt={data.investorSignedAt}
+              signerName={data.createdBy ? `${data.createdBy.firstName} ${data.createdBy.lastName}` : 'Investor'}
+            />
+          </div>
+          
+          {/* Investor Sign Button */}
+          {/* {data.applicantSignedAt && !data.investorSignedAt && onInvestorSign && (
+            <div className="flex justify-center pt-4">
+              <Button
+                onClick={onInvestorSign}
+                className="rounded-full px-8 h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <PenLine className="w-4 h-4 mr-2" />
+                Sign as Investor
+              </Button>
+            </div>
+          )} */}
+        </div>
       )}
     </div>
   )

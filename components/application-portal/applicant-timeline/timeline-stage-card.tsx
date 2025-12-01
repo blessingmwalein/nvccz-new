@@ -143,7 +143,7 @@ export function TimelineStageCard({
               <AccordionContent>
                 <TermSheetSection application={application} />
 
-                {!application?.termSheet?.isSigned && application?.termSheet?.isFinal && (
+                {!application?.termSheet?.applicantSignedAt && application?.termSheet?.isFinal && (
                   <Button
                     onClick={() => handleSignTermSheetClick(application.termSheet)}
 
@@ -155,7 +155,7 @@ export function TimelineStageCard({
                 )}
                 
 
-                {application?.termSheet?.isSigned && (
+                {application?.termSheet?.applicantSignedAt && (
                   <div className="flex items-center gap-2 px-6 h-10 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800">
                     <CheckCircle className="w-5 h-5" />
                     <span className="font-medium">Signed</span>

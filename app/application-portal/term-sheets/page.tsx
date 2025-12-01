@@ -256,7 +256,7 @@ export default function TermSheetsPage() {
                           )}
                         </PDFComponents.PDFDownloadLink>
                       )}
-                      {!termSheet.isSigned && termSheet.isFinal && (
+                      {!termSheet.applicantSignedAt && termSheet.isFinal && (
                         <Button
                           onClick={() => handleSignTermSheetClick(termSheet)}
                           disabled={signingTermSheet === termSheet.id}
@@ -266,7 +266,7 @@ export default function TermSheetsPage() {
                           {signingTermSheet === termSheet.id ? "Signing..." : "Sign Term Sheet"}
                         </Button>
                       )}
-                      {termSheet.isSigned && (
+                      {termSheet.applicantSignedAt && (
                         <div className="flex items-center gap-2 px-6 h-10 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800">
                           <CheckCircle className="w-5 h-5" />
                           <span className="font-medium">Signed</span>
@@ -307,7 +307,7 @@ export default function TermSheetsPage() {
                       {downloadingPdf === selectedTermSheet.id ? "Downloading..." : "Download Signed PDF"}
                     </Button>
                   )}
-                  {!selectedTermSheet.isSigned && selectedTermSheet.isFinal && (
+                  {!selectedTermSheet.applicantSignedAt && selectedTermSheet.isFinal && (
                     <Button
                       onClick={() => {
                         setShowDrawer(false)
@@ -320,7 +320,7 @@ export default function TermSheetsPage() {
                       {signingTermSheet === selectedTermSheet.id ? "Signing..." : "Sign Term Sheet"}
                     </Button>
                   )}
-                  {selectedTermSheet.isSigned && (
+                  {selectedTermSheet.applicantSignedAt && (
                     <Button
                       disabled
                       className="rounded-full h-10 bg-gradient-to-r from-green-100 to-green-200 text-green-800 cursor-not-allowed"
@@ -345,10 +345,16 @@ export default function TermSheetsPage() {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Status:</span>
                 <Badge className={getStatusColor(selectedTermSheet.status)}>{selectedTermSheet.status}</Badge>
-                {selectedTermSheet.isSigned && (
+                {selectedTermSheet.applicantSignedAt && (
                   <Badge className="bg-green-100 text-green-800 ml-2">
                     <CheckCircle className="w-3 h-3 mr-1" />
-                    Signed
+                    Applicant Signed
+                  </Badge>
+                )}
+                {selectedTermSheet.investorSignedAt && (
+                  <Badge className="bg-blue-100 text-blue-800 ml-2">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Investor Signed
                   </Badge>
                 )}
               </div>

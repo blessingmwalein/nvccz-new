@@ -17,6 +17,8 @@ export type ExtendedApplication = Application & {
   investmentImplementation: {
     id: string;
     portfolioCompanyId: string;
+    disbursementMode?: 'MILESTONE_BASED' | 'ONE_TIME';
+    totalCommittedAmount?: number;
   } | null;
   disbursements: any[];
 };

@@ -36,7 +36,9 @@ export function FundDisbursementModal({
     applicationId: applicationId,
     fundId: '',
     implementationPlan: '',
-    notes: ''
+    notes: '',
+    disbursementMode: 'MILESTONE_BASED',
+    totalCommittedAmount: 0
   })
 
   const [existingData, setExistingData] = useState<any>(null)
@@ -81,7 +83,9 @@ export function FundDisbursementModal({
           applicationId: response.data.applicationId,
           fundId: response.data.fundId,
           implementationPlan: response.data.implementationPlan,
-          notes: response.data.notes || ''
+          notes: response.data.notes || '',
+          disbursementMode: response.data.disbursementMode || 'MILESTONE_BASED',
+          totalCommittedAmount: response.data.totalCommittedAmount || 0
         })
       }
     } catch (error: any) {
@@ -95,7 +99,9 @@ export function FundDisbursementModal({
           applicationId: applicationId,
           fundId: '',
           implementationPlan: 'Phase 1: Final due diligence and contract signing\nPhase 2: Initial fund disbursement\nPhase 3: Milestone-based disbursements',
-          notes: ''
+          notes: '',
+          disbursementMode: 'MILESTONE_BASED',
+          totalCommittedAmount: 0
         })
       } else {
         console.error('Error loading existing data:', error)
@@ -111,6 +117,11 @@ export function FundDisbursementModal({
 
     if (!formData.implementationPlan.trim()) {
       toast.error('Please provide an implementation plan')
+      return
+    }
+
+    if (!formData.totalCommittedAmount || formData.totalCommittedAmount <= 0) {
+      toast.error('Please provide a valid committed amount')
       return
     }
 
@@ -213,6 +224,58 @@ export function FundDisbursementModal({
                           </div>
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Disbursement Details */}
+          <div className="space-y-4">
+            <h3 className="text-base font-normal text-gray-900">Disbursement Details</h3>
+            <Card className="border-l-4 border-l-blue-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-normal flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-blue-500" />
+                  Disbursement Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="totalCommittedAmount">Total Committed Amount ($) *</Label>
+                  <Input
+                    id="totalCommittedAmount"
+                    type="number"
+                    value={formData.totalCommittedAmount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, totalCommittedAmount: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="rounded-lg"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="disbursementMode">Disbursement Mode *</Label>
+                  <Select 
+                    value={formData.disbursementMode} 
+                    onValueChange={(value: any) => setFormData(prev => ({ ...prev, disbursementMode: value }))}
+                  >
+                    <SelectTrigger className="rounded-lg">
+                      <SelectValue placeholder="Select disbursement mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MILESTONE_BASED">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Milestone Based</span>
+                          <span className="text-sm text-gray-500">Funds released upon milestone completion</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ONE_TIME">
+                        <div className="flex flex-col">
+                          <span className="font-medium">One Time</span>
+                          <span className="text-sm text-gray-500">Full amount disbursed at once</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
