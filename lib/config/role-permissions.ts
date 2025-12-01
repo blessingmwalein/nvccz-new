@@ -515,7 +515,7 @@ export const ROLE_PERMISSIONS_MAP: Record<RoleCode, RolePermissions> = {
     department: 'Operations',
     modules: [
       { moduleId: 'homepage', access: 'full' },
-      { moduleId: 'performance-management', access: 'read' },
+      { moduleId: 'performance-management', access: 'full' },
     ]
   },
 
@@ -1148,6 +1148,7 @@ export const ROLE_PERMISSIONS_MAP: Record<RoleCode, RolePermissions> = {
     modules: [
       { moduleId: 'homepage', access: 'full' },
       { moduleId: 'portfolio-management', access: 'write' },
+      { moduleId: 'performance-management', access: 'full' },
       { 
         moduleId: 'application-portal', 
         access: 'write',
