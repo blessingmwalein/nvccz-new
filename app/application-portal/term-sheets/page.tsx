@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CiFileOn, CiCircleCheck, CiDollar } from "react-icons/ci"
-import { FileText, Eye, CheckCircle, X, User, Building2, Calendar, TrendingUp, Download, PenLine } from "lucide-react"
+import { FileText, Eye, CheckCircle, X, User, Building2, Calendar, TrendingUp, PenLine } from "lucide-react"
 import { toast } from "sonner"
 import { TermSheetsSkeleton } from "@/components/term-sheets/term-sheets-skeleton"
 import { SignTermSheetModal } from "@/components/applications/SignTermSheetModal"
@@ -24,34 +24,30 @@ interface TermSheet {
   id: string
   applicationId: string
   title: string
-  version: string
+  version?: string
   status: string
-  investmentAmount: string
-  equityPercentage: string
-  valuation: string
-  keyTerms: string
-  conditions: string
-  timeline: string
-  documentUrl: string
-  documentFileName: string
-  documentSize: number
+  investmentAmount: number
+  equityPercentage: number
+  valuation: number
+  keyTerms?: string
+  conditions?: string
+  timeline?: string
+  documentUrl?: string
+  documentFileName?: string
+  documentSize?: number
   isDraft: boolean
   isFinal: boolean
   isSigned: boolean
   signedAt: string | null
   createdAt: string
   updatedAt: string
-  applicantSignatureUrl?: string | null
-  applicantSignedAt?: string | null
-  investorSignatureUrl?: string | null
-  investorSignedAt?: string | null
   application: {
     id: string
     businessName: string
     applicantName: string
     applicantEmail: string
     currentStage: string
-    requestedAmount: string
+    requestedAmount?: string
   }
   createdBy: {
     id: string
@@ -59,6 +55,28 @@ interface TermSheet {
     lastName: string
     email: string
   }
+  applicantSignature?: {
+    signatureUrl: string
+    signatureFileName: string
+    signedAt: string
+    signedBy: {
+      id: string
+      firstName: string
+      lastName: string
+      email: string
+    }
+  } | null
+  investorSignature?: {
+    signatureUrl: string
+    signatureFileName: string
+    signedAt: string
+    signedBy: {
+      id: string
+      firstName: string
+      lastName: string
+      email: string
+    }
+  } | null
 }
 
 export default function TermSheetsPage() {
@@ -71,7 +89,6 @@ export default function TermSheetsPage() {
   const [termSheetToSign, setTermSheetToSign] = useState<TermSheet | null>(null)
   const [signError, setSignError] = useState<string | null>(null)
   const [signing, setSigning] = useState(false)
-  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null)
   const [PDFComponents, setPDFComponents] = useState<any>(null)
 
   useEffect(() => {
@@ -174,7 +191,7 @@ export default function TermSheetsPage() {
                       </div>
                       <div>
                         <CardTitle className="text-lg">{termSheet.title}</CardTitle>
-                        <p className="text-sm text-muted-foreground">Version {termSheet.version}</p>
+                        <p className="text-sm text-muted-foreground">Version {termSheet.version || '1.0'}</p>
                       </div>
                     </div>
                     <Badge className={getStatusColor(termSheet.status)}>{termSheet.status}</Badge>
@@ -240,7 +257,7 @@ export default function TermSheetsPage() {
                         View Details
                       </Button>
                       
-                      {termSheet?.applicantSignatureUrl !== null && (
+                      {termSheet?.applicantSignature?.signatureUrl && PDFComponents && (
 
                         <PDFComponents.PDFDownloadLink
                           document={<PDFComponents.TermSheetPDF data={termSheet} />}
@@ -256,7 +273,7 @@ export default function TermSheetsPage() {
                           )}
                         </PDFComponents.PDFDownloadLink>
                       )}
-                      {!termSheet.applicantSignedAt && termSheet.isFinal && (
+                      {!termSheet.applicantSignature && termSheet.isFinal && (
                         <Button
                           onClick={() => handleSignTermSheetClick(termSheet)}
                           disabled={signingTermSheet === termSheet.id}
@@ -266,7 +283,7 @@ export default function TermSheetsPage() {
                           {signingTermSheet === termSheet.id ? "Signing..." : "Sign Term Sheet"}
                         </Button>
                       )}
-                      {termSheet.applicantSignedAt && (
+                      {termSheet.applicantSignature && (
                         <div className="flex items-center gap-2 px-6 h-10 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800">
                           <CheckCircle className="w-5 h-5" />
                           <span className="font-medium">Signed</span>
@@ -293,21 +310,10 @@ export default function TermSheetsPage() {
               <div className="flex items-center justify-between border-b pb-4">
                 <div>
                   <h2 className="text-2xl font-bold">{selectedTermSheet.title}</h2>
-                  <p className="text-sm text-muted-foreground">Version {selectedTermSheet.version}</p>
+                  <p className="text-sm text-muted-foreground">Version {selectedTermSheet.version || '1.0'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {selectedTermSheet.isSigned && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleDownloadSignedPdf(selectedTermSheet)}
-                      disabled={downloadingPdf === selectedTermSheet.id}
-                      className="rounded-full h-10 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border-purple-200"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      {downloadingPdf === selectedTermSheet.id ? "Downloading..." : "Download Signed PDF"}
-                    </Button>
-                  )}
-                  {!selectedTermSheet.applicantSignedAt && selectedTermSheet.isFinal && (
+                  {!selectedTermSheet.applicantSignature && selectedTermSheet.isFinal && (
                     <Button
                       onClick={() => {
                         setShowDrawer(false)
@@ -320,7 +326,7 @@ export default function TermSheetsPage() {
                       {signingTermSheet === selectedTermSheet.id ? "Signing..." : "Sign Term Sheet"}
                     </Button>
                   )}
-                  {selectedTermSheet.applicantSignedAt && (
+                  {selectedTermSheet.applicantSignature && (
                     <Button
                       disabled
                       className="rounded-full h-10 bg-gradient-to-r from-green-100 to-green-200 text-green-800 cursor-not-allowed"
@@ -345,13 +351,13 @@ export default function TermSheetsPage() {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Status:</span>
                 <Badge className={getStatusColor(selectedTermSheet.status)}>{selectedTermSheet.status}</Badge>
-                {selectedTermSheet.applicantSignedAt && (
+                {selectedTermSheet.applicantSignature && (
                   <Badge className="bg-green-100 text-green-800 ml-2">
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Applicant Signed
                   </Badge>
                 )}
-                {selectedTermSheet.investorSignedAt && (
+                {selectedTermSheet.investorSignature && (
                   <Badge className="bg-blue-100 text-blue-800 ml-2">
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Investor Signed
@@ -460,9 +466,11 @@ export default function TermSheetsPage() {
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium">{selectedTermSheet.documentFileName}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(selectedTermSheet.documentSize / 1024 / 1024).toFixed(2)} MB
-                        </p>
+                        {selectedTermSheet.documentSize && (
+                          <p className="text-sm text-muted-foreground">
+                            {(selectedTermSheet.documentSize / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        )}
                       </div>
                       <Button
                         variant="outline"
@@ -530,7 +538,7 @@ export default function TermSheetsPage() {
               </Card>
 
               {/* Signatures Section */}
-              {(selectedTermSheet.applicantSignatureUrl || selectedTermSheet.investorSignatureUrl) && (
+              {(selectedTermSheet.applicantSignature || selectedTermSheet.investorSignature) && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
                     <PenLine className="w-5 h-5" />
@@ -539,15 +547,23 @@ export default function TermSheetsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <SignatureView
                       type="applicant"
-                      signatureUrl={selectedTermSheet.applicantSignatureUrl}
-                      signedAt={selectedTermSheet.applicantSignedAt}
-                      signerName={selectedTermSheet.application.applicantName}
+                      signatureUrl={selectedTermSheet.applicantSignature?.signatureUrl}
+                      signedAt={selectedTermSheet.applicantSignature?.signedAt}
+                      signerName={
+                        selectedTermSheet.applicantSignature?.signedBy
+                          ? `${selectedTermSheet.applicantSignature.signedBy.firstName} ${selectedTermSheet.applicantSignature.signedBy.lastName}`
+                          : selectedTermSheet.application.applicantName
+                      }
                     />
                     <SignatureView
                       type="investor"
-                      signatureUrl={selectedTermSheet.investorSignatureUrl}
-                      signedAt={selectedTermSheet.investorSignedAt}
-                      signerName={selectedTermSheet.createdBy.firstName + " " + selectedTermSheet.createdBy.lastName}
+                      signatureUrl={selectedTermSheet.investorSignature?.signatureUrl}
+                      signedAt={selectedTermSheet.investorSignature?.signedAt}
+                      signerName={
+                        selectedTermSheet.investorSignature?.signedBy
+                          ? `${selectedTermSheet.investorSignature.signedBy.firstName} ${selectedTermSheet.investorSignature.signedBy.lastName}`
+                          : `${selectedTermSheet.createdBy.firstName} ${selectedTermSheet.createdBy.lastName}`
+                      }
                     />
                   </div>
                 </div>

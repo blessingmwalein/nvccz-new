@@ -160,32 +160,51 @@ interface TermSheetPDFProps {
   data: {
     id: string
     title: string
-    version: string
+    version?: string
     status: string
-    investmentAmount: string
-    equityPercentage: string
-    valuation: string
-    keyTerms: string
-    conditions: string
-    timeline: string
+    investmentAmount: number | string
+    equityPercentage: number | string
+    valuation: number | string
+    keyTerms?: string
+    conditions?: string
+    timeline?: string
     isSigned: boolean
     signedAt: string | null
     createdAt: string
-    applicantSignatureUrl?: string | null
-    applicantSignedAt?: string | null
-    investorSignatureUrl?: string | null
-    investorSignedAt?: string | null
     application: {
       businessName: string
       applicantName: string
       applicantEmail: string
-      requestedAmount: string
+      requestedAmount?: string
+      currentStage?: string
     }
     createdBy: {
       firstName: string
       lastName: string
       email: string
     }
+    applicantSignature?: {
+      signatureUrl: string
+      signatureFileName: string
+      signedAt: string
+      signedBy: {
+        id: string
+        firstName: string
+        lastName: string
+        email: string
+      }
+    } | null
+    investorSignature?: {
+      signatureUrl: string
+      signatureFileName: string
+      signedAt: string
+      signedBy: {
+        id: string
+        firstName: string
+        lastName: string
+        email: string
+      }
+    } | null
   }
 }
 
@@ -217,7 +236,7 @@ export default function TermSheetPDF({ data }: TermSheetPDFProps) {
         <View style={styles.header}>
           <Text style={styles.title}>{data.title || "Term Sheet"}</Text>
           <Text style={styles.subtitle}>
-            Version {data.version} • {data.application.businessName}
+            Version {data.version || '1.0'} • {data.application.businessName}
           </Text>
         </View>
 
@@ -232,7 +251,7 @@ export default function TermSheetPDF({ data }: TermSheetPDFProps) {
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Investment Amount</Text>
-            <Text style={styles.statValue}>{data.investmentAmount}</Text>
+            <Text style={styles.statValue}>${typeof data.investmentAmount === 'number' ? data.investmentAmount.toLocaleString() : data.investmentAmount}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Equity Stake</Text>
@@ -240,7 +259,7 @@ export default function TermSheetPDF({ data }: TermSheetPDFProps) {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Valuation</Text>
-            <Text style={styles.statValue}>{data.valuation}</Text>
+            <Text style={styles.statValue}>${typeof data.valuation === 'number' ? data.valuation.toLocaleString() : data.valuation}</Text>
           </View>
         </View>
 
@@ -259,10 +278,12 @@ export default function TermSheetPDF({ data }: TermSheetPDFProps) {
             <Text style={styles.label}>Email</Text>
             <Text style={styles.value}>{data.application.applicantEmail}</Text>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Requested Amount</Text>
-            <Text style={styles.value}>{data.application.requestedAmount}</Text>
-          </View>
+          {data.application.requestedAmount && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Requested Amount</Text>
+              <Text style={styles.value}>{data.application.requestedAmount}</Text>
+            </View>
+          )}
         </View>
 
         {/* Key Terms */}
@@ -296,10 +317,13 @@ export default function TermSheetPDF({ data }: TermSheetPDFProps) {
             {/* Applicant Signature */}
             <View style={styles.signatureBlock}>
               <Text style={styles.signatureTitle}>Applicant Signature</Text>
-              {data.applicantSignatureUrl ? (
+              {data.applicantSignature?.signatureUrl ? (
                 <>
-                  <Image src={data.applicantSignatureUrl || "/placeholder.svg"} style={styles.signatureImage} />
-                  <Text style={styles.signatureDate}>Signed: {formatDateTime(data.applicantSignedAt)}</Text>
+                  <Image src={data.applicantSignature.signatureUrl || "/placeholder.svg"} style={styles.signatureImage} />
+                  <Text style={styles.signatureDate}>
+                    Signed by: {data.applicantSignature.signedBy.firstName} {data.applicantSignature.signedBy.lastName}
+                  </Text>
+                  <Text style={styles.signatureDate}>Date: {formatDateTime(data.applicantSignature.signedAt)}</Text>
                 </>
               ) : (
                 <>
@@ -314,10 +338,13 @@ export default function TermSheetPDF({ data }: TermSheetPDFProps) {
             {/* Investor Signature */}
             <View style={styles.signatureBlock}>
               <Text style={styles.signatureTitle}>Investor Signature</Text>
-              {data.investorSignatureUrl ? (
+              {data.investorSignature?.signatureUrl ? (
                 <>
-                  <Image src={data.investorSignatureUrl || "/placeholder.svg"} style={styles.signatureImage} />
-                  <Text style={styles.signatureDate}>Signed: {formatDateTime(data.investorSignedAt)}</Text>
+                  <Image src={data.investorSignature.signatureUrl || "/placeholder.svg"} style={styles.signatureImage} />
+                  <Text style={styles.signatureDate}>
+                    Signed by: {data.investorSignature.signedBy.firstName} {data.investorSignature.signedBy.lastName}
+                  </Text>
+                  <Text style={styles.signatureDate}>Date: {formatDateTime(data.investorSignature.signedAt)}</Text>
                 </>
               ) : (
                 <>
