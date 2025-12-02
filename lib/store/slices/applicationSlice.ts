@@ -58,10 +58,11 @@ export interface ApplicationFormData {
   belowThresholdApplications: Application[]
   belowThresholdLoading: boolean
   latestApplication?: Application
-
   latestApplicationLoading?: boolean
-
-// Async thunk for fetching latest application by ID
+  investmentImplementationByApp: Record<string, any>
+  investmentImplementationLoadingByApp: Record<string, boolean>
+  disbursementSummaryByApp: Record<string, any>
+  disbursementSummaryLoadingByApp: Record<string, boolean>
 }
 
 export const fetchLatestApplicationById = createAsyncThunk(
@@ -112,7 +113,11 @@ const initialState: ApplicationFormData = {
   voteSummaryByApp: {},
   voteSummaryLoadingByApp: {},
   belowThresholdApplications: [],
-  belowThresholdLoading: false
+  belowThresholdLoading: false,
+  investmentImplementationByApp: {},
+  investmentImplementationLoadingByApp: {},
+  disbursementSummaryByApp: {},
+  disbursementSummaryLoadingByApp: {}
 }
 
 // Async thunk for submitting application
@@ -263,6 +268,34 @@ export const fetchVoteSummaryByApplication = createAsyncThunk(
       return { applicationId, data: response.data }
     } catch (error: any) {
       return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch vote summary' })
+    }
+  }
+)
+
+// Async thunk for fetching investment implementation by portfolio company id
+export const fetchInvestmentImplementationByApp = createAsyncThunk(
+  'application/fetchInvestmentImplementationByApp',
+  async ({ applicationId, portfolioCompanyId }: { applicationId: string; portfolioCompanyId: string }, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/investment-implementation-api')
+      const response = await module.investmentImplementationApi.getById(portfolioCompanyId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch investment implementation' })
+    }
+  }
+)
+
+// Async thunk for fetching disbursement summary by implementation id
+export const fetchDisbursementSummaryByApp = createAsyncThunk(
+  'application/fetchDisbursementSummaryByApp',
+  async ({ applicationId, implementationId }: { applicationId: string; implementationId: string }, { rejectWithValue }) => {
+    try {
+      const module = await import('@/lib/api/investment-implementation-api')
+      const response = await module.investmentImplementationApi.getDisbursementSummary(implementationId)
+      return { applicationId, data: response.data }
+    } catch (error: any) {
+      return rejectWithValue({ applicationId, message: error.message || 'Failed to fetch disbursement summary' })
     }
   }
 )
@@ -553,6 +586,38 @@ const applicationSlice = createSlice({
         const maybe = action.payload as any
         if (maybe && maybe.applicationId) {
           state.voteSummaryLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchInvestmentImplementationByApp.pending, (state, action) => {
+        const appId = action.meta.arg.applicationId
+        state.investmentImplementationLoadingByApp[appId] = true
+      })
+      .addCase(fetchInvestmentImplementationByApp.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.investmentImplementationLoadingByApp[applicationId] = false
+        state.investmentImplementationByApp[applicationId] = data
+      })
+      .addCase(fetchInvestmentImplementationByApp.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.investmentImplementationLoadingByApp[maybe.applicationId] = false
+        }
+      })
+
+      .addCase(fetchDisbursementSummaryByApp.pending, (state, action) => {
+        const appId = action.meta.arg.applicationId
+        state.disbursementSummaryLoadingByApp[appId] = true
+      })
+      .addCase(fetchDisbursementSummaryByApp.fulfilled, (state, action) => {
+        const { applicationId, data } = action.payload as any
+        state.disbursementSummaryLoadingByApp[applicationId] = false
+        state.disbursementSummaryByApp[applicationId] = data
+      })
+      .addCase(fetchDisbursementSummaryByApp.rejected, (state, action) => {
+        const maybe = action.payload as any
+        if (maybe && maybe.applicationId) {
+          state.disbursementSummaryLoadingByApp[maybe.applicationId] = false
         }
       })
 

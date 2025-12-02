@@ -22,6 +22,7 @@ import * as yup from "yup"
 // import Step3 from "../components/Step3"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { Download, FileText } from "lucide-react"
 import Step1 from "@/app/portfolio/applications/components/Step1"
 import Step2 from "@/app/portfolio/applications/components/Step2"
 import Step3 from "@/app/portfolio/applications/components/Step3"
@@ -168,6 +169,32 @@ export default function ApplicationFormPage() {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Investment Application</h1>
               <p className="text-gray-600">Complete your application in 3 simple steps</p>
             </div>
+            
+            {/* NDA Download Section */}
+            <div className="mt-6 flex justify-center">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 max-w-2xl w-full">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-1">Required Document</h3>
+                    <p className="text-sm text-gray-700 mb-3">
+                      Please download and review our Non-Disclosure & Confidentiality Agreement before proceeding with your application.
+                    </p>
+                    <a 
+                      href="/NVCCZ_ONLINE_NON_DISCLOSURE_CONFIDENTIALITY_AGREEMENT.docx" 
+                      download="NVCCZ_NDA_Agreement.docx"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-700 rounded-full text-sm font-medium transition-colors shadow-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download NDA Agreement
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="mt-4 flex items-center justify-center gap-4">
               <a href="/" className="text-sm text-gray-600 hover:text-gray-800 underline-offset-4 hover:underline">Cancel application</a>
               <span className="text-gray-300">|</span>

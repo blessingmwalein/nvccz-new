@@ -39,7 +39,9 @@ import {
   fetchVoteSummaryByApplication,
   getActivityForApproval,
   fetchLatestApplicationById,
-  investorSignTermSheet
+  investorSignTermSheet,
+  fetchInvestmentImplementationByApp,
+  fetchDisbursementSummaryByApp
 } from '@/lib/store/slices/applicationSlice'
 import { fundDisbursementApi } from '@/lib/api/fund-disbursement-api'
 import { FundDisbursementForm } from "./fund-disbursement-form"
@@ -230,6 +232,19 @@ export function ApplicationTimeline({
     dispatch(fetchTermSheetByApplication(application.id));
     dispatch(fetchFundDisbursementByApplication(application.id));
     dispatch(fetchVoteSummaryByApplication(application.id));
+
+    // Fetch investment implementation data if available
+    if (application?.investmentImplementation?.portfolioCompanyId) {
+      dispatch(fetchInvestmentImplementationByApp({
+        applicationId: application.id,
+        portfolioCompanyId: application?.investmentImplementation?.portfolioCompanyId
+      }));
+      dispatch(fetchDisbursementSummaryByApp({
+        applicationId: application.id,
+        implementationId: application?.investmentImplementation?.id
+      }));
+    }
+
     setLocalRefreshTrigger(prev => prev + 1);
   };
 
@@ -252,25 +267,33 @@ export function ApplicationTimeline({
     dispatch(fetchTermSheetByApplication(application.id))
     dispatch(fetchFundDisbursementByApplication(application.id))
     dispatch(fetchVoteSummaryByApplication(application.id))
-  }, [dispatch, application.id])
+
+    // Fetch investment implementation data if available
+    if (application.investmentImplementation?.portfolioCompanyId && application.investmentImplementation?.id) {
+      dispatch(fetchInvestmentImplementationByApp({
+        applicationId: application.id,
+        portfolioCompanyId: application.investmentImplementation.portfolioCompanyId
+      }))
+      dispatch(fetchDisbursementSummaryByApp({
+        applicationId: application.id,
+        implementationId: application.investmentImplementation.id
+      }))
+    }
+  }, [dispatch, application.id, application.investmentImplementation?.portfolioCompanyId, application.investmentImplementation?.id])
 
   const handleInitiateFundDisbursement = async () => { setInitiateFundDisbursementModalOpen(true); };
   const handleUpdateFundDisbursement = async () => { setInitiateFundDisbursementModalOpen(true); };
   const handleCreateFundDisbursement = async () => { setCreateFundDisbursementModalOpen(true); };
-  
+
   // Approve disbursement handler
   const handleApproveDisbursement = async (disbursementId: string) => {
     try {
       await fundDisbursementApi.approveDisbursement(disbursementId);
       toast.success('Disbursement approved successfully');
-      
+
       // Refresh data
       await refreshSelectedApplication();
-      await dispatch(fetchFundDisbursementByApplication(application.id));
-      if ((window as any).__refetchImplementationData) {
-        await (window as any).__refetchImplementationData();
-      }
-      
+
       // Close the approving dialog
       setApprovingDisbursementId(null);
     } catch (error: any) {
@@ -290,14 +313,10 @@ export function ApplicationTimeline({
     try {
       await fundDisbursementApi.disburseFund(disbursingFundId, transactionReference);
       toast.success('Disbursement marked as completed successfully');
-      
+
       // Refresh data
       await refreshSelectedApplication();
-      await dispatch(fetchFundDisbursementByApplication(application.id));
-      if ((window as any).__refetchImplementationData) {
-        await (window as any).__refetchImplementationData();
-      }
-      
+
       // Close the disbursing dialog and reset form
       setDisbursingFundId(null);
       setTransactionReference('');
@@ -326,6 +345,10 @@ export function ApplicationTimeline({
   const fundDisbursementData = useAppSelector((s) => s.application.fundDisbursementByApp[application.id] || null);
   const fundDisbursementLoading = useAppSelector((s) => s.application.fundDisbursementLoadingByApp?.[application.id] || false);
   const voteSummaryLoading = useAppSelector((s) => s.application.voteSummaryLoadingByApp?.[application.id] || false);
+  const implementationData = useAppSelector((s) => s.application.investmentImplementationByApp[application.id] || null);
+  const implementationLoading = useAppSelector((s) => s.application.investmentImplementationLoadingByApp?.[application.id] || false);
+  const disbursementSummaryData = useAppSelector((s) => s.application.disbursementSummaryByApp[application.id] || null);
+  const disbursementSummaryLoading = useAppSelector((s) => s.application.disbursementSummaryLoadingByApp?.[application.id] || false);
 
   // Activity approval data
   const [activityApprovalData, setActivityApprovalData] = useState<any>(null);
@@ -376,21 +399,11 @@ export function ApplicationTimeline({
   const handleMilestoneSuccess = async () => {
     setShowMilestoneModal(false)
     await refreshSelectedApplication();
-    await dispatch(fetchFundDisbursementByApplication(application.id));
-    // Trigger implementation data refresh
-    if ((window as any).__refetchImplementationData) {
-      await (window as any).__refetchImplementationData();
-    }
   }
 
   const handleChecklistSuccess = async () => {
     setShowChecklistModal(false)
     await refreshSelectedApplication();
-    await dispatch(fetchFundDisbursementByApplication(application.id));
-    // Trigger implementation data refresh
-    if ((window as any).__refetchImplementationData) {
-      await (window as any).__refetchImplementationData();
-    }
   }
 
   if (latestApplicationLoading) {
@@ -458,11 +471,6 @@ export function ApplicationTimeline({
           onSuccess={async () => {
             setInitiateFundDisbursementModalOpen(false);
             await refreshSelectedApplication();
-            await dispatch(fetchFundDisbursementByApplication(application.id));
-            // Trigger implementation data refresh if available
-            if ((window as any).__refetchImplementationData) {
-              await (window as any).__refetchImplementationData();
-            }
           }}
         />
       )}
@@ -476,11 +484,6 @@ export function ApplicationTimeline({
           onSuccess={async () => {
             setCreateFundDisbursementModalOpen(false);
             await refreshSelectedApplication();
-            await dispatch(fetchFundDisbursementByApplication(application.id));
-            // Trigger implementation data refresh if available
-            if ((window as any).__refetchImplementationData) {
-              await (window as any).__refetchImplementationData();
-            }
           }}
         />
       )}
@@ -855,8 +858,10 @@ export function ApplicationTimeline({
                               <FundDisbursementSection
                                 application={application}
                                 data={fundDisbursementData}
-                                loading={fundDisbursementLoading}
+                                loading={fundDisbursementLoading || implementationLoading || disbursementSummaryLoading}
                                 error={fundDisbursementData?.error}
+                                implementationData={implementationData}
+                                disbursementSummaryData={disbursementSummaryData}
                                 approvingDisbursementId={approvingDisbursementId}
                                 disbursingFundId={disbursingFundId}
                                 transactionReference={transactionReference}
@@ -865,7 +870,7 @@ export function ApplicationTimeline({
                                 onSetTransactionReference={setTransactionReference}
                                 onApproveDisbursement={handleApproveDisbursement}
                                 onDisburseFund={handleDisburseFund}
-                                onRefresh={async () => { await dispatch(fetchFundDisbursementByApplication(application.id)); }}
+                                onRefresh={async () => { await refreshSelectedApplication(); }}
                                 onCreateMilestone={() => setShowMilestoneModal(true)}
                                 onUpdateChecklist={() => setShowChecklistModal(true)}
                               />
@@ -886,6 +891,8 @@ export function ApplicationTimeline({
                           activityApprovalLoading={activityApprovalLoading}
                           boardReviewData={boardReviewData}
                           voteSummary={voteSummary}
+                          implementationData={implementationData}
+                          implementationLoading={implementationLoading}
                           onInitiateDueDiligence={handleInitiateDueDiligence}
                           onUpdateDueDiligence={handleUpdateDueDiligence}
                           onCompleteDueDiligence={handleCompleteDueDiligence}
@@ -902,12 +909,7 @@ export function ApplicationTimeline({
                           onInitiateFundDisbursement={handleInitiateFundDisbursement}
                           onCreateFundDisbursement={handleCreateFundDisbursement}
                           onUpdateChecklist={() => setShowChecklistModal(true)}
-                          onRefresh={async () => { }}
-                          onRefreshImplementationData={async () => {
-                            if ((window as any).__refetchImplementationData) {
-                              await (window as any).__refetchImplementationData();
-                            }
-                          }}
+                          onRefresh={async () => { await refreshSelectedApplication(); }}
                         />
                       </div>
                     </div>

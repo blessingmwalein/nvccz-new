@@ -8,15 +8,8 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppDispatch, useAppSelector } from '@/lib/store'
-import {
-  fetchRequisitions,
-  selectAllRequisitions,
-  fetchVendors,
-  selectAllVendors,
-  createRfq,
-} from '@/lib/store/slices/procurementV2Slice'
-
-
+import { fetchRequisitions } from '@/lib/store/slices/procurementV2Slice'
+import { accountingApi, type Vendor } from '@/lib/api/accounting-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,17 +34,20 @@ import {
   Users,
   Calendar,
   AlertCircle,
+  Search,
 } from 'lucide-react'
-import { UserAvatarWithName } from '@/components/procurement/user-avatar'
 import { CopyBadge } from '@/components/procurement/copy-helper'
-// import type { CreateRFQDto } from '@/lib/api/types/procurement.types'
+import { toast } from 'sonner'
+import { procurementApiV2, type CreateRFQRequest } from '@/lib/api/procurement-api-v2'
 
 export default function CreateRFQPage() {
   const router = useRouter()
   const dispatch = useAppDispatch()
-  const requisitions = useAppSelector(selectAllRequisitions)
-  const vendors = useAppSelector(selectAllVendors)
-
+  const { requisitions, requisitionsLoading } = useAppSelector(state => state.procurementV2)
+  
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [vendorsLoading, setVendorsLoading] = useState(false)
+  const [requisitionSearch, setRequisitionSearch] = useState('')
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -60,21 +56,50 @@ export default function CreateRFQPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [deadline, setDeadline] = useState('')
-  const [selectedVendorIds, setSelectedVendorIds] = useState<string[]>([])
+  const [selectedVendorEmails, setSelectedVendorEmails] = useState<string[]>([])
   const [requirements, setRequirements] = useState('')
 
   useEffect(() => {
-    // Fetch approved requisitions
-    dispatch(fetchRequisitions({ status: 'APPROVED', limit: 100, offset: 0 }))
-    // Fetch all vendors
-    dispatch(fetchVendors({ limit: 100, offset: 0 }))
-  }, [dispatch])
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      // Fetch approved requisitions
+      await dispatch(fetchRequisitions({ status: 'APPROVED', limit: 100, offset: 0 })).unwrap()
+      
+      // Fetch all vendors from accounting
+      setVendorsLoading(true)
+      const vendorResponse = await accountingApi.getVendors()
+      if (vendorResponse.success && vendorResponse.data) {
+        setVendors(vendorResponse.data)
+      }
+    } catch (error: any) {
+      toast.error('Error loading data', { description: error.message })
+    } finally {
+      setVendorsLoading(false)
+    }
+  }
 
   const selectedRequisition = requisitions.find((r) => r.id === selectedRequisitionId)
+  
+  // Filter requisitions based on search
+  const filteredRequisitions = requisitions.filter(req => 
+    req.requisitionNumber.toLowerCase().includes(requisitionSearch.toLowerCase()) ||
+    req.title.toLowerCase().includes(requisitionSearch.toLowerCase())
+  )
+  
+  // Auto-populate title and description when requisition is selected
+  useEffect(() => {
+    if (selectedRequisition) {
+      setTitle(`RFQ for ${selectedRequisition.title}`)
+      setDescription(selectedRequisition.description || '')
+    }
+  }, [selectedRequisition])
 
-  const toggleVendor = (vendorId: string) => {
-    setSelectedVendorIds((prev) =>
-      prev.includes(vendorId) ? prev.filter((id) => id !== vendorId) : [...prev, vendorId]
+  const toggleVendor = (vendorEmail: string) => {
+    setSelectedVendorEmails((prev) =>
+      prev.includes(vendorEmail) ? prev.filter((email) => email !== vendorEmail) : [...prev, vendorEmail]
     )
   }
 
@@ -83,33 +108,47 @@ export default function CreateRFQPage() {
   }
 
   const isStep2Valid = () => {
-    return selectedVendorIds.length >= 3
+    return selectedVendorEmails.length >= 3
   }
 
   const handleSubmit = async () => {
-    if (!isStep1Valid() || !isStep2Valid()) return
+    if (!isStep1Valid() || !isStep2Valid() || !selectedRequisition) return
 
     setIsSubmitting(true)
     try {
-      const dto: any = {
+      const rfqData: CreateRFQRequest = {
         requisitionId: selectedRequisitionId,
         title,
         description,
-        deadline,
-        vendorIds: selectedVendorIds,
-        requirements,
+        rfqDeadline: deadline,
+        specialRequirements: requirements || undefined,
+        deliveryAddress: undefined,
+        vendorIds: selectedVendorEmails, // Using vendor emails as IDs
+        items: selectedRequisition.items.map(item => ({
+          itemName: item.itemName,
+          description: item.description || '',
+          quantity: Number(item.quantity),
+          unit: item.unit,
+          specifications: item.specifications || {}
+        }))
       }
 
-      await dispatch(createRfq(dto)).unwrap()
-      router.push('/procurement/rfq')
-    } catch (error) {
-      console.error('Failed to create RFQ:', error)
+      const response = await procurementApiV2.createRFQ(rfqData)
+      
+      if (response.success && response.data) {
+        toast.success('RFQ created successfully!')
+        router.push(`/procurement/rfq/${response.data.rfqNumber}`)
+      } else {
+        toast.error('Failed to create RFQ')
+      }
+    } catch (error: any) {
+      toast.error('Error creating RFQ', { description: error.message })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const approvedRequisitions = requisitions.filter((r) => r.status === 'APPROVED')
+  const approvedRequisitions = requisitions.filter((r: any) => r.status === 'APPROVED')
 
   return (
     <div className="space-y-6 p-6 max-w-5xl mx-auto">
@@ -146,7 +185,12 @@ export default function CreateRFQPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {approvedRequisitions.length === 0 ? (
+              {requisitionsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Loading requisitions...</p>
+                </div>
+              ) : approvedRequisitions.length === 0 ? (
                 <div className="text-center py-8">
                   <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
@@ -154,22 +198,39 @@ export default function CreateRFQPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Label>
-                    Requisition <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={selectedRequisitionId} onValueChange={setSelectedRequisitionId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a requisition" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {approvedRequisitions.map((req) => (
-                        <SelectItem key={req.id} value={req.id}>
-                          {req.requisitionNumber} - {req.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search requisitions by number or title..."
+                      value={requisitionSearch}
+                      onChange={(e) => setRequisitionSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  
+                  {/* Requisition selector */}
+                  <div className="space-y-2">
+                    <Label>
+                      Requisition <span className="text-red-500">*</span>
+                    </Label>
+                    <Select value={selectedRequisitionId} onValueChange={setSelectedRequisitionId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a requisition" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredRequisitions.map((req) => (
+                          <SelectItem key={req.id} value={req.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{req.requisitionNumber}</span>
+                              <span className="text-sm text-muted-foreground">{req.title}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
 
@@ -202,7 +263,9 @@ export default function CreateRFQPage() {
 
                     <div>
                       <Label className="text-xs text-muted-foreground mb-2 block">Requested By</Label>
-                      <UserAvatarWithName user={selectedRequisition.requestedBy} size="sm" />
+                      <div className="text-sm">
+                        {selectedRequisition.requestedBy.firstName} {selectedRequisition.requestedBy.lastName}
+                      </div>
                     </div>
 
                     <Separator />
@@ -303,7 +366,12 @@ export default function CreateRFQPage() {
             </p>
           </CardHeader>
           <CardContent>
-            {vendors.length === 0 ? (
+            {vendorsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                <p className="text-sm text-muted-foreground">Loading vendors...</p>
+              </div>
+            ) : vendors.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">
@@ -316,15 +384,15 @@ export default function CreateRFQPage() {
                   <Card
                     key={vendor.id}
                     className={`cursor-pointer transition-colors ${
-                      selectedVendorIds.includes(vendor.id) ? 'border-primary border-2' : ''
+                      selectedVendorEmails.includes(vendor.email) ? 'border-primary border-2' : ''
                     }`}
-                    onClick={() => toggleVendor(vendor.id)}
+                    onClick={() => toggleVendor(vendor.email)}
                   >
                     <CardContent className="py-4">
                       <div className="flex items-start gap-3">
                         <Checkbox
-                          checked={selectedVendorIds.includes(vendor.id)}
-                          onCheckedChange={() => toggleVendor(vendor.id)}
+                          checked={selectedVendorEmails.includes(vendor.email)}
+                          onCheckedChange={() => toggleVendor(vendor.email)}
                         />
                         <div className="flex-1">
                           <h4 className="font-medium">{vendor.companyName}</h4>
@@ -344,8 +412,8 @@ export default function CreateRFQPage() {
 
             <div className="mt-4 p-3 bg-muted rounded-lg">
               <p className="text-sm">
-                <span className="font-medium">Selected:</span> {selectedVendorIds.length} vendor(s)
-                {selectedVendorIds.length < 3 && (
+                <span className="font-medium">Selected:</span> {selectedVendorEmails.length} vendor(s)
+                {selectedVendorEmails.length < 3 && (
                   <span className="text-destructive ml-2">(Minimum 3 required)</span>
                 )}
               </p>
@@ -442,13 +510,13 @@ export default function CreateRFQPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Selected Vendors ({selectedVendorIds.length})
+                Selected Vendors ({selectedVendorEmails.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {vendors
-                  .filter((v) => selectedVendorIds.includes(v.id))
+                  .filter((v) => selectedVendorEmails.includes(v.email))
                   .map((vendor) => (
                     <Card key={vendor.id}>
                       <CardContent className="py-3">

@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, DollarSign, Loader2, ChevronDown, ChevronUp, Plus, CheckSquare } from "lucide-react"
 import { FundDisbursementSkeleton } from "@/components/ui/skeleton-loader"
-import { toast } from "sonner"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -29,8 +27,7 @@ import type { FundDisbursementData } from "@/lib/api/fund-disbursement-api"
 import type { ExtendedApplication } from '@/lib/api/applications-api'
 import {
   type InvestmentImplementationData,
-  type DisbursementSummaryData,
-  investmentImplementationApi
+  type DisbursementSummaryData
 } from "@/lib/api/investment-implementation-api"
 import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { APPLICATION_PORTAL_ACTIONS } from "@/lib/config/role-permissions"
@@ -40,6 +37,8 @@ interface FundDisbursementSectionProps {
   data: FundDisbursementData | null
   loading: boolean
   error: string | null
+  implementationData: InvestmentImplementationData | null
+  disbursementSummaryData: DisbursementSummaryData | null
   approvingDisbursementId: string | null
   disbursingFundId: string | null
   transactionReference: string
@@ -58,6 +57,8 @@ export function FundDisbursementSection({
   data,
   loading,
   error,
+  implementationData,
+  disbursementSummaryData,
   approvingDisbursementId,
   disbursingFundId,
   transactionReference,
@@ -73,37 +74,10 @@ export function FundDisbursementSection({
   const [isApproving, setIsApproving] = useState(false)
   const [isDisbursing, setIsDisbursing] = useState(false)
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true)
-  const [implementationData, setImplementationData] = useState<InvestmentImplementationData | null>(null)
-  const [summaryData, setSummaryData] = useState<DisbursementSummaryData | null>(null)
-  const [loadingImplementation, setLoadingImplementation] = useState(false)
 
   const { hasSpecificAction } = useRolePermissions()
   const canCreateMilestone = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_MILESTONE)
   const canUpdateChecklist = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.UPDATE_CHECKLIST)
-
-  // Fetch full implementation data and summary when component mounts
-  useEffect(() => {
-    const fetchImplementationData = async () => {
-      if (!application.investmentImplementation?.id) return
-
-      setLoadingImplementation(true)
-      try {
-        const [implResponse, summResponse] = await Promise.all([
-          investmentImplementationApi.getById(application.investmentImplementation.portfolioCompanyId),
-          investmentImplementationApi.getDisbursementSummary(application.investmentImplementation.id)
-        ])
-        setImplementationData(implResponse.data)
-        setSummaryData(summResponse.data)
-      } catch (err) {
-        console.error('Error fetching implementation data:', err)
-        toast.error('Failed to load implementation details')
-      } finally {
-        setLoadingImplementation(false)
-      }
-    }
-
-    fetchImplementationData()
-  }, [application.investmentImplementation?.id])
 
   const handleApprove = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -133,7 +107,7 @@ export function FundDisbursementSection({
     }
   }
 
-  if (loading || loadingImplementation) {
+  if (loading) {
     return <FundDisbursementSkeleton />
   }
 
@@ -237,34 +211,34 @@ export function FundDisbursementSection({
               )}
 
               {/* Disbursement Summary */}
-              {summaryData && (
+              {disbursementSummaryData && (
                 <div className="border-t pt-4">
                   <h4 className="text-sm font-semibold text-gray-800 mb-3">Disbursement Summary</h4>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <p className="text-xs text-blue-600">Total Committed</p>
-                      <p className="text-lg font-semibold text-blue-900">${summaryData.totalCommittedAmount.toLocaleString()}</p>
+                      <p className="text-lg font-semibold text-blue-900">${disbursementSummaryData.totalCommittedAmount.toLocaleString()}</p>
                     </div>
                     <div className="bg-green-50 p-3 rounded-lg">
                       <p className="text-xs text-green-600">Total Disbursed</p>
-                      <p className="text-lg font-semibold text-green-900">${summaryData.totalDisbursedAmount.toLocaleString()}</p>
+                      <p className="text-lg font-semibold text-green-900">${disbursementSummaryData.totalDisbursedAmount.toLocaleString()}</p>
                     </div>
                     <div className="bg-amber-50 p-3 rounded-lg">
                       <p className="text-xs text-amber-600">Remaining</p>
-                      <p className="text-lg font-semibold text-amber-900">${summaryData.remainingCommittedAmount.toLocaleString()}</p>
+                      <p className="text-lg font-semibold text-amber-900">${disbursementSummaryData.remainingCommittedAmount.toLocaleString()}</p>
                     </div>
                   </div>
                   <div className="mt-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-gray-600">Progress</span>
                       <span className="text-xs text-gray-600">
-                        {Math.round((summaryData.totalDisbursedAmount / summaryData.totalCommittedAmount) * 100)}%
+                        {Math.round((disbursementSummaryData.totalDisbursedAmount / disbursementSummaryData.totalCommittedAmount) * 100)}%
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-500 h-2 rounded-full transition-all"
-                        style={{ width: `${(summaryData.totalDisbursedAmount / summaryData.totalCommittedAmount) * 100}%` }}
+                        style={{ width: `${(disbursementSummaryData.totalDisbursedAmount / disbursementSummaryData.totalCommittedAmount) * 100}%` }}
                       />
                     </div>
                   </div>

@@ -47,7 +47,7 @@ import { toast } from "sonner"
 
 interface RequisitionTimelineProps {
   requisitionId: string
-  onCreatePurchaseOrder?: (requisitionId: string) => void
+  onCreateRFQ?: (requisitionId: string) => void
 }
 
 const stages = [
@@ -95,7 +95,7 @@ const stages = [
 
 export function RequisitionTimeline({
   requisitionId,
-  onCreatePurchaseOrder
+  onCreateRFQ
 }: RequisitionTimelineProps) {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null)
   const [loading, setLoading] = useState(true)
@@ -297,11 +297,11 @@ export function RequisitionTimeline({
         return (
           <div className="flex gap-2">
             <Button
-              onClick={() => onCreatePurchaseOrder?.(requisition.id)}
+              onClick={() => onCreateRFQ?.(requisition.id)}
               className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full"
             >
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              Create Purchase Order
+              <Send className="w-4 h-4 mr-2" />
+              Create RFQ
             </Button>
           </div>
         )

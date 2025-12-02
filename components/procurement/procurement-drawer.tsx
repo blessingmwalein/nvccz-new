@@ -54,7 +54,7 @@ export function ProcurementDrawer({
             <div className="flex items-center gap-2 ml-4">
               {headerActions}
               {/* {showCloseButton && ( */}
-                <Button
+                {/* <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onOpenChange(false)}
@@ -62,13 +62,13 @@ export function ProcurementDrawer({
                 >
                   <X className="h-4 w-4" />
                   <span className="sr-only">Close</span>
-                </Button>
+                </Button> */}
               {/* )} */}
             </div>
           </div>
         </SheetHeader>
         
-        <div className="mt-6 p-6">
+        <div className="mt-6 p-2">
           {children}
         </div>
       </SheetContent>

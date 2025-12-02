@@ -1,296 +1,393 @@
 // ============================================================================
-// RFQ LIST PAGE
-// List all RFQs with filtering and pagination
+// RFQ LIST PAGE (REFACTORED)
+// Matches purchase-requisitions layout with filters, tabs, and data table
 // ============================================================================
 
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useAppDispatch, useAppSelector } from '@/lib/store'
-import { fetchRFQs, selectAllRFQs, selectRFQsState } from '@/lib/store/slices/procurementV2Slice'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Plus, Search, FileText, Calendar, Users } from 'lucide-react'
-import { UserAvatarWithName } from '@/components/procurement/user-avatar'
-import { CopyBadge } from '@/components/procurement/copy-helper'
-import { format } from 'date-fns'
-import Link from 'next/link'
+import { useEffect, useState } from "react"
+import { useAppDispatch, useAppSelector } from "@/lib/store"
+import { ProcurementDataTable, Column } from "@/components/procurement/procurement-data-table"
+import { ProcurementDrawer } from "@/components/procurement/procurement-drawer"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { fetchRfqs, selectAllRFQs, selectRFQsState } from '@/lib/store/slices/procurementV2Slice'
+import { RFQ } from "@/lib/api/procurement-api-v2"
+import { CiFileOn, CiUser, CiCalendar, CiSearch, CiFilter } from "react-icons/ci"
+import { FileText, Users, Clock, CheckCircle, XCircle, Eye, Plus, X } from "lucide-react"
+import { CreateRFQModal } from "@/components/procurement/create-rfq-modal"
+import { RFQDrawerContent } from "@/components/procurement/rfq-drawer-content"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { ProcurementLayout } from "@/components/layout/procurement-layout"
+
+type TabConfig = {
+  id: 'all' | 'sent' | 'closed'
+  label: string
+  icon: any
+  gradient: string
+}
+
+const mainTabs: TabConfig[] = [
+  { 
+    id: 'all', 
+    label: 'All RFQs', 
+    icon: FileText,
+    gradient: 'from-blue-500 to-blue-600'
+  },
+  { 
+    id: 'sent', 
+    label: 'Sent', 
+    icon: Clock,
+    gradient: 'from-green-500 to-green-600'
+  },
+  { 
+    id: 'closed', 
+    label: 'Closed', 
+    icon: CheckCircle,
+    gradient: 'from-gray-500 to-gray-600'
+  },
+]
 
 export default function RFQPage() {
   const dispatch = useAppDispatch()
   const rfqs = useAppSelector(selectAllRFQs)
-  const { loading } = useAppSelector(selectRFQsState)
+  const { rfqsLoading: loading, rfqsCount } = useAppSelector(selectRFQsState)
+  
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [viewingRFQ, setViewingRFQ] = useState<RFQ | null>(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'all' | 'sent' | 'closed'>('all')
+  
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
-  // Filters
-  const [rfqNumber, setRfqNumber] = useState('')
-  const [status, setStatus] = useState<string>('all')
-  const [limit] = useState(50)
-  const [offset, setOffset] = useState(0)
-  const [activeTab, setActiveTab] = useState<string>('all')
-
+  // Load data when tab, filters, or pagination changes
   useEffect(() => {
-    const filters: any = { limit, offset }
-    
-    if (rfqNumber) filters.rfqNumber = rfqNumber
-    if (status !== 'all') filters.status = status
-    
-    dispatch(fetchRFQs(filters))
-  }, [dispatch, rfqNumber, status, limit, offset])
+    loadRFQs()
+  }, [activeTab, searchTerm, statusFilter, currentPage, pageSize])
 
-  const filteredRFQs = activeTab === 'all' 
-    ? rfqs 
-    : rfqs.filter(r => r.status === 'OPEN' || r.status === 'PENDING_APPROVAL')
+  const loadRFQs = async () => {
+    try {
+      const filters: any = { 
+        limit: pageSize, 
+        offset: (currentPage - 1) * pageSize 
+      }
+      
+      if (searchTerm) filters.rfqNumber = searchTerm
+      if (statusFilter !== 'all') filters.status = statusFilter
 
-  return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Request for Quotations</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and track RFQs sent to vendors
-          </p>
-        </div>
-        <Link href="/procurement/rfq/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create RFQ
-          </Button>
-        </Link>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="rfqNumber">RFQ Number</Label>
-              <Input
-                id="rfqNumber"
-                placeholder="Search by RFQ number..."
-                value={rfqNumber}
-                onChange={(e) => {
-                  setRfqNumber(e.target.value)
-                  setOffset(0)
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={status} onValueChange={(v) => { setStatus(v); setOffset(0) }}>
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="OPEN">Open</SelectItem>
-                  <SelectItem value="CLOSED">Closed</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  <SelectItem value="PENDING_APPROVAL">Pending Approval</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-end">
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => {
-                  setRfqNumber('')
-                  setStatus('all')
-                  setOffset(0)
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">
-            All RFQs
-            <Badge variant="secondary" className="ml-2">{rfqs.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="active">
-            Active
-            <Badge variant="secondary" className="ml-2">
-              {rfqs.filter(r => r.status === 'OPEN' || r.status === 'PENDING_APPROVAL').length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* RFQs Table */}
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="text-sm text-muted-foreground mt-2">Loading RFQs...</p>
-              </div>
-            </div>
-          ) : filteredRFQs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-1">No RFQs found</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {activeTab === 'active' 
-                  ? 'There are no active RFQs at the moment'
-                  : 'Get started by creating your first RFQ'}
-              </p>
-              <Link href="/procurement/rfq/create">
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create RFQ
-                </Button>
-              </Link>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>RFQ Number</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Requisition</TableHead>
-                  <TableHead>Vendors</TableHead>
-                  <TableHead>Deadline</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created By</TableHead>
-                  <TableHead>Created Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRFQs.map((rfq) => (
-                  <TableRow key={rfq.id}>
-                    <TableCell>
-                      <CopyBadge text={rfq.rfqNumber} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{rfq.title}</div>
-                      {rfq.description && (
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
-                          {rfq.description}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <CopyBadge text={rfq.requisition.requisitionNumber} variant="outline" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{rfq.vendors.length} vendors</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {format(new Date(rfq.deadline), 'MMM dd, yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <RFQStatusBadge status={rfq.status} />
-                    </TableCell>
-                    <TableCell>
-                      <UserAvatarWithName user={rfq.createdBy} size="sm" />
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {format(new Date(rfq.createdAt), 'MMM dd, yyyy')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link href={`/procurement/rfq/${rfq.id}`}>
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pagination */}
-      {filteredRFQs.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {offset + 1} to {Math.min(offset + limit, offset + filteredRFQs.length)} results
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-              disabled={offset === 0}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOffset(offset + limit)}
-              disabled={filteredRFQs.length < limit}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function RFQStatusBadge({ status }: { status: string }) {
-  const config: Record<string, { className: string; label: string }> = {
-    DRAFT: { className: 'bg-gray-100 text-gray-800', label: 'Draft' },
-    OPEN: { className: 'bg-green-100 text-green-800', label: 'Open' },
-    CLOSED: { className: 'bg-blue-100 text-blue-800', label: 'Closed' },
-    CANCELLED: { className: 'bg-red-100 text-red-800', label: 'Cancelled' },
-    PENDING_APPROVAL: { className: 'bg-yellow-100 text-yellow-800', label: 'Pending Approval' },
-    APPROVED: { className: 'bg-green-100 text-green-800', label: 'Approved' },
+      await dispatch(fetchRfqs(filters)).unwrap()
+    } catch (error: any) {
+      toast.error("Error loading RFQs", { description: error.message })
+    }
   }
 
-  const { className, label } = config[status] || config.DRAFT
+  const getCurrentData = () => {
+    if (activeTab === 'sent') return rfqs.filter(r => r.status === 'SENT')
+    if (activeTab === 'closed') return rfqs.filter(r => r.status === 'CLOSED')
+    return rfqs
+  }
+  
+  const getCurrentCount = () => {
+    if (activeTab === 'sent') return rfqs.filter(r => r.status === 'SENT').length
+    if (activeTab === 'closed') return rfqs.filter(r => r.status === 'CLOSED').length
+    return rfqsCount
+  }
+  
+  const getPaginationData = () => {
+    const total = getCurrentCount()
+    return {
+      total,
+      page: currentPage,
+      limit: pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    }
+  }
+
+  const handleView = (rfq: RFQ) => {
+    setViewingRFQ(rfq)
+    setIsDrawerOpen(true)
+  }
+
+  const handleCreate = () => {
+    setIsCreateModalOpen(true)
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'DRAFT': return <FileText className="w-4 h-4" />
+      case 'SENT': return <Clock className="w-4 h-4" />
+      case 'CLOSED': return <CheckCircle className="w-4 h-4" />
+      case 'CANCELLED': return <XCircle className="w-4 h-4" />
+      default: return <Clock className="w-4 h-4" />
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'DRAFT': return 'bg-gray-100 text-gray-800'
+      case 'SENT': return 'bg-green-100 text-green-800'
+      case 'CLOSED': return 'bg-blue-100 text-blue-800'
+      case 'CANCELLED': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const columns: Column<RFQ>[] = [
+    {
+      key: 'rfqNumber',
+      label: 'RFQ # / Title',
+      sortable: true,
+      render: (value, row) => (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <CiFileOn className="w-4 h-4 text-blue-600" />
+            <span className="font-medium">{value}</span>
+          </div>
+          <span className="text-sm text-muted-foreground">{row.title}</span>
+        </div>
+      )
+    },
+    {
+      key: 'createdBy',
+      label: 'Created By',
+      sortable: true,
+      render: (value) => (
+        <div className="flex items-center gap-2">
+          <CiUser className="w-4 h-4 text-gray-600" />
+          <span>{value.firstName} {value.lastName}</span>
+        </div>
+      )
+    },
+    {
+      key: 'vendors',
+      label: 'Vendors',
+      sortable: false,
+      render: (value) => (
+        <div className="flex items-center gap-1">
+          <Users className="w-4 h-4 text-purple-600" />
+          <span>{value?.length || 0} vendors</span>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      filterable: true,
+      render: (value) => (
+        <Badge className={getStatusColor(value)}>
+          <div className="flex items-center gap-1">
+            {getStatusIcon(value)}
+            {value}
+          </div>
+        </Badge>
+      )
+    },
+    {
+      key: 'rfqDeadline',
+      label: 'Deadline',
+      sortable: true,
+      render: (value) => (
+        value ? (
+          <div className="flex items-center gap-1">
+            <CiCalendar className="w-4 h-4 text-orange-600" />
+            <span className="text-sm">{format(new Date(value), 'MMM dd, yyyy')}</span>
+          </div>
+        ) : (
+          <span className="text-sm text-gray-500">-</span>
+        )
+      )
+    },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      sortable: true,
+      render: (value) => (
+        <div className="flex items-center gap-1">
+          <CiCalendar className="w-4 h-4 text-purple-600" />
+          <span className="text-sm">{format(new Date(value), 'MMM dd, yyyy')}</span>
+        </div>
+      )
+    }
+  ]
 
   return (
-    <Badge variant="outline" className={className}>
-      {label}
-    </Badge>
+    <ProcurementLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4">
+          <div>
+            <h1 className="text-3xl font-normal">Request for Quotations</h1>
+            <p className="text-muted-foreground">Send RFQs to vendors and manage responses</p>
+          </div>
+          <Button 
+            onClick={handleCreate}
+            className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create RFQ
+          </Button>
+        </div>
+
+        {/* Tabs with new styling */}
+        <div>
+          <div className="flex items-center overflow-x-auto border-b">
+            <div className="flex space-x-1 min-w-max">
+              {mainTabs.map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                const count = tab.id === 'all' ? rfqsCount : tab.id === 'sent' ? rfqs.filter(r => r.status === 'SENT').length : rfqs.filter(r => r.status === 'CLOSED').length
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id)
+                      setCurrentPage(1)
+                    }}
+                    className={cn(
+                      "flex items-center gap-3 px-6 py-4 text-lg font-medium rounded-t-lg border-b-2 transition-all duration-200",
+                      isActive
+                        ? "text-blue-600 border-blue-600"
+                        : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-7 h-7 rounded-full flex items-center justify-center bg-gradient-to-br transition-all duration-200",
+                      isActive ? tab.gradient : "from-gray-300 to-gray-400"
+                    )}>
+                      <Icon className="w-4 h-4 text-white" />
+                    </div>
+                    <span>{tab.label}</span>
+                    <Badge variant="secondary" className="ml-1">{count}</Badge>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Filters Section */}
+          <CardHeader className="pb-3 mt-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 flex items-center gap-4">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search by RFQ number or title..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Status Filter */}
+                {activeTab === 'all' && (
+                  <Select 
+                    value={statusFilter} 
+                    onValueChange={(value) => {
+                      setStatusFilter(value)
+                      setCurrentPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="w-48">
+                      <CiFilter className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="SENT">Sent</SelectItem>
+                      <SelectItem value="CLOSED">Closed</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                
+                {/* Clear Filters */}
+                {(searchTerm || statusFilter !== 'all') && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setStatusFilter('all')
+                      setCurrentPage(1)
+                    }}
+                    className="rounded-full"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-0 mb-4">
+            {/* Data Table */}
+            <ProcurementDataTable
+              data={getCurrentData() as any}
+              columns={columns as any}
+              title=""
+              onView={handleView as any}
+              loading={loading}
+              emptyMessage="No RFQs found. Create your first RFQ to get started."
+              showSearch={false}
+              showFilters={false}
+              usePagination="backend"
+              paginationData={getPaginationData()}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setCurrentPage(1)
+              }}
+            />
+          </CardContent>
+        </div>
+
+        {/* View Drawer */}
+        <ProcurementDrawer
+          open={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
+          title={`RFQ: ${viewingRFQ?.rfqNumber || ''}`}
+          description="View RFQ details, vendors, items, and quotations"
+          size="xl"
+          headerActions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDrawerOpen(false)}
+              className="h-8 w-8 p-0 rounded-full"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          }
+        >
+          {viewingRFQ && <RFQDrawerContent rfq={viewingRFQ} />}
+        </ProcurementDrawer>
+
+        {/* Create Modal */}
+        <CreateRFQModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => {
+            setIsCreateModalOpen(false)
+            loadRFQs()
+          }}
+        />
+      </div>
+    </ProcurementLayout>
   )
 }

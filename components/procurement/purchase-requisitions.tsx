@@ -6,60 +6,138 @@ import { ProcurementDataTable, Column } from "./procurement-data-table"
 import { ProcurementDrawer } from "./procurement-drawer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { 
-  setRequisitions, 
-  addRequisition, 
-  updateRequisition, 
-  removeRequisition,
-  setRequisitionsLoading,
-  setRequisitionsError,
-  setSelectedRequisition
-} from "@/lib/store/slices/procurementSlice"
-import { procurementApi, PurchaseRequisition } from "@/lib/api/procurement-api"
-import { CiFileOn, CiUser, CiDollar, CiCalendar } from "react-icons/ci"
-import { FileText, CheckCircle, Clock, AlertCircle, Send, XCircle, Eye, Edit, X, ShoppingCart } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import {
+  fetchRequisitions,
+  fetchMyRequisitions,
+  fetchPendingApprovalRequisitions,
+  setRequisitionFilters
+} from "@/lib/store/slices/procurementV2Slice"
+import { PurchaseRequisition } from "@/lib/api/procurement-api-v2"
+import { CiFileOn, CiUser, CiDollar, CiCalendar, CiSearch, CiFilter } from "react-icons/ci"
+import { FileText, CheckCircle, Clock, AlertCircle, Send, XCircle, Eye, Edit, X, ShoppingCart, Plus } from "lucide-react"
 import { CreateRequisitionModal } from "./create-requisition-modal"
-import { CreatePurchaseOrderModal } from "./create-purchase-order-modal"
+import { CreateRFQModal } from "./create-rfq-modal"
 import { RequisitionTimeline } from "./requisition-timeline"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+
+type TabConfig = {
+  id: 'all' | 'my' | 'pending'
+  label: string
+  icon: any
+  gradient: string
+}
+
+const mainTabs: TabConfig[] = [
+  {
+    id: 'all',
+    label: 'All Requisitions',
+    icon: FileText,
+    gradient: 'from-blue-500 to-blue-600'
+  },
+  {
+    id: 'my',
+    label: 'My Requisitions',
+    icon: CiUser,
+    gradient: 'from-green-500 to-green-600'
+  },
+  {
+    id: 'pending',
+    label: 'Pending Approval',
+    icon: Clock,
+    gradient: 'from-orange-500 to-orange-600'
+  },
+]
 
 export function PurchaseRequisitions() {
   const dispatch = useAppDispatch()
-  const { requisitions, requisitionsLoading } = useAppSelector(state => state.procurement)
+  const {
+    requisitions,
+    myRequisitions,
+    pendingApprovalRequisitions,
+    requisitionsLoading,
+    requisitionsCount,
+    myRequisitionsCount,
+    pendingApprovalCount,
+    filters
+  } = useAppSelector(state => state.procurementV2)
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [viewingRequisition, setViewingRequisition] = useState<PurchaseRequisition | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isCreatePOModalOpen, setIsCreatePOModalOpen] = useState(false)
-  const [selectedRequisitionForPO, setSelectedRequisitionForPO] = useState<string | null>(null)
+  const [isCreateRFQModalOpen, setIsCreateRFQModalOpen] = useState(false)
+  const [selectedRequisitionForRFQ, setSelectedRequisitionForRFQ] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'all' | 'my' | 'pending'>('all')
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // Load data when tab, filters, or pagination changes
   useEffect(() => {
     loadRequisitions()
-  }, [])
+  }, [activeTab, searchTerm, statusFilter, priorityFilter, currentPage, pageSize])
 
   const loadRequisitions = async () => {
     try {
-      dispatch(setRequisitionsLoading(true))
-      const response = await procurementApi.getRequisitions()
-      if (response.success && response.data) {
-        dispatch(setRequisitions(response.data))
-      } else {
-        dispatch(setRequisitionsError('Failed to load requisitions'))
-        toast.error("Failed to load requisitions")
+      const filters: any = {
+        limit: pageSize,
+        offset: (currentPage - 1) * pageSize
       }
+
+      if (searchTerm) filters.search = searchTerm
+      if (statusFilter !== 'all') filters.status = statusFilter
+      if (priorityFilter !== 'all') filters.priority = priorityFilter
+
+      await dispatch(fetchRequisitions(filters)).unwrap()
+
+      await dispatch(fetchMyRequisitions()).unwrap()
+      await dispatch(fetchPendingApprovalRequisitions()).unwrap()
+
+      // if (activeTab === 'all') {
+      // } else if (activeTab === 'my') {
+      //   // My requisitions - could add filters here if backend supports
+      // } else if (activeTab === 'pending') {
+      //   // Pending approval requisitions
+      // }
     } catch (error: any) {
-      dispatch(setRequisitionsError(error.message))
       toast.error("Error loading requisitions", { description: error.message })
-    } finally {
-      dispatch(setRequisitionsLoading(false))
+    }
+  }
+
+  const getCurrentData = () => {
+    if (activeTab === 'my') return myRequisitions
+    if (activeTab === 'pending') return pendingApprovalRequisitions
+    return requisitions
+  }
+
+  const getCurrentCount = () => {
+    if (activeTab === 'my') return myRequisitionsCount
+    if (activeTab === 'pending') return pendingApprovalCount
+    return requisitionsCount
+  }
+
+  const getPaginationData = () => {
+    const total = getCurrentCount()
+    return {
+      total,
+      page: currentPage,
+      limit: pageSize,
+      totalPages: Math.ceil(total / pageSize)
     }
   }
 
   const handleView = (requisition: PurchaseRequisition) => {
     setViewingRequisition(requisition)
-    dispatch(setSelectedRequisition(requisition))
     setIsDrawerOpen(true)
   }
 
@@ -68,8 +146,8 @@ export function PurchaseRequisitions() {
   }
 
   const handleEdit = (requisition: PurchaseRequisition) => {
-    // TODO: Implement edit functionality
-    toast.info("Edit functionality coming soon")
+    setViewingRequisition(requisition)
+    setIsEditModalOpen(true)
   }
 
   const handleDelete = async (requisition: PurchaseRequisition) => {
@@ -79,49 +157,16 @@ export function PurchaseRequisitions() {
 
     try {
       // TODO: Implement delete API call
-      dispatch(removeRequisition(requisition.id))
       toast.success("Requisition deleted successfully")
+      loadRequisitions()
     } catch (error: any) {
       toast.error("Failed to delete requisition", { description: error.message })
     }
   }
 
-  const handleSubmitForApproval = async (requisition: PurchaseRequisition) => {
-    try {
-      await procurementApi.submitRequisition(requisition.id)
-      toast.success('Requisition submitted for approval')
-      await loadRequisitions()
-    } catch (error: any) {
-      toast.error('Failed to submit requisition', { description: error.message })
-    }
-  }
-
-  const handleApprove = async (requisition: PurchaseRequisition) => {
-    try {
-      await procurementApi.approveRequisition(requisition.id)
-      toast.success('Requisition approved successfully')
-      await loadRequisitions()
-    } catch (error: any) {
-      toast.error('Failed to approve requisition', { description: error.message })
-    }
-  }
-
-  const handleReject = async (requisition: PurchaseRequisition, reason?: string) => {
-    const rejectionReason = reason || prompt("Please provide a reason for rejection:")
-    if (!rejectionReason) return
-
-    try {
-      await procurementApi.rejectRequisition(requisition.id, rejectionReason)
-      toast.success('Requisition rejected')
-      await loadRequisitions()
-    } catch (error: any) {
-      toast.error('Failed to reject requisition', { description: error.message })
-    }
-  }
-  
-  const handleCreatePurchaseOrder = async (requisitionId: string) => {
-    setSelectedRequisitionForPO(requisitionId)
-    setIsCreatePOModalOpen(true)
+  const handleCreateRFQ = async (requisitionId: string) => {
+    setSelectedRequisitionForRFQ(requisitionId)
+    setIsCreateRFQModalOpen(true)
   }
 
   const getStatusIcon = (status: string) => {
@@ -158,21 +203,16 @@ export function PurchaseRequisitions() {
   const columns: Column<PurchaseRequisition>[] = [
     {
       key: 'requisitionNumber',
-      label: 'Requisition #',
+      label: 'Requisition # / Title',
       sortable: true,
       render: (value, row) => (
-        <div className="flex items-center gap-2">
-          <CiFileOn className="w-4 h-4 text-blue-600" />
-          <span className="font-medium">{value}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <CiFileOn className="w-4 h-4 text-blue-600" />
+            <span className="font-medium">{value}</span>
+          </div>
+          <span className="text-sm text-muted-foreground">{row.title}</span>
         </div>
-      )
-    },
-    {
-      key: 'title',
-      label: 'Title',
-      sortable: true,
-      render: (value) => (
-        <span className="font-medium">{value}</span>
       )
     },
     {
@@ -239,73 +279,200 @@ export function PurchaseRequisitions() {
   ]
 
   const bulkActions = [
-    { 
-      label: 'Submit for Approval', 
-      value: 'submit', 
-      icon: <Send className="w-4 h-4 mr-1" /> 
+    {
+      label: 'Submit for Approval',
+      value: 'submit',
+      icon: <Send className="w-4 h-4 mr-1" />
     },
-    { 
-      label: 'Approve', 
-      value: 'approve', 
-      icon: <CheckCircle className="w-4 h-4 mr-1" /> 
+    {
+      label: 'Approve',
+      value: 'approve',
+      icon: <CheckCircle className="w-4 h-4 mr-1" />
     }
   ]
 
   const handleBulkAction = (selectedRequisitions: PurchaseRequisition[], action: string) => {
-    switch (action) {
-      case 'submit':
-        selectedRequisitions.forEach(req => handleSubmitForApproval(req))
-        break
-      case 'approve':
-        selectedRequisitions.forEach(req => handleApprove(req))
-        break
-      default:
-        toast.info(`Bulk action: ${action}`)
-    }
+    toast.info(`Bulk action: ${action} on ${selectedRequisitions.length} requisitions`)
   }
 
   const handleExport = (data: PurchaseRequisition[]) => {
-    // TODO: Implement export functionality
     toast.success(`Exporting ${data.length} requisitions`)
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between p-4">
         <div>
           <h1 className="text-3xl font-normal">Purchase Requisitions</h1>
           <p className="text-muted-foreground">Create and manage purchase requisitions with approval workflow</p>
         </div>
+        <Button
+          onClick={handleCreate}
+          className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create New Requisition
+        </Button>
       </div>
 
-      {/* Data Table */}
-      <ProcurementDataTable
-        data={requisitions}
-        columns={columns}
-        title="Purchase Requisitions"
-        searchPlaceholder="Search requisitions..."
-        filterOptions={filterOptions}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onCreate={handleCreate}
-        onBulkAction={handleBulkAction}
-        bulkActions={bulkActions}
-        loading={requisitionsLoading}
-        onExport={handleExport}
-        emptyMessage="No requisitions found. Create your first purchase requisition to get started."
-        extraControls={
-          <Button 
-            variant="outline" 
-            onClick={() => toast.info("Bulk import functionality coming soon")}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white border-0"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Import
-          </Button>
-        }
-      />
+      {/* Tabs with new styling */}
+      <div>
+        <div className="flex items-center overflow-x-auto border-b ">
+          <div className="flex space-x-1 min-w-max">
+            {mainTabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              const count = tab.id === 'all' ? requisitionsCount : tab.id === 'my' ? myRequisitionsCount : pendingApprovalCount
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id)
+                    setCurrentPage(1)
+                  }}
+                  className={cn(
+                    "flex items-center gap-3 px-6 py-4 text-lg font-medium rounded-t-lg border-b-2 transition-all duration-200",
+                    isActive
+                      ? "text-blue-600 border-blue-600"
+                      : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"
+                  )}
+                >
+                  <div className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center bg-gradient-to-br transition-all duration-200",
+                    isActive ? tab.gradient : "from-gray-300 to-gray-400"
+                  )}>
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <span>{tab.label}</span>
+                  <Badge variant="secondary" className="ml-1">{count}</Badge>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <CardHeader className="pb-3 mt-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 flex items-center gap-4">
+              {/* Search */}
+              <div className="relative flex-1">
+                <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search by requisition number, title, or description..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Status Filter */}
+              {activeTab === 'all' && (
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    setStatusFilter(value)
+                    setCurrentPage(1)
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <CiFilter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="DRAFT">Draft</SelectItem>
+                    <SelectItem value="PENDING_APPROVAL">Pending Approval</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="CONVERTED_TO_PO">Converted to PO</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Priority Filter */}
+              {activeTab === 'all' && (
+                <Select
+                  value={priorityFilter}
+                  onValueChange={(value) => {
+                    setPriorityFilter(value)
+                    setCurrentPage(1)
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <CiFilter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priorities</SelectItem>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="URGENT">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Clear Filters */}
+              {(searchTerm || statusFilter !== 'all' || priorityFilter !== 'all') && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('')
+                    setStatusFilter('all')
+                    setPriorityFilter('all')
+                    setCurrentPage(1)
+                  }}
+                  className="rounded-full"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+
+            {/* Export Button */}
+            <Button
+              variant="outline"
+              onClick={() => handleExport(getCurrentData())}
+              className="rounded-full"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pt-0">
+          {/* Data Table */}
+          <ProcurementDataTable
+            data={getCurrentData()}
+            columns={columns}
+            title=""
+            onView={handleView}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onBulkAction={handleBulkAction}
+            bulkActions={bulkActions}
+            loading={requisitionsLoading}
+            onExport={handleExport}
+            emptyMessage="No requisitions found. Create your first purchase requisition to get started."
+            showSearch={false}
+            showFilters={false}
+            usePagination="backend"
+            paginationData={getPaginationData()}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setCurrentPage(1)
+            }}
+          />
+        </CardContent>
+      </div>
 
       {/* View Drawer */}
       <ProcurementDrawer
@@ -317,7 +484,7 @@ export function PurchaseRequisitions() {
         headerActions={
           <>
             {viewingRequisition?.status === 'DRAFT' && (
-              <Button 
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsEditModalOpen(true)}
@@ -340,9 +507,9 @@ export function PurchaseRequisitions() {
         }
       >
         {viewingRequisition && (
-          <RequisitionTimeline 
+          <RequisitionTimeline
             requisitionId={viewingRequisition.id}
-            onCreatePurchaseOrder={handleCreatePurchaseOrder}
+            onCreateRFQ={handleCreateRFQ}
           />
         )}
       </ProcurementDrawer>
@@ -371,21 +538,21 @@ export function PurchaseRequisitions() {
         />
       )}
 
-      {/* Create Purchase Order Modal */}
-      <CreatePurchaseOrderModal
-        isOpen={isCreatePOModalOpen}
+      {/* Create RFQ Modal */}
+      <CreateRFQModal
+        isOpen={isCreateRFQModalOpen}
         onClose={() => {
-          setIsCreatePOModalOpen(false)
-          setSelectedRequisitionForPO(null)
+          setIsCreateRFQModalOpen(false)
+          setSelectedRequisitionForRFQ(null)
         }}
         onSuccess={() => {
-          setIsCreatePOModalOpen(false)
-          setSelectedRequisitionForPO(null)
+          setIsCreateRFQModalOpen(false)
+          setSelectedRequisitionForRFQ(null)
           setIsDrawerOpen(false)
-          toast.success('Purchase order created successfully')
+          toast.success('RFQ created successfully')
           loadRequisitions()
         }}
-        preSelectedRequisitionId={selectedRequisitionForPO || undefined}
+        preSelectedRequisitionId={selectedRequisitionForRFQ || undefined}
       />
     </div>
   )

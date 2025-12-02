@@ -4,7 +4,7 @@ import { PurchaseRequisitions } from "@/components/procurement/purchase-requisit
 export default function PurchaseRequisitionsPage() {
   return (
     <ProcurementLayout>
-      <div className="p-6">
+      <div className="">
         <PurchaseRequisitions />
       </div>
     </ProcurementLayout>

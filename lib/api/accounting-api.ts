@@ -3,6 +3,9 @@ import { apiClient } from './api-client'
 import { AccountingResponse, ChartOfAccount, CreateChartOfAccountRequest } from './chart-of-accounts-api'
 import { ExpenseCategory } from '@/components/accounting/expense-categories-management'
 
+// Re-export Vendor type for use in other modules
+export type { Vendor }
+
 // Types matching accounting entities
 export interface AccountingCurrency {
   id: string

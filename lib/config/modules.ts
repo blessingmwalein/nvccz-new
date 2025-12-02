@@ -187,11 +187,14 @@ export const MODULE_CONFIG: ModuleConfig[] = [
     subModules: [
       { id: "procurement-dashboard", name: "Dashboard", path: "/procurement", icon: CiGrid41, description: "Procurement dashboard" },
       { id: "purchase-requisitions", name: "Purchase Requisitions", path: "/procurement/requisitions", icon: CiFileOn, description: "Purchase requisitions management" },
+      { id: "rfq", name: "RFQ", path: "/procurement/rfq", icon: CiFileOn, description: "Purchase requisitions management" },
+      { id: "quotations", name: "Quotations", path: "/procurement/quotations", icon: CiShop, description: "Quotations management" },
       { id: "purchase-orders", name: "Purchase Orders", path: "/procurement/purchase-orders", icon: CiShop, description: "Purchase orders management" },
       { id: "procurement-invoices", name: "Invoices", path: "/procurement/invoices", icon: CiWallet, description: "Procurement invoices management" },
       { id: "goods-received-notes", name: "Goods Received Notes", path: "/procurement/grn", icon: CiViewTimeline, description: "Goods received notes management" },
+      { id: "payments", name: "Payments", path: "/procurement/payments", icon: CiViewTimeline, description: "Payments management" },
       { id: "approval-configurations", name: "Approval Configurations", path: "/procurement/approval-configs", icon: CiSettings, description: "Approval workflow configurations" },
-      { id: "approval-requests", name: "My Approvals", path: "/procurement/approvals", icon: CiCircleCheck, description: "Pending approval requests" }
+      // { id: "approval-requests", name: "My Approvals", path: "/procurement/approvals", icon: CiCircleCheck, description: "Pending approval requests" }
     ]
   },
   {

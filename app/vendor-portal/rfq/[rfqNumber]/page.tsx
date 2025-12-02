@@ -1,6 +1,7 @@
 // ============================================================================
 // VENDOR RFQ DETAILS & QUOTATION SUBMISSION
 // Public page - no authentication, accessed via email link
+// Updated to use procurement-api-v2
 // ============================================================================
 
 'use client'
@@ -15,6 +16,14 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
   Building2,
   Calendar,
   Package,
@@ -25,127 +34,190 @@ import {
   Clock,
   AlertCircle,
   ArrowLeft,
+  Mail,
+  Phone,
+  MapPin,
+  User,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { procurementApiV2, type RFQ, type SubmitQuotationRequest } from '@/lib/api/procurement-api-v2'
 
-interface QuotationItem {
-  itemId: string
+interface QuotationItemForm {
   itemName: string
-  requestedQty: number
+  description: string
+  quantity: number
   unit: string
   unitPrice: string
-  totalPrice: string
-  notes: string
+  brand: string
+  model: string
+  warranty: string
+  specifications?: any
 }
 
 export default function VendorRFQDetailsPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const rfqNumber = params?.rfqNumber as string
-  const email = searchParams?.get('email') || ''
+  const requisitionId = searchParams?.get('requisitionId') || ''
+  const vendorEmail = searchParams?.get('email') || ''
 
   const [loading, setLoading] = useState(true)
-  const [rfqData, setRfqData] = useState<any>(null)
+  const [rfqData, setRfqData] = useState<RFQ | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Form state
-  const [items, setItems] = useState<QuotationItem[]>([])
-  const [deliveryTerms, setDeliveryTerms] = useState('')
+  // Vendor Information
+  const [vendorName, setVendorName] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [taxEIN, setTaxEIN] = useState('')
+  const [contactPerson, setContactPerson] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [address, setAddress] = useState('')
+
+  // Quotation Details
+  const [validUntil, setValidUntil] = useState('')
+  const [currencyCode, setCurrencyCode] = useState('USD')
   const [paymentTerms, setPaymentTerms] = useState('')
-  const [validityDays, setValidityDays] = useState('30')
+  const [deliveryTerms, setDeliveryTerms] = useState('')
+  const [deliveryTime, setDeliveryTime] = useState('')
   const [notes, setNotes] = useState('')
 
+  // Items
+  const [items, setItems] = useState<QuotationItemForm[]>([])
+
   useEffect(() => {
-    // Simulate API call to fetch RFQ details
-    // In production, this would call: procurementApi.vendorPortal.getRFQDetails(rfqNumber, email)
-    setTimeout(() => {
-      const mockRFQ = {
-        id: '1',
-        rfqNumber: rfqNumber,
-        title: 'Office Supplies Request',
-        description: 'Procurement of office supplies for Q1 2024',
-        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        requirements: 'All items must be brand new and include warranty where applicable.',
-        items: [
-          {
-            id: '1',
-            itemName: 'A4 Paper (500 sheets)',
-            description: 'Premium quality A4 paper',
-            quantity: 100,
-            unit: 'Boxes',
-          },
-          {
-            id: '2',
-            itemName: 'Ballpoint Pens (Blue)',
-            description: 'Standard ballpoint pens',
-            quantity: 500,
-            unit: 'Pieces',
-          },
-          {
-            id: '3',
-            itemName: 'Stapler (Heavy Duty)',
-            description: 'Metal stapler with 100 sheet capacity',
-            quantity: 25,
-            unit: 'Pieces',
-          },
-        ],
-        requisition: {
-          requisitionNumber: 'REQ-2024-001',
-          department: 'Administration',
-        },
+    const fetchRFQDetails = async () => {
+      try {
+        setLoading(true)
+        const response = await procurementApiV2.getRFQByNumber(rfqNumber)
+        if (response.success && response.data) {
+          setRfqData(response.data)
+          
+          // Initialize items from RFQ
+          setItems(
+            response.data.items.map((item: any) => ({
+              itemName: item.itemName,
+              description: item.description || '',
+              quantity: item.quantity,
+              unit: item.unit,
+              unitPrice: '',
+              brand: '',
+              model: '',
+              warranty: '',
+              specifications: item.specifications,
+            }))
+          )
+          
+          // Set default valid until (30 days from now)
+          const defaultValidUntil = new Date()
+          defaultValidUntil.setDate(defaultValidUntil.getDate() + 30)
+          setValidUntil(format(defaultValidUntil, 'yyyy-MM-dd'))
+        } else {
+          setError('Failed to load RFQ details')
+        }
+      } catch (err) {
+        console.error('Error fetching RFQ:', err)
+        setError('Failed to load RFQ details')
+      } finally {
+        setLoading(false)
       }
-
-      setRfqData(mockRFQ)
-      setItems(
-        mockRFQ.items.map((item) => ({
-          itemId: item.id,
-          itemName: item.itemName,
-          requestedQty: item.quantity,
-          unit: item.unit,
-          unitPrice: '',
-          totalPrice: '0',
-          notes: '',
-        }))
-      )
-      setLoading(false)
-    }, 1000)
-  }, [rfqNumber, email])
-
-  const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
-    const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
-
-    // Auto-calculate total price
-    if (field === 'unitPrice') {
-      const unitPrice = parseFloat(value) || 0
-      const totalPrice = unitPrice * newItems[index].requestedQty
-      newItems[index].totalPrice = totalPrice.toFixed(2)
     }
 
+    if (rfqNumber) {
+      fetchRFQDetails()
+    }
+  }, [rfqNumber])
+
+  const updateItem = (index: number, field: keyof QuotationItemForm, value: string) => {
+    const newItems = [...items]
+    newItems[index] = { ...newItems[index], [field]: value }
     setItems(newItems)
   }
 
+  const calculateTotal = () => {
+    return items.reduce((sum, item) => {
+      const unitPrice = parseFloat(item.unitPrice) || 0
+      return sum + (unitPrice * item.quantity)
+    }, 0)
+  }
+
   const handleSubmit = async () => {
+    // Validation
+    if (!vendorName.trim() || !companyName.trim() || !vendorEmail.trim()) {
+      setError('Please fill in all required vendor information')
+      return
+    }
+
+    if (!paymentTerms.trim() || !deliveryTerms.trim()) {
+      setError('Please provide payment and delivery terms')
+      return
+    }
+
+    if (items.some(item => !item.unitPrice || parseFloat(item.unitPrice) <= 0)) {
+      setError('Please provide valid unit prices for all items')
+      return
+    }
+
     setIsSubmitting(true)
+    setError(null)
+
     try {
-      // Simulate API call
-      // In production: procurementApi.vendorPortal.submitQuotation({ rfqNumber, email, items, ... })
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      setSubmitted(true)
-    } catch (error) {
-      console.error('Failed to submit quotation:', error)
+      const quotationData: SubmitQuotationRequest = {
+        rfqNumber,
+        requisitionId,
+        vendorName,
+        vendorEmail,
+        companyName,
+        taxEIN: taxEIN || undefined,
+        contactPerson: contactPerson || undefined,
+        phoneNumber: phoneNumber || undefined,
+        address: address || undefined,
+        validUntil,
+        currencyCode,
+        paymentTerms,
+        deliveryTerms,
+        deliveryTime: deliveryTime || undefined,
+        notes: notes || undefined,
+        items: items.map(item => ({
+          itemName: item.itemName,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: parseFloat(item.unitPrice),
+          specifications: item.specifications,
+          brand: item.brand || undefined,
+          model: item.model || undefined,
+          warranty: item.warranty || undefined,
+        })),
+      }
+
+      const response = await procurementApiV2.submitQuotation(quotationData)
+      
+      if (response.success) {
+        setSubmitted(true)
+      } else {
+        setError('Failed to submit quotation')
+      }
+    } catch (err) {
+      console.error('Failed to submit quotation:', err)
+      setError('Failed to submit quotation. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.totalPrice || '0'), 0)
-  const isFormValid =
-    items.every((item) => item.unitPrice && parseFloat(item.unitPrice) > 0) &&
-    deliveryTerms.trim() !== '' &&
-    paymentTerms.trim() !== ''
+  const isFormValid = () => {
+    return (
+      vendorName.trim() !== '' &&
+      companyName.trim() !== '' &&
+      vendorEmail.trim() !== '' &&
+      paymentTerms.trim() !== '' &&
+      deliveryTerms.trim() !== '' &&
+      items.every((item) => item.unitPrice && parseFloat(item.unitPrice) > 0)
+    )
+  }
 
   if (loading) {
     return (
@@ -169,7 +241,7 @@ export default function VendorRFQDetailsPage() {
               The RFQ you're looking for doesn't exist or has been closed.
             </p>
             <Link href="/vendor-portal">
-              <Button variant="outline">
+              <Button variant="outline" className="rounded-full">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Portal
               </Button>
@@ -198,33 +270,38 @@ export default function VendorRFQDetailsPage() {
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-2xl mx-auto">
             <Card>
-              <CardContent className="pt-12 pb-12 text-center">
-                <div className="bg-green-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <CardContent className="pt-8 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="h-10 w-10 text-green-600" />
                 </div>
                 <h2 className="text-2xl font-bold mb-2">Quotation Submitted Successfully!</h2>
                 <p className="text-muted-foreground mb-6">
-                  Your quotation for <span className="font-medium">{rfqData.rfqNumber}</span> has
-                  been submitted and is now under review by the procurement team.
+                  Thank you for submitting your quotation for RFQ {rfqNumber}.
                 </p>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
-                  <h3 className="font-medium mb-2">What happens next?</h3>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• The procurement team will review all submitted quotations</li>
-                    <li>• You will be notified via email about the status of your quotation</li>
-                    <li>• If selected, you'll receive a purchase order</li>
-                  </ul>
+                <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="text-left">
+                      <p className="text-muted-foreground">RFQ Number</p>
+                      <p className="font-medium">{rfqNumber}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-muted-foreground">Total Amount</p>
+                      <p className="font-medium text-lg">
+                        {currencyCode} {calculateTotal().toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Link href="/vendor-portal">
-                    <Button variant="outline" className="w-full">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Return to Portal
-                    </Button>
-                  </Link>
-                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  We have received your quotation and will review it shortly. You will be notified via email
+                  at <span className="font-medium">{vendorEmail}</span> regarding the status of your submission.
+                </p>
+                <Link href="/vendor-portal">
+                  <Button className="rounded-full">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Portal
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
@@ -233,277 +310,392 @@ export default function VendorRFQDetailsPage() {
     )
   }
 
-  const deadlineDate = new Date(rfqData.deadline)
-  const isExpired = deadlineDate < new Date()
-  const daysRemaining = Math.ceil((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-8 w-8 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold">Vendor Portal</h1>
-                <p className="text-sm text-muted-foreground">
-                  Submit Quotation for {rfqData.rfqNumber}
-                </p>
-              </div>
+          <div className="flex items-center gap-3">
+            <Building2 className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold">Vendor Portal</h1>
+              <p className="text-sm text-muted-foreground">NVCCZ</p>
             </div>
-            <Link href="/vendor-portal">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-            </Link>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="space-y-6">
-          {/* Status Banner */}
-          {isExpired ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-red-800">
-                <AlertCircle className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">This RFQ has expired</p>
-                  <p className="text-sm">The deadline for submissions was {format(deadlineDate, 'PPP')}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className={`border rounded-lg p-4 ${daysRemaining <= 2 ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'}`}>
-              <div className="flex items-center gap-2">
-                <Clock className={`h-5 w-5 ${daysRemaining <= 2 ? 'text-orange-600' : 'text-blue-600'}`} />
-                <div>
-                  <p className={`font-medium ${daysRemaining <= 2 ? 'text-orange-800' : 'text-blue-800'}`}>
-                    {daysRemaining <= 2 ? 'Deadline Approaching!' : 'Active RFQ'}
-                  </p>
-                  <p className={`text-sm ${daysRemaining <= 2 ? 'text-orange-700' : 'text-blue-700'}`}>
-                    Deadline: {format(deadlineDate, 'PPP p')} ({daysRemaining} days remaining)
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Back Button */}
+          <Link href="/vendor-portal">
+            <Button variant="outline" size="sm" className="rounded-full">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Portal
+            </Button>
+          </Link>
 
-          {/* RFQ Details */}
+          {/* RFQ Header */}
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-2xl">{rfqData.title}</CardTitle>
-                  <Badge variant="outline" className="mt-2">
-                    {rfqData.rfqNumber}
-                  </Badge>
+                  <div className="flex items-center gap-4 mt-2">
+                    <Badge variant="outline" className="text-sm">
+                      <FileText className="h-3 w-3 mr-1" />
+                      {rfqData.rfqNumber}
+                    </Badge>
+                    {rfqData.rfqDeadline && (
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        Deadline: {format(new Date(rfqData.rfqDeadline), 'MMM dd, yyyy')}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {rfqData.description && (
-                <p className="text-muted-foreground">{rfqData.description}</p>
-              )}
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Department:</span>
-                  <span className="ml-2 font-medium">{rfqData.requisition.department}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Requisition:</span>
-                  <span className="ml-2 font-medium">{rfqData.requisition.requisitionNumber}</span>
-                </div>
+              <div>
+                <Label className="text-muted-foreground">Description</Label>
+                <p className="mt-1">{rfqData.description}</p>
               </div>
-
-              {rfqData.requirements && (
-                <>
-                  <Separator />
+              {rfqData.specialRequirements && (
+                <div>
+                  <Label className="text-muted-foreground">Special Requirements</Label>
+                  <p className="mt-1">{rfqData.specialRequirements}</p>
+                </div>
+              )}
+              {rfqData.deliveryAddress && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <Label className="text-sm font-medium mb-2 block">Special Requirements</Label>
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm">{rfqData.requirements}</p>
-                    </div>
+                    <Label className="text-muted-foreground">Delivery Address</Label>
+                    <p className="mt-1">{rfqData.deliveryAddress}</p>
                   </div>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Quotation Form */}
+          {/* RFQ Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Required Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Unit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rfqData.items.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
+                      <TableCell>{item.description || '-'}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>{item.unit}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          {/* Vendor Information Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Vendor Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vendorName">
+                    Vendor Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="vendorName"
+                    value={vendorName}
+                    onChange={(e) => setVendorName(e.target.value)}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vendorEmail">
+                    Email <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="vendorEmail"
+                    type="email"
+                    value={vendorEmail}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">
+                    Company Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="companyName"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Enter company name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="taxEIN">Tax ID / EIN</Label>
+                  <Input
+                    id="taxEIN"
+                    value={taxEIN}
+                    onChange={(e) => setTaxEIN(e.target.value)}
+                    placeholder="Enter tax identification number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactPerson">Contact Person</Label>
+                  <Input
+                    id="contactPerson"
+                    value={contactPerson}
+                    onChange={(e) => setContactPerson(e.target.value)}
+                    placeholder="Enter contact person name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Input
+                    id="phoneNumber"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Textarea
+                  id="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Enter complete address"
+                  rows={2}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quotation Details */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Your Quotation
+                Quotation Details
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Enter your pricing and terms for each item
-              </p>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Items */}
-              <div className="space-y-4">
-                {items.map((item, index) => (
-                  <Card key={item.itemId}>
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-2">
-                          <Package className="h-5 w-5 text-muted-foreground mt-0.5" />
-                          <div>
-                            <h4 className="font-medium">{item.itemName}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Requested: {item.requestedQty} {item.unit}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>
-                            Unit Price ($) <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={item.unitPrice}
-                            onChange={(e) => updateItem(index, 'unitPrice', e.target.value)}
-                            disabled={isExpired}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Quantity</Label>
-                          <Input value={`${item.requestedQty} ${item.unit}`} disabled />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Total Price ($)</Label>
-                          <Input
-                            value={item.totalPrice}
-                            disabled
-                            className="font-semibold"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Notes (Optional)</Label>
-                        <Textarea
-                          placeholder="Any additional notes about this item..."
-                          value={item.notes}
-                          onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                          rows={2}
-                          disabled={isExpired}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Total */}
-              <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-4">
-                <div className="flex items-center justify-between text-lg font-semibold">
-                  <span>Total Quotation Amount</span>
-                  <span>${totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Terms */}
-              <div className="space-y-4">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryTerms">
-                    Delivery Terms <span className="text-red-500">*</span>
+                  <Label htmlFor="validUntil">
+                    Valid Until <span className="text-destructive">*</span>
                   </Label>
-                  <Textarea
-                    id="deliveryTerms"
-                    placeholder="e.g., Delivery within 14 days from PO receipt, FOB destination..."
-                    value={deliveryTerms}
-                    onChange={(e) => setDeliveryTerms(e.target.value)}
-                    rows={3}
-                    disabled={isExpired}
+                  <Input
+                    id="validUntil"
+                    type="date"
+                    value={validUntil}
+                    onChange={(e) => setValidUntil(e.target.value)}
                   />
                 </div>
-
+                <div className="space-y-2">
+                  <Label htmlFor="currencyCode">Currency</Label>
+                  <Input
+                    id="currencyCode"
+                    value={currencyCode}
+                    onChange={(e) => setCurrencyCode(e.target.value)}
+                    placeholder="e.g., USD, EUR"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deliveryTime">Delivery Time</Label>
+                  <Input
+                    id="deliveryTime"
+                    value={deliveryTime}
+                    onChange={(e) => setDeliveryTime(e.target.value)}
+                    placeholder="e.g., 7-10 business days"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="paymentTerms">
-                    Payment Terms <span className="text-red-500">*</span>
+                    Payment Terms <span className="text-destructive">*</span>
                   </Label>
                   <Textarea
                     id="paymentTerms"
-                    placeholder="e.g., Net 30 days from delivery, 2% discount for payment within 10 days..."
                     value={paymentTerms}
                     onChange={(e) => setPaymentTerms(e.target.value)}
+                    placeholder="e.g., Net 30, 50% upfront..."
                     rows={3}
-                    disabled={isExpired}
                   />
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="validityDays">
-                    Quotation Validity (Days) <span className="text-red-500">*</span>
+                  <Label htmlFor="deliveryTerms">
+                    Delivery Terms <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="validityDays"
-                    type="number"
-                    min="1"
-                    value={validityDays}
-                    onChange={(e) => setValidityDays(e.target.value)}
-                    disabled={isExpired}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Number of days this quotation remains valid
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Additional Notes</Label>
                   <Textarea
-                    id="notes"
-                    placeholder="Any other relevant information..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    id="deliveryTerms"
+                    value={deliveryTerms}
+                    onChange={(e) => setDeliveryTerms(e.target.value)}
+                    placeholder="e.g., FOB, CIF..."
                     rows={3}
-                    disabled={isExpired}
                   />
                 </div>
               </div>
-
-              {/* Submit Button */}
-              <div className="pt-4">
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!isFormValid || isSubmitting || isExpired}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isSubmitting ? (
-                    'Submitting...'
-                  ) : (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Submit Quotation
-                    </>
-                  )}
-                </Button>
-                {!isFormValid && !isExpired && (
-                  <p className="text-xs text-destructive mt-2 text-center">
-                    Please fill in all required fields
-                  </p>
-                )}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Additional Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any additional information..."
+                  rows={3}
+                />
               </div>
             </CardContent>
           </Card>
+
+          {/* Item Pricing */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Item Pricing
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {items.map((item, index) => (
+                  <div key={index} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-medium">{item.itemName}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Quantity: {item.quantity} {item.unit}
+                        </p>
+                      </div>
+                      <Badge variant="outline">Item {index + 1}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label>
+                          Unit Price <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItem(index, 'unitPrice', e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Brand</Label>
+                        <Input
+                          value={item.brand}
+                          onChange={(e) => updateItem(index, 'brand', e.target.value)}
+                          placeholder="Brand name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Model</Label>
+                        <Input
+                          value={item.model}
+                          onChange={(e) => updateItem(index, 'model', e.target.value)}
+                          placeholder="Model number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Warranty</Label>
+                        <Input
+                          value={item.warranty}
+                          onChange={(e) => updateItem(index, 'warranty', e.target.value)}
+                          placeholder="e.g., 1 year"
+                        />
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded p-3 flex justify-between items-center">
+                      <span className="text-sm font-medium">Total for this item:</span>
+                      <span className="text-lg font-bold">
+                        {currencyCode} {((parseFloat(item.unitPrice) || 0) * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total Summary */}
+          <Card className="border-2 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-medium">Grand Total:</span>
+                <span className="text-3xl font-bold text-primary">
+                  {currencyCode} {calculateTotal().toFixed(2)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Error Message */}
+          {error && (
+            <Card className="border-destructive">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5" />
+                  <p>{error}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Submit Button */}
+          <div className="flex justify-end gap-4">
+            <Link href="/vendor-portal">
+              <Button variant="outline" className="rounded-full">Cancel</Button>
+            </Link>
+            <Button
+              onClick={handleSubmit}
+              disabled={!isFormValid() || isSubmitting}
+              size="lg"
+              className="rounded-full"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Submit Quotation
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

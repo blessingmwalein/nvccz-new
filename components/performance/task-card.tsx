@@ -83,7 +83,7 @@ const getGoalHierarchy = (task: any) => {
 
 export function TaskCard({ task, isDrawerVersion = false, onClick }: TaskCardProps) {
   const hierarchy = getGoalHierarchy(task)
-  const progress = Number.parseFloat(task.goal?.progressPercentage || "0")
+  const progress = Number.parseFloat(task.taskPercentage || "0")
 
   return (
     <Card
@@ -144,15 +144,14 @@ export function TaskCard({ task, isDrawerVersion = false, onClick }: TaskCardPro
           <div className="relative">
             <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  progress >= 80
-                    ? "bg-green-500"
-                    : progress >= 60
-                      ? "bg-blue-500"
-                      : progress >= 40
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                }`}
+                className={`h-full rounded-full transition-all duration-300 ${progress >= 80
+                  ? "bg-green-500"
+                  : progress >= 60
+                    ? "bg-blue-500"
+                    : progress >= 40
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
+                  }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -162,7 +161,7 @@ export function TaskCard({ task, isDrawerVersion = false, onClick }: TaskCardPro
         {/* Assignee and Due Date */}
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-500">Assigned to:</span>
+            <span className="text-gray-500">Creator:</span>
             <UserAvatar user={task.creator} />
           </div>
           <div>

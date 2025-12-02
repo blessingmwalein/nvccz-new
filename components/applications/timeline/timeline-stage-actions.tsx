@@ -6,8 +6,7 @@ import type { ExtendedApplication } from '@/lib/api/applications-api'
 import { BoardReviewData, VoteSummaryData } from "@/lib/api/board-review-api"
 import { useRolePermissions } from "@/lib/hooks/useRolePermissions"
 import { APPLICATION_PORTAL_ACTIONS } from "@/lib/config/role-permissions"
-import { useState, useEffect } from "react"
-import { investmentImplementationApi, type InvestmentImplementationData } from "@/lib/api/investment-implementation-api"
+import { type InvestmentImplementationData } from "@/lib/api/investment-implementation-api"
 
 interface TimelineStageActionsProps {
   stageId: string
@@ -20,6 +19,8 @@ interface TimelineStageActionsProps {
   voteSummary?: VoteSummaryData | null
   termSheetData?: any
   termSheetDataLoding?: boolean
+  implementationData?: InvestmentImplementationData | null
+  implementationLoading?: boolean
   onInitiateDueDiligence?: () => Promise<void>
   onUpdateDueDiligence?: () => Promise<void>
   onCompleteDueDiligence?: () => Promise<void>
@@ -37,7 +38,6 @@ interface TimelineStageActionsProps {
   onCreateFundDisbursement?: () => void
   onUpdateChecklist?: () => void
   onRefresh: () => Promise<void>
-  onRefreshImplementationData?: () => Promise<void>
 }
 
 export function TimelineStageActions({
@@ -51,6 +51,8 @@ export function TimelineStageActions({
   termSheetData,
   termSheetDataLoding,
   voteSummary,
+  implementationData,
+  implementationLoading,
   onInitiateDueDiligence,
   onUpdateDueDiligence,
   onCompleteDueDiligence,
@@ -67,56 +69,10 @@ export function TimelineStageActions({
   onInitiateFundDisbursement,
   onCreateFundDisbursement,
   onUpdateChecklist,
-  onRefresh,
-  onRefreshImplementationData
+  onRefresh
 }: TimelineStageActionsProps) {
   // Permission checks for application-portal specific actions
   const { hasSpecificAction } = useRolePermissions()
-  
-  const [implementationData, setImplementationData] = useState<InvestmentImplementationData | null>(null)
-  const [loadingImplementation, setLoadingImplementation] = useState(false)
-
-  // Fetch implementation data when investment implementation exists
-  useEffect(() => {
-    const fetchImplementationData = async () => {
-      if (!application.investmentImplementation?.portfolioCompanyId) return
-      
-      setLoadingImplementation(true)
-      try {
-        const response = await investmentImplementationApi.getById(application.investmentImplementation.portfolioCompanyId)
-        setImplementationData(response.data)
-      } catch (err) {
-        console.error('Error fetching implementation data:', err)
-      } finally {
-        setLoadingImplementation(false)
-      }
-    }
-
-    fetchImplementationData()
-  }, [application.investmentImplementation?.portfolioCompanyId])
-
-  // Expose refetch function for parent component
-  useEffect(() => {
-    if (onRefreshImplementationData && application.investmentImplementation?.portfolioCompanyId) {
-      // Store the refetch function reference
-      const refetch = async () => {
-        if (!application.investmentImplementation?.portfolioCompanyId) return
-        
-        setLoadingImplementation(true)
-        try {
-          const response = await investmentImplementationApi.getById(application.investmentImplementation.portfolioCompanyId)
-          setImplementationData(response.data)
-        } catch (err) {
-          console.error('Error fetching implementation data:', err)
-        } finally {
-          setLoadingImplementation(false)
-        }
-      }
-      
-      // Immediately assign it (this pattern allows parent to call it)
-      (window as any).__refetchImplementationData = refetch
-    }
-  }, [application.investmentImplementation?.portfolioCompanyId, onRefreshImplementationData])
 
   const canInitiateDueDiligence = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.INITIATE_DUE_DILIGENCE)
   const canCreateDDTask = hasSpecificAction('application-portal', APPLICATION_PORTAL_ACTIONS.CREATE_DD_TASK)
@@ -526,7 +482,7 @@ export function TimelineStageActions({
       const hasMilestones = implementationData?.milestones && implementationData.milestones.length > 0
 
       // Show loading state while fetching implementation data
-      if (loadingImplementation && investmentImpl) {
+      if (implementationLoading && investmentImpl) {
         return (
           <div className="flex justify-center py-4">
             <div className="flex items-center gap-2 text-gray-500">

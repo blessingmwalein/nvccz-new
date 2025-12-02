@@ -47,19 +47,64 @@ export interface ProcurementInvoice {
   status: 'RECEIVED' | 'PROCESSING' | 'MATCHED' | 'DISCREPANCY' | 'APPROVED' | 'PAID' | 'REJECTED'
   matchingStatus: 'PENDING' | 'MATCHED' | 'DISCREPANCY' | 'MANUAL_REVIEW'
   matchScore?: number
-  invoiceDate: string
-  dueDate: string
+  subtotal: string
+  taxAmount: string
   totalAmount: string
   currencyId: string
+  invoiceDate: string
+  dueDate: string
+  receivedDate?: string
+  processedDate?: string
   documentPath?: string
   documentType?: string
+  ocrProcessed?: boolean
   ocrData?: any
+  aiMatched?: boolean
+  aiMatchScore?: any
+  aiDiscrepancies?: any
+  paymentStatus?: 'PAID' | 'PARTIALLY_PAID' | 'UNPAID'
+  paymentDate?: string
+  paymentReference?: string
+  approvedById?: string
+  approvedAt?: string
+  journalEntryId?: string
+  createdById?: string
   createdAt: string
   updatedAt: string
+  quotationId?: string
   vendor: {
     id: string
     name: string
+    email?: string
+    phone?: string
   }
+  purchaseOrder?: {
+    id: string
+    purchaseOrderNumber: string
+  } | null
+  currency: {
+    id: string
+    code: string
+    name: string
+    symbol: string
+  }
+  createdBy?: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  approvedBy?: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  } | null
+  journalEntry?: {
+    id: string
+    referenceNumber: string
+    status: string
+  } | null
   items: ProcurementItem[]
   approvalRequest?: ApprovalRequest
 }
@@ -194,17 +239,34 @@ export interface PurchaseRequisition {
 export interface CreateRequisitionRequest {
   title: string
   description: string
-  departmentId: string
+  department: string
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   justification: string
-  currencyId: string
   items: {
     itemName: string
     description: string
     quantity: number
-    unitPrice: number
     unit: string
-    preferredVendorId?: string
+    specifications?: Record<string, any>
+  }[]
+}
+
+export interface CreateRFQRequest {
+  requisitionId: string
+  title: string
+  description: string
+  vendorIds: string[]
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  expectedDeliveryDate: string
+  deliveryAddress: string
+  rfqDeadline: string
+  specialRequirements?: string
+  items: {
+    itemName: string
+    description: string
+    quantity: number
+    unit: string
+    specifications?: Record<string, any>
   }[]
 }
 
@@ -266,8 +328,25 @@ class ProcurementApiService {
   }
 
   // Procurement Invoices
-  async getInvoices(): Promise<ProcurementResponse<ProcurementInvoice[]>> {
-    return apiClient.get<ProcurementResponse<ProcurementInvoice[]>>('/procurement/invoices')
+  async getInvoices(params?: {
+    status?: string
+    vendorId?: string
+    matchingStatus?: string
+    limit?: number
+    offset?: number
+  }): Promise<ProcurementResponse<ProcurementInvoice[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.vendorId) queryParams.append('vendorId', params.vendorId)
+    if (params?.matchingStatus) queryParams.append('matchingStatus', params.matchingStatus)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const url = queryParams.toString() 
+      ? `/procurement/invoices?${queryParams.toString()}`
+      : '/procurement/invoices'
+    
+    return apiClient.get<ProcurementResponse<ProcurementInvoice[]>>(url)
   }
 
   async getInvoiceById(id: string): Promise<ProcurementResponse<ProcurementInvoice>> {
@@ -286,8 +365,42 @@ class ProcurementApiService {
     return apiClient.post<ProcurementResponse<ProcurementInvoice>>(`/procurement/invoices/${invoiceId}/ai-matching`, matchingData)
   }
 
-  async approveInvoice(id: string): Promise<ProcurementResponse<ProcurementInvoice>> {
-    return apiClient.put<ProcurementResponse<ProcurementInvoice>>(`/procurement/invoices/${id}/approve`)
+  async approveInvoice(id: string, isTaxable: boolean = true): Promise<ProcurementResponse<ProcurementInvoice>> {
+    return apiClient.put<ProcurementResponse<ProcurementInvoice>>(`/procurement/invoices/${id}/approve`, { isTaxable })
+  }
+
+  async processInvoicePayment(invoiceId: string, formData: FormData): Promise<ProcurementResponse<any>> {
+    return apiClient.post<ProcurementResponse<any>>(`/procurement/invoices/${invoiceId}/payment`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  }
+
+  // Procurement Payments
+  async getPayments(params?: {
+    paymentStatus?: string
+    vendorId?: string
+    paymentMethod?: string
+    startDate?: string
+    endDate?: string
+    limit?: number
+    offset?: number
+  }): Promise<ProcurementResponse<any>> {
+    const queryParams = new URLSearchParams()
+    if (params?.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus)
+    if (params?.vendorId) queryParams.append('vendorId', params.vendorId)
+    if (params?.paymentMethod) queryParams.append('paymentMethod', params.paymentMethod)
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const url = queryParams.toString() 
+      ? `/procurement/payments?${queryParams.toString()}`
+      : '/procurement/payments'
+    
+    return apiClient.get<ProcurementResponse<any>>(url)
   }
 
   // Goods Received Notes

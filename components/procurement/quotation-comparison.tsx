@@ -8,7 +8,7 @@
 import React, { useEffect } from 'react'
 // import { useAppDispatch, useAppSelector } from '@/lib/store'
 import {
-  fetchQuotationsByRFQ,
+  fetchQuotationsByRfq,
   acceptQuotation,
   rejectQuotation,
 } from '@/lib/store/slices/procurementV2Slice'
@@ -32,30 +32,30 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { CheckCircle2, XCircle, DollarSign, TrendingUp, TrendingDown } from 'lucide-react'
-import type { VendorQuotation } from '@/lib/api/types/procurement.types'
+import type { Quotation } from '@/lib/api/procurement-api-v2'
 import { useAppDispatch, useAppSelector } from '@/lib/store'
 
 interface QuotationComparisonModalProps {
-  rfqId: string
+  rfqNumber: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function QuotationComparisonModal({
-  rfqId,
+  rfqNumber,
   open,
   onOpenChange,
 }: QuotationComparisonModalProps) {
   const dispatch = useAppDispatch()
   const quotations = useAppSelector((state) =>
-    state.procurementV2.quotations.filter((q) => q.rfq.id === rfqId)
+    state.procurementV2.quotations.filter((q) => q.rfqNumber === rfqNumber)
   )
 
   useEffect(() => {
-    if (open && rfqId) {
-      dispatch(fetchQuotationsByRFQ(rfqId))
+    if (open && rfqNumber) {
+      dispatch(fetchQuotationsByRfq(rfqNumber))
     }
-  }, [dispatch, open, rfqId])
+  }, [dispatch, open, rfqNumber])
 
   if (quotations.length === 0) {
     return null
@@ -84,7 +84,11 @@ export function QuotationComparisonModal({
 
   const handleReject = async (quotationId: string) => {
     try {
-      await dispatch(rejectQuotation(quotationId)).unwrap()
+      await dispatch(rejectQuotation({ 
+        id: quotationId, 
+        rejectionReason: 'Not selected', 
+        reviewNotes: 'Price not competitive' 
+      })).unwrap()
     } catch (error) {
       console.error('Failed to reject quotation:', error)
     }
@@ -96,7 +100,7 @@ export function QuotationComparisonModal({
         <DialogHeader>
           <DialogTitle className="text-2xl">Quotation Comparison</DialogTitle>
           <DialogDescription>
-            Compare {quotations.length} quotations for {quotations[0]?.rfq.rfqNumber}
+            Compare {quotations.length} quotations for RFQ {rfqNumber}
           </DialogDescription>
         </DialogHeader>
 
@@ -152,8 +156,8 @@ export function QuotationComparisonModal({
                   <CardContent className="pt-6 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-semibold">{quotation.vendor.companyName}</h4>
-                        <p className="text-xs text-muted-foreground">{quotation.vendor.email}</p>
+                        <h4 className="font-semibold">{quotation.companyName}</h4>
+                        <p className="text-xs text-muted-foreground">{quotation.vendorEmail}</p>
                       </div>
                       {Number(quotation.totalAmount) === minAmount && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-500">
@@ -168,8 +172,8 @@ export function QuotationComparisonModal({
                         <span className="font-bold">${Number(quotation.totalAmount).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Validity:</span>
-                        <span>{quotation.validityDays} days</span>
+                        <span className="text-muted-foreground">Valid Until:</span>
+                        <span>{quotation.validUntil}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Status:</span>
@@ -228,7 +232,7 @@ export function QuotationComparisonModal({
                     <TableHead className="w-[300px]">Item Name</TableHead>
                     {quotations.map((quotation) => (
                       <TableHead key={quotation.id} className="text-center">
-                        <div className="font-semibold">{quotation.vendor.companyName}</div>
+                        <div className="font-semibold">{quotation.companyName}</div>
                         <div className="text-xs text-muted-foreground font-normal">
                           ${Number(quotation.totalAmount).toFixed(2)} total
                         </div>
